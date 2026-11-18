@@ -1,0 +1,141 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "options": {
+    "typeAware": true,
+    "reportUnusedDisableDirectives": "error"
+  },
+  "plugins": ["eslint", "typescript", "unicorn", "oxc", "import", "promise", "node"],
+  "jsPlugins": ["./lint/comments/plugin.ts"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "pedantic": "error",
+    "perf": "error"
+  },
+  "ignorePatterns": ["node_modules", "dist", "coverage"],
+  "rules": {
+    // ── Type safety (typescript-eslint strict-type-checked equivalent) ──
+    "typescript/no-explicit-any": "error",
+    "typescript/no-non-null-assertion": "error",
+    "typescript/no-unsafe-type-assertion": "error",
+    "typescript/consistent-type-assertions": [
+      "error",
+      { "assertionStyle": "as", "objectLiteralTypeAssertions": "never" }
+    ],
+    "typescript/no-unnecessary-condition": "error",
+    "typescript/prefer-optional-chain": "error",
+    "typescript/switch-exhaustiveness-check": "error",
+    "typescript/strict-boolean-expressions": "error",
+    "typescript/use-unknown-in-catch-callback-variable": "error",
+    "typescript/no-dynamic-delete": "error",
+    "typescript/no-empty-object-type": "error",
+    "typescript/no-invalid-void-type": "error",
+    "typescript/no-namespace": "error",
+    "typescript/no-require-imports": "error",
+    "typescript/ban-ts-comment": [
+      "error",
+      { "ts-expect-error": "allow-with-description", "minimumDescriptionLength": 10 }
+    ],
+    "typescript/prefer-readonly-parameter-types": "off",
+
+    // ── TypeScript style (Google TS style guide) ──
+    "typescript/consistent-type-imports": [
+      "error",
+      { "prefer": "type-imports", "fixStyle": "separate-type-imports" }
+    ],
+    "typescript/consistent-type-exports": "error",
+    "typescript/consistent-type-definitions": ["error", "interface"],
+    "typescript/consistent-indexed-object-style": ["error", "record"],
+    "typescript/array-type": ["error", { "default": "array-simple" }],
+    "typescript/no-inferrable-types": "error",
+    "typescript/prefer-function-type": "error",
+    "typescript/prefer-readonly": "error",
+    "typescript/dot-notation": "error",
+    "typescript/adjacent-overload-signatures": "error",
+    "typescript/unified-signatures": "error",
+
+    // ── Size & complexity budgets: keep units small and readable ──
+    "eslint/max-lines": ["error", { "max": 300, "skipBlankLines": true, "skipComments": true }],
+    "eslint/max-lines-per-function": [
+      "error",
+      { "max": 60, "skipBlankLines": true, "skipComments": true }
+    ],
+    "eslint/complexity": ["error", 10],
+    "eslint/max-depth": ["error", 3],
+    "eslint/max-nested-callbacks": ["error", 4],
+    "eslint/max-params": ["error", 4],
+    "eslint/max-classes-per-file": "off",
+    "import/max-dependencies": ["error", { "max": 15 }],
+
+    // ── Effect-friendly: no async/await, no console, no ambient env ──
+    "oxc/no-async-await": "error",
+    "eslint/no-console": "error",
+    "node/no-process-env": "error",
+    "unicorn/no-process-exit": "error",
+    "eslint/no-underscore-dangle": ["error", { "allow": ["_tag", "_op"] }],
+    "unicorn/no-array-callback-reference": "off",
+    "eslint/require-await": "off",
+    "eslint/no-inline-comments": "off",
+
+    // ── General hygiene ──
+    "eslint/eqeqeq": ["error", "always"],
+    "eslint/no-var": "error",
+    "eslint/prefer-const": "error",
+    "eslint/no-param-reassign": ["error", { "props": true }],
+    "eslint/no-nested-ternary": "error",
+    "eslint/curly": ["error", "all"],
+    "eslint/object-shorthand": "error",
+    "eslint/prefer-template": "error",
+    "eslint/no-implicit-coercion": "error",
+    "eslint/default-param-last": "error",
+    "eslint/logical-assignment-operators": "error",
+    "eslint/no-useless-computed-key": "error",
+    "eslint/no-warning-comments": ["error", { "terms": ["todo", "fixme", "xxx", "hack"] }],
+    "unicorn/no-abusive-eslint-disable": "error",
+    "unicorn/no-array-for-each": "error",
+    "unicorn/no-array-reduce": "error",
+    "unicorn/prefer-node-protocol": "error",
+    "unicorn/prefer-number-properties": "error",
+    "unicorn/filename-case": ["error", { "case": "kebabCase" }],
+    "unicorn/switch-case-braces": "error",
+    "unicorn/throw-new-error": "error",
+
+    // ── Modules ──
+    "import/no-default-export": "error",
+    "import/no-cycle": "error",
+    "import/no-commonjs": "error",
+    "import/no-duplicates": "error",
+    "import/first": "error",
+    "import/consistent-type-specifier-style": ["error", "prefer-top-level"],
+    "oxc/no-barrel-file": "error",
+
+    // ── Comments explain why, never what (see lint/comments) ──
+    "comments/no-commented-out-code": "error",
+    "comments/no-restating-comment": "error",
+    "comments/no-dangling-reference": "error"
+  },
+  "overrides": [
+    {
+      "files": ["**/*.test.ts", "test/**/*.ts"],
+      "plugins": ["eslint", "typescript", "unicorn", "oxc", "import", "promise", "node", "vitest"],
+      "rules": {
+        "eslint/max-lines-per-function": "off",
+        "eslint/max-nested-callbacks": "off",
+        "eslint/max-lines": ["error", { "max": 600, "skipBlankLines": true, "skipComments": true }],
+        "vitest/consistent-test-it": ["error", { "fn": "it" }],
+        "vitest/no-conditional-in-test": "error",
+        "vitest/no-focused-tests": "error",
+        "vitest/no-disabled-tests": "error",
+        "vitest/prefer-strict-equal": "error",
+        "vitest/no-identical-title": "error",
+        "vitest/require-top-level-describe": "error"
+      }
+    },
+    {
+      "files": ["*.config.ts", "lint/**/plugin.ts"],
+      "rules": {
+        "import/no-default-export": "off"
+      }
+    }
+  ]
+}

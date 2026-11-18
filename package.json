@@ -1,0 +1,35 @@
+{
+  "name": "rouage",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "effect-tsgo tsc -p tsconfig.json",
+    "lint": "oxlint --deny-warnings",
+    "lint:fix": "oxlint --fix",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "test": "vitest run",
+    "check": "pnpm format:check && pnpm typecheck && pnpm lint && pnpm test",
+    "prepare": "git config core.hooksPath .githooks"
+  },
+  "dependencies": {
+    "effect": "4.1.4",
+    "xstate": "6.0.0-beta.3"
+  },
+  "devDependencies": {
+    "@effect/tsgo": "0.70.0",
+    "@effect/vitest": "4.1.4",
+    "@oxlint/plugins": "1.94.0",
+    "@types/node": "26.6.6",
+    "oxfmt": "0.79.0",
+    "oxlint": "1.94.0",
+    "oxlint-tsgolint": "7.0.2007",
+    "typescript": "7.0.2",
+    "vitest": "5.1.0"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@12.21.0"
+}
