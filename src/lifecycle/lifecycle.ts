@@ -1,78 +1,10 @@
-import { Predicate } from "effect";
-import type { StateValue } from "xstate";
-import { setup, types } from "xstate";
-
-import type { Blocked, StageName } from "./blocked.ts";
 import { blockedOn, loopLimitReached, stageCrashed } from "./blocked.ts";
-import type {
-  BuildOutcome,
-  DemoOutcome,
-  IntakeOutcome,
-  PlanOutcome,
-  ProvisionOutcome,
-  ReproduceOutcome,
-  ReviewOutcome,
-  ShipOutcome,
-  SpecOutcome,
-} from "./outcomes.ts";
-import { stubStage } from "./stub-stage.ts";
-import type { HumanDecision, WorkItemContext, WorkItemInput } from "./work-item.ts";
-import { gate, noLoopsYet, recordDecision } from "./work-item.ts";
+import { lifecycleSetup, stageInput } from "./lifecycle-setup.ts";
+import { innermostState } from "./state-value.ts";
+import { approved, noLoopsYet, recordDecision, rejected } from "./work-item.ts";
 
-const lifecycleSetup = setup({
-  schemas: {
-    input: types<WorkItemInput>(),
-    context: types<WorkItemContext>(),
-    events: {
-      approve: types<HumanDecision>(),
-      reject: types<HumanDecision>(),
-      retry: types<HumanDecision>(),
-      backToSpec: types<HumanDecision>(),
-      cancel: types<HumanDecision>(),
-    },
-  },
-  actors: {
-    intake: stubStage<IntakeOutcome>(),
-    spec: stubStage<SpecOutcome>(),
-    provision: stubStage<ProvisionOutcome>(),
-    reproduce: stubStage<ReproduceOutcome>(),
-    plan: stubStage<PlanOutcome>(),
-    build: stubStage<BuildOutcome>(),
-    demo: stubStage<DemoOutcome>(),
-    review: stubStage<ReviewOutcome>(),
-    ship: stubStage<ShipOutcome>(),
-  },
-  states: {
-    intake: {},
-    spec: {},
-    specGate: {},
-    provision: {},
-    reproduce: {},
-    plan: {},
-    build: {},
-    demo: {},
-    review: {},
-    shipGate: {},
-    ship: {},
-    blocked: { schemas: { context: types<{ blocked: Blocked }>() } },
-    shipped: { type: "final" },
-    cancelled: { type: "final" },
-  },
-});
-
-const stateName = (value: StateValue) =>
-  Predicate.isString(value) ? value : JSON.stringify(value);
-
-const stage = (name: StageName) => ({
-  id: name,
-  input: ({ context }: { context: WorkItemContext }) => ({
-    workItemId: context.id,
-    kind: context.kind,
-    feedback: context.feedback,
-  }),
-  onError: stageCrashed(name),
-});
-
+// Every transition names its target as a literal, even where a helper could
+// compute it, so Stately's editor can draw every arrow (ADR 0002).
 export const defaultLifecycle = lifecycleSetup.createMachine({
   id: "lifecycle",
   version: "1",
@@ -87,150 +19,245 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
     blocked: null,
     decisions: [],
   }),
-  initial: "intake",
+  initial: "working",
   on: {
     cancel: ({ context, event, self }) => ({
       target: ".cancelled",
       context: {
-        decisions: recordDecision(context, "cancel", stateName(self.getSnapshot().value), event),
+        decisions: recordDecision(
+          context,
+          "cancel",
+          innermostState(self.getSnapshot().value),
+          event,
+        ),
       },
     }),
   },
   states: {
-    intake: {
-      invoke: {
-        ...stage("intake"),
-        src: "intake",
-        onDone: ({ event: { output } }) =>
-          output._tag === "classified"
-            ? { target: "spec", context: { kind: output.kind } }
-            : blockedOn("intake", output.reason),
-      },
-    },
-    spec: {
-      invoke: {
-        ...stage("spec"),
-        src: "spec",
-        onDone: ({ event: { output } }) =>
-          output._tag === "written"
-            ? { target: "specGate", context: { feedback: null } }
-            : blockedOn("spec", output.reason),
-      },
-    },
-    specGate: gate("specGate", "provision", "spec"),
-    provision: {
-      invoke: {
-        ...stage("provision"),
-        src: "provision",
-        onDone: ({ context, event: { output } }) => {
-          if (output._tag === "failed") {
-            return blockedOn("provision", output.reason);
-          }
-          return context.kind === "bug" ? { target: "reproduce" } : { target: "plan" };
+    working: {
+      initial: "intake",
+      states: {
+        intake: {
+          invoke: {
+            id: "intake",
+            src: "intake",
+            input: stageInput,
+            onDone: ({ event: { output } }) =>
+              output._tag === "classified"
+                ? { target: "spec", context: { kind: output.kind } }
+                : { target: "#blocked", context: blockedOn("intake", output.reason) },
+            onError: ({ event }) => ({
+              target: "#blocked",
+              context: stageCrashed("intake", event.error),
+            }),
+          },
         },
-      },
-    },
-    reproduce: {
-      invoke: {
-        ...stage("reproduce"),
-        src: "reproduce",
-        onDone: ({ context, event: { output } }) => {
-          if (output._tag === "reproduced") {
-            return { target: "plan" };
-          }
-          if (output._tag === "cannotReproduce") {
-            return blockedOn("reproduce", { tag: "CannotReproduce", message: output.reason });
-          }
-          if (output._tag === "failed") {
-            return blockedOn("reproduce", output.reason);
-          }
-          return context.counters.reproduce >= context.limits.reproduce
-            ? loopLimitReached(
-                "reproduce",
-                `Reproduce went back to Provision ${context.limits.reproduce} times`,
-              )
-            : {
+        spec: {
+          invoke: {
+            id: "spec",
+            src: "spec",
+            input: stageInput,
+            onDone: ({ event: { output } }) =>
+              output._tag === "written"
+                ? { target: "specGate", context: { feedback: null } }
+                : { target: "#blocked", context: blockedOn("spec", output.reason) },
+            onError: ({ event }) => ({
+              target: "#blocked",
+              context: stageCrashed("spec", event.error),
+            }),
+          },
+        },
+        specGate: {
+          on: {
+            approve: ({ context, event }) => ({
+              target: "provision",
+              context: approved(context, "specGate", event),
+            }),
+            reject: ({ context, event }) => ({
+              target: "spec",
+              context: rejected(context, "specGate", event),
+            }),
+          },
+        },
+        provision: {
+          invoke: {
+            id: "provision",
+            src: "provision",
+            input: stageInput,
+            onDone: ({ context, event: { output } }) => {
+              if (output._tag === "failed") {
+                return { target: "#blocked", context: blockedOn("provision", output.reason) };
+              }
+              return context.kind === "bug" ? { target: "reproduce" } : { target: "plan" };
+            },
+            onError: ({ event }) => ({
+              target: "#blocked",
+              context: stageCrashed("provision", event.error),
+            }),
+          },
+        },
+        reproduce: {
+          invoke: {
+            id: "reproduce",
+            src: "reproduce",
+            input: stageInput,
+            onDone: ({ context, event: { output } }) => {
+              if (output._tag === "reproduced") {
+                return { target: "plan" };
+              }
+              if (output._tag === "cannotReproduce") {
+                return {
+                  target: "#blocked",
+                  context: blockedOn("reproduce", {
+                    tag: "CannotReproduce",
+                    message: output.reason,
+                  }),
+                };
+              }
+              if (output._tag === "failed") {
+                return { target: "#blocked", context: blockedOn("reproduce", output.reason) };
+              }
+              if (context.counters.reproduce >= context.limits.reproduce) {
+                return {
+                  target: "#blocked",
+                  context: loopLimitReached(
+                    "reproduce",
+                    `Reproduce went back to Provision ${context.limits.reproduce} times`,
+                  ),
+                };
+              }
+              return {
                 target: "provision",
                 context: {
                   counters: { ...context.counters, reproduce: context.counters.reproduce + 1 },
                 },
               };
+            },
+            onError: ({ event }) => ({
+              target: "#blocked",
+              context: stageCrashed("reproduce", event.error),
+            }),
+          },
         },
-      },
-    },
-    plan: {
-      invoke: {
-        ...stage("plan"),
-        src: "plan",
-        onDone: ({ event: { output } }) =>
-          output._tag === "planned"
-            ? { target: "build", context: { demoPlanned: output.demo } }
-            : blockedOn("plan", output.reason),
-      },
-    },
-    build: {
-      invoke: {
-        ...stage("build"),
-        src: "build",
-        onDone: ({ context, event: { output } }) => {
-          if (output._tag === "failed") {
-            return blockedOn("build", output.reason);
-          }
-          return context.demoPlanned
-            ? { target: "demo", context: { feedback: null } }
-            : { target: "review", context: { feedback: null } };
+        plan: {
+          invoke: {
+            id: "plan",
+            src: "plan",
+            input: stageInput,
+            onDone: ({ event: { output } }) =>
+              output._tag === "planned"
+                ? { target: "build", context: { demoPlanned: output.demo } }
+                : { target: "#blocked", context: blockedOn("plan", output.reason) },
+            onError: ({ event }) => ({
+              target: "#blocked",
+              context: stageCrashed("plan", event.error),
+            }),
+          },
         },
-      },
-    },
-    demo: {
-      invoke: {
-        ...stage("demo"),
-        src: "demo",
-        onDone: ({ event: { output } }) =>
-          output._tag === "demonstrated" ? { target: "review" } : blockedOn("demo", output.reason),
-      },
-    },
-    review: {
-      invoke: {
-        ...stage("review"),
-        src: "review",
-        onDone: ({ context, event: { output } }) => {
-          if (output._tag === "approved") {
-            return { target: "shipGate" };
-          }
-          if (output._tag === "failed") {
-            return blockedOn("review", output.reason);
-          }
-          return context.counters.review >= context.limits.review
-            ? loopLimitReached(
-                "review",
-                `Review sent the change back to Build ${context.limits.review} times`,
-              )
-            : {
+        build: {
+          invoke: {
+            id: "build",
+            src: "build",
+            input: stageInput,
+            onDone: ({ context, event: { output } }) => {
+              if (output._tag === "failed") {
+                return { target: "#blocked", context: blockedOn("build", output.reason) };
+              }
+              return context.demoPlanned
+                ? { target: "demo", context: { feedback: null } }
+                : { target: "review", context: { feedback: null } };
+            },
+            onError: ({ event }) => ({
+              target: "#blocked",
+              context: stageCrashed("build", event.error),
+            }),
+          },
+        },
+        demo: {
+          invoke: {
+            id: "demo",
+            src: "demo",
+            input: stageInput,
+            onDone: ({ event: { output } }) =>
+              output._tag === "demonstrated"
+                ? { target: "review" }
+                : { target: "#blocked", context: blockedOn("demo", output.reason) },
+            onError: ({ event }) => ({
+              target: "#blocked",
+              context: stageCrashed("demo", event.error),
+            }),
+          },
+        },
+        review: {
+          invoke: {
+            id: "review",
+            src: "review",
+            input: stageInput,
+            onDone: ({ context, event: { output } }) => {
+              if (output._tag === "approved") {
+                return { target: "shipGate" };
+              }
+              if (output._tag === "failed") {
+                return { target: "#blocked", context: blockedOn("review", output.reason) };
+              }
+              if (context.counters.review >= context.limits.review) {
+                return {
+                  target: "#blocked",
+                  context: loopLimitReached(
+                    "review",
+                    `Review sent the change back to Build ${context.limits.review} times`,
+                  ),
+                };
+              }
+              return {
                 target: "build",
                 context: {
                   feedback: output.feedback,
                   counters: { ...context.counters, review: context.counters.review + 1 },
                 },
               };
+            },
+            onError: ({ event }) => ({
+              target: "#blocked",
+              context: stageCrashed("review", event.error),
+            }),
+          },
         },
+        shipGate: {
+          on: {
+            approve: ({ context, event }) => ({
+              target: "ship",
+              context: approved(context, "shipGate", event),
+            }),
+            reject: ({ context, event }) => ({
+              target: "build",
+              context: rejected(context, "shipGate", event),
+            }),
+          },
+        },
+        ship: {
+          invoke: {
+            id: "ship",
+            src: "ship",
+            input: stageInput,
+            onDone: ({ event: { output } }) =>
+              output._tag === "shipped"
+                ? { target: "#shipped" }
+                : { target: "#blocked", context: blockedOn("ship", output.reason) },
+            onError: ({ event }) => ({
+              target: "#blocked",
+              context: stageCrashed("ship", event.error),
+            }),
+          },
+        },
+        lastStage: { type: "history", target: "intake" },
       },
     },
-    shipGate: gate("shipGate", "ship", "build"),
-    ship: {
-      invoke: {
-        ...stage("ship"),
-        src: "ship",
-        onDone: ({ event: { output } }) =>
-          output._tag === "shipped" ? { target: "shipped" } : blockedOn("ship", output.reason),
-      },
-    },
-    shipped: { type: "final" },
-    cancelled: { type: "final" },
     blocked: {
+      id: "blocked",
       on: {
         retry: ({ context, event }) => ({
-          target: context.blocked.from,
+          target: "working.lastStage",
           context: {
             blocked: null,
             counters: noLoopsYet,
@@ -246,10 +273,12 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           };
           // An unclassified work item would reach Provision without a kind and be routed as a feature.
           return context.kind === null
-            ? { target: "intake", context: restart }
-            : { target: "spec", context: restart };
+            ? { target: "working.intake", context: restart }
+            : { target: "working.spec", context: restart };
         },
       },
     },
+    shipped: { id: "shipped", type: "final" },
+    cancelled: { type: "final" },
   },
 });

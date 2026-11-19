@@ -59,26 +59,13 @@ export const recordDecision = (
   { action, state, by, at, comment: comment ?? null },
 ];
 
-/**
- * A gate: the work item waits for a human, moves to `approveTo` on approval,
- * and goes to `rejectTo` on rejection with the comment as feedback.
- */
-export const gate = <Approve extends string, Reject extends string>(
-  state: string,
-  approveTo: Approve,
-  rejectTo: Reject,
-) => ({
-  on: {
-    approve: ({ context, event }: { context: WorkItemContext; event: HumanDecision }) => ({
-      target: approveTo,
-      context: { decisions: recordDecision(context, "approve", state, event) },
-    }),
-    reject: ({ context, event }: { context: WorkItemContext; event: HumanDecision }) => ({
-      target: rejectTo,
-      context: {
-        feedback: event.comment ?? null,
-        decisions: recordDecision(context, "reject", state, event),
-      },
-    }),
-  },
+/** The context change for a gate approval. */
+export const approved = (context: WorkItemContext, gate: string, decision: HumanDecision) => ({
+  decisions: recordDecision(context, "approve", gate, decision),
+});
+
+/** The context change for a gate rejection: the comment becomes the feedback for the stage it returns to. */
+export const rejected = (context: WorkItemContext, gate: string, decision: HumanDecision) => ({
+  feedback: decision.comment ?? null,
+  decisions: recordDecision(context, "reject", gate, decision),
 });

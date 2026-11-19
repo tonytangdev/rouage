@@ -23,4 +23,5 @@ Each persisted snapshot carries the lifecycle machine's `id` and `version`. Rest
 - Lifecycle tests drive the machine with events alone; no plugin, sandbox or agent is needed.
 - Values that must not change mid-flight, such as loop limits read from configuration, are resolved by Effect when the work item is created and stored in its context.
 - Transitions read no clock: events that record a decision carry their own timestamp.
+- Every transition names its target as a literal, and helpers return only context changes, because Stately's editor cannot draw a target that a helper computes. Retrying a blocked work item targets a history state of the working stages rather than a target computed from context, for the same reason.
 - Migrating snapshots between lifecycle versions is not supported yet; a version change strands in-flight work items until a migration exists.

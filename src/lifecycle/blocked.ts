@@ -18,18 +18,18 @@ export interface Blocked {
   readonly reason: FailureReason;
 }
 
+// These return context patches only: each transition keeps its target literal
+// inline, because visual tools cannot draw a target returned by a helper.
+
 export const blockedOn = (from: StageName, reason: FailureReason) => ({
-  target: "blocked" as const,
-  context: { blocked: { from, reason } },
+  blocked: { from, reason },
 });
 
-export const stageCrashed =
-  (from: StageName) =>
-  ({ event }: { event: { error: unknown } }) =>
-    blockedOn(from, {
-      tag: "StageCrashed",
-      message: Predicate.isError(event.error) ? event.error.message : String(event.error),
-    });
+export const stageCrashed = (from: StageName, error: unknown) =>
+  blockedOn(from, {
+    tag: "StageCrashed",
+    message: Predicate.isError(error) ? error.message : String(error),
+  });
 
 export const loopLimitReached = (from: StageName, message: string) =>
   blockedOn(from, { tag: "LoopLimitReached", message });

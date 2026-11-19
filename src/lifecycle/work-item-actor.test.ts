@@ -36,6 +36,20 @@ describe("work item persistence", () => {
     }),
   );
 
+  it.effect("retries the stage a blocked work item came from after it is restored", () =>
+    Effect.gen(function* () {
+      const original = yield* startWorkItem();
+      original.finish("intake", { _tag: "classified", kind: "bug" });
+      original.finish("spec", {
+        _tag: "failed",
+        reason: { tag: "AgentTimedOut", message: "no answer" },
+      });
+      const workItem = yield* restoredWorkItem(throughJson(original.save()));
+      workItem.send({ type: "retry", ...reviewer });
+      expect(workItem.stage()).toStrictEqual("spec");
+    }),
+  );
+
   it.effect("refuses a snapshot saved under another lifecycle version", () =>
     Effect.gen(function* () {
       const original = yield* startWorkItem();

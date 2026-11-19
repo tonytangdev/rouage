@@ -2,6 +2,7 @@ import { Effect, Predicate } from "effect";
 import type { EventFrom } from "xstate";
 
 import { defaultLifecycle } from "./lifecycle.ts";
+import { innermostState } from "./state-value.ts";
 import type { WorkItemActor } from "./work-item-actor.ts";
 import { createWorkItem, restoreWorkItem, saveWorkItem } from "./work-item-actor.ts";
 
@@ -13,7 +14,7 @@ const inputOf = (snapshot: unknown): unknown =>
 const drive = (actor: WorkItemActor) => {
   const child = (stage: string) => actor.getSnapshot().children[stage];
   return {
-    stage: () => actor.getSnapshot().value,
+    stage: () => innermostState(actor.getSnapshot().value),
     status: () => actor.getSnapshot().status,
     context: () => actor.getSnapshot().context,
     save: () => saveWorkItem(actor),
