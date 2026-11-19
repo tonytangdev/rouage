@@ -2,11 +2,11 @@ import type { Context } from "effect";
 import { Effect } from "effect";
 import { setup, types } from "xstate";
 
-import type { ClassifyTask } from "../plugins/classifier.ts";
-import { Classifier } from "../plugins/classifier.ts";
-import { portStep } from "./port-step.ts";
-import type { Kind, OutcomeOf, StageInput } from "./stage.ts";
-import { StageFailure } from "./stage.ts";
+import type { Kind, OutcomeOf, StageInput } from "../../lifecycle/stage.ts";
+import { StageFailure } from "../../lifecycle/stage.ts";
+import { portStep } from "../port-step.ts";
+import type { ClassifyTask } from "./classifier.ts";
+import { Classifier } from "./classifier.ts";
 
 const classifyTask = ({ context }: { readonly context: StageInput }): ClassifyTask => ({
   workItemId: context.workItemId,

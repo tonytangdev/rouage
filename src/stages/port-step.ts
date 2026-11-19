@@ -2,7 +2,7 @@ import type { Context } from "effect";
 import { Effect } from "effect";
 import { createAsyncLogic } from "xstate";
 
-import { StageFailure } from "./stage.ts";
+import { StageFailure } from "../lifecycle/stage.ts";
 
 /** How a port fails when it cannot carry out a step: a tagged error with a message for the human who unblocks the work item. */
 export interface PortGaveUp {

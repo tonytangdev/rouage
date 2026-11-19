@@ -1,8 +1,10 @@
 import { describe, expect, it } from "@effect/vitest";
 import { ConfigProvider, Effect } from "effect";
 
+import { describeStageContract } from "../../lifecycle/stage-contract.ts";
+import { failureReasonOf } from "../../lifecycle/stage.ts";
+import { portAdapter } from "../port-stage-contract.ts";
 import { runBuild, testsFailed, testsPassed } from "./build-harness.ts";
-import { failureReasonOf } from "./stage.ts";
 
 describe("build stage", () => {
   it.effect("fixes and tests again until the tests pass", () =>
@@ -55,3 +57,14 @@ describe("build stage", () => {
     }),
   );
 });
+
+describeStageContract(
+  portAdapter({
+    name: "build",
+    port: "builder",
+    gaveUpTag: "BuilderGaveUp",
+    firstStep: "implement",
+    outcome: { _tag: "built" },
+    run: (misbehaving) => runBuild({ testReports: [testsPassed], misbehaving }),
+  }),
+);

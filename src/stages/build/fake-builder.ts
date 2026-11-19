@@ -1,9 +1,9 @@
 import { Effect, Layer } from "effect";
 
+import type { Misbehaving } from "../fake-script.ts";
+import { scriptedAnswers, scriptedPort } from "../fake-script.ts";
 import type { BuildTask, FixTask, TestReport } from "./builder.ts";
 import { Builder, BuilderGaveUp } from "./builder.ts";
-import type { Misbehaving } from "./fake-script.ts";
-import { scriptedAnswers, scriptedPort } from "./fake-script.ts";
 
 export type BuildStep = "implement" | "test" | "fix";
 

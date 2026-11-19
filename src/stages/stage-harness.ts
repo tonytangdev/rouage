@@ -2,7 +2,8 @@ import { Effect, Function } from "effect";
 import type { Actor, AnyActorLogic, OutputFrom } from "xstate";
 import { toPromise } from "xstate";
 
-import type { StageInput } from "./stage.ts";
+import type { Settled } from "../lifecycle/stage-contract.ts";
+import type { StageInput } from "../lifecycle/stage.ts";
 
 /** The input a stage run alone starts with. */
 export const aloneInput: StageInput = {
@@ -11,12 +12,6 @@ export const aloneInput: StageInput = {
   kind: null,
   feedback: null,
 };
-
-/** How a stage run ended: its output when it finished, or the error it failed with. */
-export interface Settled<Output> {
-  readonly output: Output | undefined;
-  readonly error: unknown;
-}
 
 /** Starts a stage actor outside any lifecycle and waits until it finishes or fails; the actor stops when the test's scope closes. */
 export const runAlone = Effect.fnUntraced(function* <Logic extends AnyActorLogic>(

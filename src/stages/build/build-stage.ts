@@ -2,11 +2,11 @@ import type { Context } from "effect";
 import { Config, Effect } from "effect";
 import { setup, types } from "xstate";
 
-import type { BuildTask, FixTask } from "../plugins/builder.ts";
-import { Builder } from "../plugins/builder.ts";
-import { portStep } from "./port-step.ts";
-import type { OutcomeOf, StageInput } from "./stage.ts";
-import { StageFailure } from "./stage.ts";
+import type { OutcomeOf, StageInput } from "../../lifecycle/stage.ts";
+import { StageFailure } from "../../lifecycle/stage.ts";
+import { portStep } from "../port-step.ts";
+import type { BuildTask, FixTask } from "./builder.ts";
+import { Builder } from "./builder.ts";
 
 interface BuildContext {
   readonly input: StageInput;

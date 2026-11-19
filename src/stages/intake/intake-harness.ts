@@ -1,10 +1,10 @@
 import { Effect } from "effect";
 import { createActor } from "xstate";
 
-import type { FakeClassifierScript } from "../plugins/fake-classifier.ts";
-import { fakeClassifier } from "../plugins/fake-classifier.ts";
+import { aloneInput, runAlone } from "../stage-harness.ts";
+import type { FakeClassifierScript } from "./fake-classifier.ts";
+import { fakeClassifier } from "./fake-classifier.ts";
 import { intakeStage } from "./intake-stage.ts";
-import { aloneInput, runAlone } from "./stage-harness.ts";
 
 export const isBug = { _tag: "classified", kind: "bug" } as const;
 export const isFeature = { _tag: "classified", kind: "feature" } as const;

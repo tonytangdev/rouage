@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
+import { restoredWorkItem, startWorkItem, throughJson } from "../../lifecycle/lifecycle-harness.ts";
 import { scriptedBuild, testsFailed, testsPassed } from "./build-harness.ts";
-import { restoredWorkItem, startWorkItem, throughJson } from "./lifecycle-harness.ts";
 
 type DrivenWorkItem = Effect.Success<ReturnType<typeof startWorkItem>>;
 

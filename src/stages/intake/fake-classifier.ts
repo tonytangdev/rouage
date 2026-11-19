@@ -1,9 +1,9 @@
 import { Effect, Layer } from "effect";
 
+import type { Misbehaving } from "../fake-script.ts";
+import { scriptedAnswers, scriptedPort } from "../fake-script.ts";
 import type { Classification, ClassifyTask } from "./classifier.ts";
 import { Classifier, ClassifierGaveUp } from "./classifier.ts";
-import type { Misbehaving } from "./fake-script.ts";
-import { scriptedAnswers, scriptedPort } from "./fake-script.ts";
 
 export type ClassifyStep = "classify";
 

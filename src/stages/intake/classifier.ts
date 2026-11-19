@@ -1,7 +1,7 @@
 import type { Effect } from "effect";
 import { Context, Data } from "effect";
 
-import type { Kind } from "../lifecycle/stage.ts";
+import type { Kind } from "../../lifecycle/stage.ts";
 
 export interface ClassifyTask {
   readonly workItemId: string;
