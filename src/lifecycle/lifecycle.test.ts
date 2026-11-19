@@ -279,4 +279,21 @@ describe("lifecycle", () => {
       expect(workItem.context().decisions.at(-1)?.state).toStrictEqual("specGate");
     }),
   );
+
+  it.effect("sends an unclassified work item back to Intake rather than to Spec", () =>
+    Effect.gen(function* () {
+      const workItem = yield* startWorkItem();
+      workItem.finish("intake", {
+        _tag: "failed",
+        reason: { tag: "IssueUnreadable", message: "the issue body is empty" },
+      });
+      workItem.send({ type: "backToSpec", ...reviewer, comment: "body filled in" });
+      expect(workItem.stage()).toStrictEqual("intake");
+      expect(workItem.stageInput("intake")).toStrictEqual({
+        workItemId: "wi-1",
+        kind: null,
+        feedback: "body filled in",
+      });
+    }),
+  );
 });

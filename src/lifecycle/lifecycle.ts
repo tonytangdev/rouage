@@ -237,15 +237,18 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             decisions: recordDecision(context, "retry", "blocked", event),
           },
         }),
-        backToSpec: ({ context, event }) => ({
-          target: "spec",
-          context: {
+        backToSpec: ({ context, event }) => {
+          const restart = {
             blocked: null,
             counters: noLoopsYet,
             feedback: event.comment ?? null,
             decisions: recordDecision(context, "backToSpec", "blocked", event),
-          },
-        }),
+          };
+          // An unclassified work item would reach Provision without a kind and be routed as a feature.
+          return context.kind === null
+            ? { target: "intake", context: restart }
+            : { target: "spec", context: restart };
+        },
       },
     },
   },
