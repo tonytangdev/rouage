@@ -1,10 +1,13 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { restoredWorkItem, startWorkItem, throughJson } from "../../lifecycle/lifecycle-harness.ts";
+import {
+  restoredWorkItem,
+  reviewer,
+  startWorkItem,
+  throughJson,
+} from "../../lifecycle/lifecycle-harness.ts";
 import { isBug, isUnclear, scriptedIntake } from "./intake-harness.ts";
-
-const reviewer = { by: "ada", at: "2026-11-19T10:00:00.000Z" };
 
 describe("a work item in the Intake stage", () => {
   it.effect("moves on to Spec with the kind Intake classified it as", () =>

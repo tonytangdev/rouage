@@ -11,6 +11,7 @@ export const aloneInput: StageInput = {
   issueRef: "#1",
   kind: null,
   feedback: null,
+  specRef: null,
 };
 
 /** Starts a stage actor outside any lifecycle and waits until it finishes or fails; the actor stops when the test's scope closes. */

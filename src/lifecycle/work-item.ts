@@ -1,6 +1,6 @@
 import type { Blocked } from "./blocked.ts";
 import type { LoopCounts, LoopLimits } from "./loops.ts";
-import type { Kind } from "./stage.ts";
+import type { StageFacts } from "./stage.ts";
 
 export interface WorkItemInput {
   readonly id: string;
@@ -25,14 +25,11 @@ export interface Decision {
   readonly comment: string | null;
 }
 
-export interface WorkItemContext {
+export interface WorkItemContext extends StageFacts {
   readonly id: string;
-  readonly issueRef: string;
-  readonly kind: Kind | null;
   readonly limits: LoopLimits;
   readonly counters: LoopCounts;
   readonly demoPlanned: boolean;
-  readonly feedback: string | null;
   readonly blocked: Blocked | null;
   readonly decisions: readonly Decision[];
 }

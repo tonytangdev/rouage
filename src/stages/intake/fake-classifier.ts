@@ -1,6 +1,6 @@
 import { Effect, Layer } from "effect";
 
-import type { Misbehaving } from "../fake-script.ts";
+import type { FakePort, Misbehaving } from "../fake-script.ts";
 import { scriptedAnswers, scriptedPort } from "../fake-script.ts";
 import type { Classification, ClassifyTask } from "./classifier.ts";
 import { Classifier, ClassifierGaveUp } from "./classifier.ts";
@@ -12,6 +12,13 @@ interface ClassifyCall {
   readonly task: ClassifyTask;
 }
 
+/** The classifier as its fake and the stage contract suite know it. */
+export const classifierPort: FakePort<ClassifyStep, ClassifierGaveUp> = {
+  port: "classifier",
+  steps: ["classify"],
+  gaveUp: (message) => new ClassifierGaveUp({ message }),
+};
+
 export interface FakeClassifierScript {
   /** What each classification returns, in order. */
   readonly results: readonly Classification[];
@@ -21,12 +28,10 @@ export interface FakeClassifierScript {
 /** A classifier that follows a script instead of reading an issue. */
 export const fakeClassifier = Effect.fnUntraced(function* (script: FakeClassifierScript) {
   const port = yield* scriptedPort<ClassifyStep, ClassifyCall, ClassifierGaveUp>({
-    port: "classifier",
-    steps: ["classify"],
+    ...classifierPort,
     misbehaving: script.misbehaving,
-    gaveUp: (message) => new ClassifierGaveUp({ message }),
   });
-  const results = scriptedAnswers(script.results, "classifier");
+  const results = scriptedAnswers(script.results, classifierPort.port);
   const classifier = Classifier.of({
     classify: (task) => port.run({ step: "classify", task }, results),
   });

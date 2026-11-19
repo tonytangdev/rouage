@@ -5,7 +5,13 @@ import { describeStageContract } from "./stage-contract.ts";
 import type { StageAdapter } from "./stage-contract.ts";
 import { stubStage } from "./stub-stage.ts";
 
-const input = { workItemId: "wi-1", issueRef: "#1", kind: "bug" as const, feedback: null };
+const input = {
+  workItemId: "wi-1",
+  issueRef: "#1",
+  kind: "bug" as const,
+  feedback: null,
+  specRef: null,
+};
 
 const startReview = Effect.fnUntraced(function* () {
   const actor = createActor(stubStage("review"), { input });

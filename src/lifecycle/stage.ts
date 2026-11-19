@@ -27,28 +27,27 @@ export const failureReasonOf = (error: unknown): FailureReason => {
   };
 };
 
-/** What the lifecycle passes to every stage machine it starts. */
-export interface StageInput {
-  readonly workItemId: string;
+/** What the work item holds that every stage sees. */
+export interface StageFacts {
   readonly issueRef: string;
   readonly kind: Kind | null;
+  /** A human's comment for the stage the work item returns to, set by a rejection or a return from Blocked. */
   readonly feedback: string | null;
+  /** The reference to the latest written spec, opaque to Rouage; only the next written spec replaces it (ADR 0004). */
+  readonly specRef: string | null;
 }
 
-interface StageInputSource {
-  readonly id: string;
-  readonly issueRef: string;
-  readonly kind: Kind | null;
-  readonly feedback: string | null;
+/** What the lifecycle passes to every stage machine it starts. */
+export interface StageInput extends StageFacts {
+  readonly workItemId: string;
 }
 
 /** Builds a stage's input from the work item; takes XState's input-function argument so it can be passed as is. */
-export const stageInput = ({ context }: { readonly context: StageInputSource }): StageInput => ({
-  workItemId: context.id,
-  issueRef: context.issueRef,
-  kind: context.kind,
-  feedback: context.feedback,
-});
+export const stageInput = ({
+  context: { id, issueRef, kind, feedback, specRef },
+}: {
+  readonly context: StageFacts & { readonly id: string };
+}): StageInput => ({ workItemId: id, issueRef, kind, feedback, specRef });
 
 /**
  * Each stage of the default lifecycle and the outcome its stage machine
@@ -57,7 +56,7 @@ export const stageInput = ({ context }: { readonly context: StageInputSource }):
  */
 export interface StageOutcomes {
   readonly intake: { readonly _tag: "classified"; readonly kind: Kind };
-  readonly spec: { readonly _tag: "written" };
+  readonly spec: { readonly _tag: "written"; readonly specRef: string };
   readonly provision: { readonly _tag: "provisioned" };
   readonly reproduce:
     | { readonly _tag: "reproduced" }

@@ -1,16 +1,14 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { restoredWorkItem, startWorkItem, throughJson } from "./lifecycle-harness.ts";
-
-const reviewer = { by: "ada", at: "2026-11-19T10:00:00.000Z" };
+import { restoredWorkItem, reviewer, startWorkItem, throughJson } from "./lifecycle-harness.ts";
 
 describe("work item persistence", () => {
   it.effect("resumes a work item saved while it waits at a gate", () =>
     Effect.gen(function* () {
       const original = yield* startWorkItem();
       original.finish("intake", { _tag: "classified", kind: "feature" });
-      original.finish("spec", { _tag: "written" });
+      original.finish("spec", { _tag: "written", specRef: "spec-1" });
       const workItem = yield* restoredWorkItem(throughJson(original.save()));
       expect(workItem.stage()).toStrictEqual("specGate");
       workItem.send({ type: "approve", ...reviewer });
@@ -22,7 +20,7 @@ describe("work item persistence", () => {
     Effect.gen(function* () {
       const original = yield* startWorkItem();
       original.finish("intake", { _tag: "classified", kind: "bug" });
-      original.finish("spec", { _tag: "written" });
+      original.finish("spec", { _tag: "written", specRef: "spec-1" });
       original.send({ type: "approve", ...reviewer });
       original.finish("provision", { _tag: "provisioned" });
       original.finish("reproduce", { _tag: "needsSample" });

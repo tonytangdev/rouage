@@ -1,36 +1,12 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { startWorkItem } from "./lifecycle-harness.ts";
+import type { Route, Waypoint } from "./lifecycle-harness.ts";
+import { reviewer, startWorkItem } from "./lifecycle-harness.ts";
 
-const reviewer = { by: "ada", at: "2026-11-19T10:00:00.000Z" };
-
-const startAtSpecGate = Effect.fnUntraced(function* () {
+const startAt = Effect.fnUntraced(function* (waypoint: Waypoint, route: Route = {}) {
   const workItem = yield* startWorkItem();
-  workItem.finish("intake", { _tag: "classified", kind: "bug" });
-  workItem.finish("spec", { _tag: "written" });
-  return workItem;
-});
-
-const startAtProvision = Effect.fnUntraced(function* (kind: "bug" | "feature") {
-  const workItem = yield* startWorkItem();
-  workItem.finish("intake", { _tag: "classified", kind });
-  workItem.finish("spec", { _tag: "written" });
-  workItem.send({ type: "approve", ...reviewer });
-  return workItem;
-});
-
-const startAtBuild = Effect.fnUntraced(function* (demo: boolean) {
-  const workItem = yield* startAtProvision("feature");
-  workItem.finish("provision", { _tag: "provisioned" });
-  workItem.finish("plan", { _tag: "planned", demo });
-  return workItem;
-});
-
-const startAtShipGate = Effect.fnUntraced(function* () {
-  const workItem = yield* startAtBuild(false);
-  workItem.finish("build", { _tag: "built" });
-  workItem.finish("review", { _tag: "approved" });
+  workItem.advanceTo(waypoint, route);
   return workItem;
 });
 
@@ -46,7 +22,7 @@ describe("lifecycle", () => {
 
   it.effect("waits at the spec gate until a human approves, and records the decision", () =>
     Effect.gen(function* () {
-      const workItem = yield* startAtSpecGate();
+      const workItem = yield* startAt("specGate", { kind: "bug" });
       expect(workItem.stage()).toStrictEqual("specGate");
       workItem.send({ type: "approve", ...reviewer, comment: "looks right" });
       expect(workItem.stage()).toStrictEqual("provision");
@@ -64,7 +40,7 @@ describe("lifecycle", () => {
 
   it.effect("sends a rejected spec back to Spec with the reviewer's comment as feedback", () =>
     Effect.gen(function* () {
-      const workItem = yield* startAtSpecGate();
+      const workItem = yield* startAt("specGate", { kind: "bug" });
       workItem.send({ type: "reject", ...reviewer, comment: "missing edge case" });
       expect(workItem.stage()).toStrictEqual("spec");
       expect(workItem.stageInput("spec")).toStrictEqual({
@@ -72,13 +48,27 @@ describe("lifecycle", () => {
         issueRef: "#1",
         kind: "bug",
         feedback: "missing edge case",
+        specRef: "spec-1",
+      });
+    }),
+  );
+
+  it.effect("passes the written spec on to the stages after Spec", () =>
+    Effect.gen(function* () {
+      const workItem = yield* startAt("provision", { kind: "feature" });
+      expect(workItem.stageInput("provision")).toStrictEqual({
+        workItemId: "wi-1",
+        issueRef: "#1",
+        kind: "feature",
+        feedback: null,
+        specRef: "spec-1",
       });
     }),
   );
 
   it.effect("sends a bug from Provision to Reproduce, then to Plan once reproduced", () =>
     Effect.gen(function* () {
-      const workItem = yield* startAtProvision("bug");
+      const workItem = yield* startAt("provision", { kind: "bug" });
       workItem.finish("provision", { _tag: "provisioned" });
       expect(workItem.stage()).toStrictEqual("reproduce");
       workItem.finish("reproduce", { _tag: "reproduced" });
@@ -88,7 +78,7 @@ describe("lifecycle", () => {
 
   it.effect("sends a feature from Provision straight to Plan", () =>
     Effect.gen(function* () {
-      const workItem = yield* startAtProvision("feature");
+      const workItem = yield* startAt("provision", { kind: "feature" });
       workItem.finish("provision", { _tag: "provisioned" });
       expect(workItem.stage()).toStrictEqual("plan");
     }),
@@ -96,7 +86,7 @@ describe("lifecycle", () => {
 
   it.effect("blocks a bug that cannot be reproduced, and a human can send it back to Spec", () =>
     Effect.gen(function* () {
-      const workItem = yield* startAtProvision("bug");
+      const workItem = yield* startAt("provision", { kind: "bug" });
       workItem.finish("provision", { _tag: "provisioned" });
       workItem.finish("reproduce", { _tag: "cannotReproduce", reason: "works on staging" });
       expect(workItem.stage()).toStrictEqual("blocked");
@@ -112,6 +102,7 @@ describe("lifecycle", () => {
         issueRef: "#1",
         kind: "bug",
         feedback: "clarify the steps",
+        specRef: "spec-1",
       });
     }),
   );
@@ -120,7 +111,7 @@ describe("lifecycle", () => {
     "goes back to Provision for a sample, and blocks once the reproduce loop limit is reached",
     () =>
       Effect.gen(function* () {
-        const workItem = yield* startAtProvision("bug");
+        const workItem = yield* startAt("provision", { kind: "bug" });
         const askForSample = () => {
           workItem.finish("provision", { _tag: "provisioned" });
           workItem.finish("reproduce", { _tag: "needsSample" });
@@ -143,7 +134,7 @@ describe("lifecycle", () => {
     "blocks a failed stage, and retrying re-enters that stage with fresh loop counters",
     () =>
       Effect.gen(function* () {
-        const workItem = yield* startAtProvision("bug");
+        const workItem = yield* startAt("provision", { kind: "bug" });
         workItem.finish("provision", { _tag: "provisioned" });
         workItem.finish("reproduce", { _tag: "needsSample" });
         workItem.fail("provision", { tag: "SandboxUnavailable", message: "docker is not running" });
@@ -167,7 +158,7 @@ describe("lifecycle", () => {
 
   it.effect("runs a planned demo between Build and Review", () =>
     Effect.gen(function* () {
-      const workItem = yield* startAtBuild(true);
+      const workItem = yield* startAt("build", { demo: true });
       expect(workItem.stage()).toStrictEqual("build");
       workItem.finish("build", { _tag: "built" });
       expect(workItem.stage()).toStrictEqual("demo");
@@ -178,7 +169,7 @@ describe("lifecycle", () => {
 
   it.effect("skips the demo when none is planned", () =>
     Effect.gen(function* () {
-      const workItem = yield* startAtBuild(false);
+      const workItem = yield* startAt("build", { demo: false });
       workItem.finish("build", { _tag: "built" });
       expect(workItem.stage()).toStrictEqual("review");
     }),
@@ -188,7 +179,7 @@ describe("lifecycle", () => {
     "sends requested changes back to Build, and blocks once the review loop limit is reached",
     () =>
       Effect.gen(function* () {
-        const workItem = yield* startAtBuild(false);
+        const workItem = yield* startAt("build", { demo: false });
         const requestChanges = () => {
           workItem.finish("build", { _tag: "built" });
           workItem.finish("review", { _tag: "changesRequested", feedback: "rename the flag" });
@@ -200,6 +191,7 @@ describe("lifecycle", () => {
           issueRef: "#1",
           kind: "feature",
           feedback: "rename the flag",
+          specRef: "spec-1",
         });
         requestChanges();
         requestChanges();
@@ -217,7 +209,7 @@ describe("lifecycle", () => {
 
   it.effect("ships an approved change once a human approves the ship gate", () =>
     Effect.gen(function* () {
-      const workItem = yield* startAtShipGate();
+      const workItem = yield* startAt("shipGate");
       expect(workItem.stage()).toStrictEqual("shipGate");
       workItem.send({ type: "approve", ...reviewer });
       expect(workItem.stage()).toStrictEqual("ship");
@@ -229,7 +221,7 @@ describe("lifecycle", () => {
 
   it.effect("sends a change rejected at the ship gate back to Build with the comment", () =>
     Effect.gen(function* () {
-      const workItem = yield* startAtShipGate();
+      const workItem = yield* startAt("shipGate");
       workItem.send({ type: "reject", ...reviewer, comment: "wait for the release freeze" });
       expect(workItem.stage()).toStrictEqual("build");
       expect(workItem.stageInput("build")).toStrictEqual({
@@ -237,6 +229,7 @@ describe("lifecycle", () => {
         issueRef: "#1",
         kind: "feature",
         feedback: "wait for the release freeze",
+        specRef: "spec-1",
       });
     }),
   );
@@ -245,7 +238,7 @@ describe("lifecycle", () => {
     "cancels from any stage, stops the running stage machine and records who cancelled",
     () =>
       Effect.gen(function* () {
-        const workItem = yield* startAtBuild(false);
+        const workItem = yield* startAt("build", { demo: false });
         workItem.send({ type: "cancel", ...reviewer, comment: "out of scope" });
         expect(workItem.stage()).toStrictEqual("cancelled");
         expect(workItem.status()).toStrictEqual("done");
@@ -274,7 +267,7 @@ describe("lifecycle", () => {
 
   it.effect("cancels a work item waiting at a gate", () =>
     Effect.gen(function* () {
-      const workItem = yield* startAtSpecGate();
+      const workItem = yield* startAt("specGate", { kind: "bug" });
       workItem.send({ type: "cancel", ...reviewer });
       expect(workItem.stage()).toStrictEqual("cancelled");
       expect(workItem.context().decisions.at(-1)?.state).toStrictEqual("specGate");
@@ -292,6 +285,7 @@ describe("lifecycle", () => {
         issueRef: "#1",
         kind: null,
         feedback: "body filled in",
+        specRef: null,
       });
     }),
   );
