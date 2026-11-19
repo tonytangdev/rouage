@@ -36,9 +36,12 @@ describe("a work item in the Intake stage", () => {
 
   it.effect("classifies again when restored mid-classification", () =>
     Effect.gen(function* () {
-      const before = yield* scriptedIntake({ results: [], misbehaving: "hanging" });
+      const before = yield* scriptedIntake({
+        results: [],
+        misbehaving: { step: "classify", as: "hanging" },
+      });
       const original = yield* startWorkItem({ intake: before.intake });
-      yield* before.classifier.started;
+      yield* before.classifier.started("classify");
       const after = yield* scriptedIntake({ results: [isBug] });
       const workItem = yield* restoredWorkItem(throughJson(original.save()), {
         intake: after.intake,

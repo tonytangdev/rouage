@@ -3,6 +3,8 @@ import type { Scope } from "effect";
 import { Effect, Function } from "effect";
 import { createActor } from "xstate";
 
+import type { Misbehaving } from "../plugins/fake-script.ts";
+import { crashMessage, gaveUpMessage } from "../plugins/fake-script.ts";
 import { runBuild, testsPassed } from "./build-harness.ts";
 import { isBug, runIntake } from "./intake-harness.ts";
 import type { Settled } from "./stage-harness.ts";
@@ -54,37 +56,50 @@ const stubAdapter: StageAdapter = {
   crashMessage: "agent exited with code 1",
 };
 
-const buildAdapter: StageAdapter = {
-  name: "build",
-  finished: Effect.map(runBuild({ testReports: [testsPassed] }), ({ settled }) => settled),
-  outcome: { _tag: "built" },
-  failed: Effect.map(
-    runBuild({ testReports: [testsPassed], misbehaving: { step: "implement", as: "failing" } }),
-    ({ settled }) => settled,
-  ),
-  failure: { tag: "BuilderGaveUp", message: "The builder gave up during implement" },
-  crashed: Effect.map(
-    runBuild({ testReports: [testsPassed], misbehaving: { step: "test", as: "crashing" } }),
-    ({ settled }) => settled,
-  ),
-  crashMessage: "The builder exited during test",
+interface PortStage<Step extends string> {
+  readonly name: string;
+  readonly port: string;
+  readonly gaveUpTag: string;
+  readonly firstStep: Step;
+  readonly outcome: unknown;
+  readonly run: (
+    misbehaving?: Misbehaving<Step>,
+  ) => Effect.Effect<{ readonly settled: Settled<unknown> }, unknown, Scope.Scope>;
+}
+
+// A stage that runs its steps through a port fails and crashes the way its
+// port does, so those cases come from making its first step misbehave.
+const portAdapter = <Step extends string>(stage: PortStage<Step>): StageAdapter => {
+  const settled = (misbehaving?: Misbehaving<Step>) =>
+    Effect.map(stage.run(misbehaving), (run) => run.settled);
+  return {
+    name: stage.name,
+    finished: settled(),
+    outcome: stage.outcome,
+    failed: settled({ step: stage.firstStep, as: "failing" }),
+    failure: { tag: stage.gaveUpTag, message: gaveUpMessage(stage.port, stage.firstStep) },
+    crashed: settled({ step: stage.firstStep, as: "crashing" }),
+    crashMessage: crashMessage(stage.port, stage.firstStep),
+  };
 };
 
-const intakeAdapter: StageAdapter = {
+const buildAdapter = portAdapter({
+  name: "build",
+  port: "builder",
+  gaveUpTag: "BuilderGaveUp",
+  firstStep: "implement",
+  outcome: { _tag: "built" },
+  run: (misbehaving) => runBuild({ testReports: [testsPassed], misbehaving }),
+});
+
+const intakeAdapter = portAdapter({
   name: "intake",
-  finished: Effect.map(runIntake({ results: [isBug] }), ({ settled }) => settled),
+  port: "classifier",
+  gaveUpTag: "ClassifierGaveUp",
+  firstStep: "classify",
   outcome: { _tag: "classified", kind: "bug" },
-  failed: Effect.map(
-    runIntake({ results: [isBug], misbehaving: "failing" }),
-    ({ settled }) => settled,
-  ),
-  failure: { tag: "ClassifierGaveUp", message: "The classifier gave up on the issue" },
-  crashed: Effect.map(
-    runIntake({ results: [isBug], misbehaving: "crashing" }),
-    ({ settled }) => settled,
-  ),
-  crashMessage: "The classifier exited while classifying",
-};
+  run: (misbehaving) => runIntake({ results: [isBug], misbehaving }),
+});
 
 for (const adapter of [stubAdapter, buildAdapter, intakeAdapter]) {
   describe(`stage contract, ${adapter.name} adapter`, () => {
