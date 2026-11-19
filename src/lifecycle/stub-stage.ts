@@ -1,10 +1,11 @@
 import { assertEvent, setup, types } from "xstate";
 
-import type { StageInput } from "./outcomes.ts";
+import type { FailureReason, StageInput } from "./outcomes.ts";
+import { StageFailure } from "./outcomes.ts";
 
 /**
- * A stage machine that finishes with whichever outcome it is sent, or crashes
- * when sent `crash`, so the lifecycle can be driven by events before real
+ * A stage machine that finishes with whichever outcome it is sent, fails with
+ * a `StageFailure` when sent `fail`, or crashes when sent `crash`, so the lifecycle can be driven by events before real
  * stages exist. It keeps its input in context so tests can see what the
  * lifecycle passed it.
  */
@@ -15,6 +16,7 @@ export const stubStage = <Outcome>() =>
       context: types<{ input: StageInput }>(),
       events: {
         finish: types<{ outcome: Outcome }>(),
+        fail: types<{ reason: FailureReason }>(),
         crash: types<{ message: string }>(),
       },
     },
@@ -26,6 +28,9 @@ export const stubStage = <Outcome>() =>
       working: {
         on: {
           finish: { target: "finished" },
+          fail: ({ event }) => {
+            throw new StageFailure({ reason: event.reason });
+          },
           crash: ({ event }) => {
             throw new Error(event.message);
           },

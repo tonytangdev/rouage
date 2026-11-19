@@ -1,7 +1,9 @@
 import { Effect, Predicate } from "effect";
-import type { EventFrom } from "xstate";
+import type { AnyActorRef, EventFrom } from "xstate";
 
+import type { StageName } from "./blocked.ts";
 import { defaultLifecycle } from "./lifecycle.ts";
+import type { FailureReason } from "./outcomes.ts";
 import { innermostState } from "./state-value.ts";
 import type { WorkItemActor } from "./work-item-actor.ts";
 import { createWorkItem, restoreWorkItem, saveWorkItem } from "./work-item-actor.ts";
@@ -12,7 +14,10 @@ const inputOf = (snapshot: unknown): unknown =>
     : undefined;
 
 const drive = (actor: WorkItemActor) => {
-  const child = (stage: string) => actor.getSnapshot().children[stage];
+  const child = (stage: StageName) => {
+    const children: Partial<Record<StageName, AnyActorRef>> = actor.getSnapshot().children;
+    return children[stage];
+  };
   return {
     stage: () => innermostState(actor.getSnapshot().value),
     status: () => actor.getSnapshot().status,
@@ -21,11 +26,14 @@ const drive = (actor: WorkItemActor) => {
     send: (event: EventFrom<typeof defaultLifecycle>) => {
       actor.send(event);
     },
-    stageInput: (stage: string) => inputOf(child(stage)?.getSnapshot()),
-    finish: (stage: string, outcome: unknown) => {
+    stageInput: (stage: StageName) => inputOf(child(stage)?.getSnapshot()),
+    finish: (stage: StageName, outcome: unknown) => {
       child(stage)?.send({ type: "finish", outcome });
     },
-    crash: (stage: string, message: string) => {
+    fail: (stage: StageName, reason: FailureReason) => {
+      child(stage)?.send({ type: "fail", reason });
+    },
+    crash: (stage: StageName, message: string) => {
       child(stage)?.send({ type: "crash", message });
     },
   };

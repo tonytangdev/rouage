@@ -144,10 +144,7 @@ describe("lifecycle", () => {
         const workItem = yield* startAtProvision("bug");
         workItem.finish("provision", { _tag: "provisioned" });
         workItem.finish("reproduce", { _tag: "needsSample" });
-        workItem.finish("provision", {
-          _tag: "failed",
-          reason: { tag: "SandboxUnavailable", message: "docker is not running" },
-        });
+        workItem.fail("provision", { tag: "SandboxUnavailable", message: "docker is not running" });
         expect(workItem.stage()).toStrictEqual("blocked");
         expect(workItem.context().blocked).toStrictEqual({
           from: "provision",
@@ -283,10 +280,7 @@ describe("lifecycle", () => {
   it.effect("sends an unclassified work item back to Intake rather than to Spec", () =>
     Effect.gen(function* () {
       const workItem = yield* startWorkItem();
-      workItem.finish("intake", {
-        _tag: "failed",
-        reason: { tag: "IssueUnreadable", message: "the issue body is empty" },
-      });
+      workItem.fail("intake", { tag: "IssueUnreadable", message: "the issue body is empty" });
       workItem.send({ type: "backToSpec", ...reviewer, comment: "body filled in" });
       expect(workItem.stage()).toStrictEqual("intake");
       expect(workItem.stageInput("intake")).toStrictEqual({

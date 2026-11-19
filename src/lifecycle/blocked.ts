@@ -1,6 +1,7 @@
 import { Predicate } from "effect";
 
 import type { FailureReason } from "./outcomes.ts";
+import { StageFailure } from "./outcomes.ts";
 
 export type StageName =
   | "intake"
@@ -25,11 +26,16 @@ export const blockedOn = (from: StageName, reason: FailureReason) => ({
   blocked: { from, reason },
 });
 
-export const stageCrashed = (from: StageName, error: unknown) =>
-  blockedOn(from, {
+/** Blocks on the stage that errored: its `StageFailure` reason, or a crash for any other error. */
+export const stageErrored = (from: StageName, error: unknown) => {
+  if (error instanceof StageFailure) {
+    return blockedOn(from, error.reason);
+  }
+  return blockedOn(from, {
     tag: "StageCrashed",
     message: Predicate.isError(error) ? error.message : String(error),
   });
+};
 
 export const loopLimitReached = (from: StageName, message: string) =>
   blockedOn(from, { tag: "LoopLimitReached", message });

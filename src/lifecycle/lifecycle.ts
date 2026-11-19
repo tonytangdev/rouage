@@ -1,4 +1,4 @@
-import { blockedOn, loopLimitReached, stageCrashed } from "./blocked.ts";
+import { blockedOn, loopLimitReached, stageErrored } from "./blocked.ts";
 import { lifecycleSetup, stageInput } from "./lifecycle-setup.ts";
 import { innermostState } from "./state-value.ts";
 import { approved, noLoopsYet, recordDecision, rejected } from "./work-item.ts";
@@ -36,20 +36,19 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
   states: {
     working: {
       initial: "intake",
+      on: {
+        "xstate.error.actor": ({ event }) => ({
+          target: "#blocked",
+          context: stageErrored(event.actorId, event.error),
+        }),
+      },
       states: {
         intake: {
           invoke: {
             id: "intake",
             src: "intake",
             input: stageInput,
-            onDone: ({ event: { output } }) =>
-              output._tag === "classified"
-                ? { target: "spec", context: { kind: output.kind } }
-                : { target: "#blocked", context: blockedOn("intake", output.reason) },
-            onError: ({ event }) => ({
-              target: "#blocked",
-              context: stageCrashed("intake", event.error),
-            }),
+            onDone: ({ event: { output } }) => ({ target: "spec", context: { kind: output.kind } }),
           },
         },
         spec: {
@@ -57,14 +56,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             id: "spec",
             src: "spec",
             input: stageInput,
-            onDone: ({ event: { output } }) =>
-              output._tag === "written"
-                ? { target: "specGate", context: { feedback: null } }
-                : { target: "#blocked", context: blockedOn("spec", output.reason) },
-            onError: ({ event }) => ({
-              target: "#blocked",
-              context: stageCrashed("spec", event.error),
-            }),
+            onDone: { target: "specGate", context: { feedback: null } },
           },
         },
         specGate: {
@@ -84,16 +76,8 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             id: "provision",
             src: "provision",
             input: stageInput,
-            onDone: ({ context, event: { output } }) => {
-              if (output._tag === "failed") {
-                return { target: "#blocked", context: blockedOn("provision", output.reason) };
-              }
-              return context.kind === "bug" ? { target: "reproduce" } : { target: "plan" };
-            },
-            onError: ({ event }) => ({
-              target: "#blocked",
-              context: stageCrashed("provision", event.error),
-            }),
+            onDone: ({ context }) =>
+              context.kind === "bug" ? { target: "reproduce" } : { target: "plan" },
           },
         },
         reproduce: {
@@ -114,9 +98,6 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
                   }),
                 };
               }
-              if (output._tag === "failed") {
-                return { target: "#blocked", context: blockedOn("reproduce", output.reason) };
-              }
               if (context.counters.reproduce >= context.limits.reproduce) {
                 return {
                   target: "#blocked",
@@ -133,10 +114,6 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
                 },
               };
             },
-            onError: ({ event }) => ({
-              target: "#blocked",
-              context: stageCrashed("reproduce", event.error),
-            }),
           },
         },
         plan: {
@@ -144,13 +121,9 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             id: "plan",
             src: "plan",
             input: stageInput,
-            onDone: ({ event: { output } }) =>
-              output._tag === "planned"
-                ? { target: "build", context: { demoPlanned: output.demo } }
-                : { target: "#blocked", context: blockedOn("plan", output.reason) },
-            onError: ({ event }) => ({
-              target: "#blocked",
-              context: stageCrashed("plan", event.error),
+            onDone: ({ event: { output } }) => ({
+              target: "build",
+              context: { demoPlanned: output.demo },
             }),
           },
         },
@@ -159,34 +132,14 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             id: "build",
             src: "build",
             input: stageInput,
-            onDone: ({ context, event: { output } }) => {
-              if (output._tag === "failed") {
-                return { target: "#blocked", context: blockedOn("build", output.reason) };
-              }
-              return context.demoPlanned
+            onDone: ({ context }) =>
+              context.demoPlanned
                 ? { target: "demo", context: { feedback: null } }
-                : { target: "review", context: { feedback: null } };
-            },
-            onError: ({ event }) => ({
-              target: "#blocked",
-              context: stageCrashed("build", event.error),
-            }),
+                : { target: "review", context: { feedback: null } },
           },
         },
         demo: {
-          invoke: {
-            id: "demo",
-            src: "demo",
-            input: stageInput,
-            onDone: ({ event: { output } }) =>
-              output._tag === "demonstrated"
-                ? { target: "review" }
-                : { target: "#blocked", context: blockedOn("demo", output.reason) },
-            onError: ({ event }) => ({
-              target: "#blocked",
-              context: stageCrashed("demo", event.error),
-            }),
-          },
+          invoke: { id: "demo", src: "demo", input: stageInput, onDone: { target: "review" } },
         },
         review: {
           invoke: {
@@ -196,9 +149,6 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             onDone: ({ context, event: { output } }) => {
               if (output._tag === "approved") {
                 return { target: "shipGate" };
-              }
-              if (output._tag === "failed") {
-                return { target: "#blocked", context: blockedOn("review", output.reason) };
               }
               if (context.counters.review >= context.limits.review) {
                 return {
@@ -217,10 +167,6 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
                 },
               };
             },
-            onError: ({ event }) => ({
-              target: "#blocked",
-              context: stageCrashed("review", event.error),
-            }),
           },
         },
         shipGate: {
@@ -236,19 +182,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           },
         },
         ship: {
-          invoke: {
-            id: "ship",
-            src: "ship",
-            input: stageInput,
-            onDone: ({ event: { output } }) =>
-              output._tag === "shipped"
-                ? { target: "#shipped" }
-                : { target: "#blocked", context: blockedOn("ship", output.reason) },
-            onError: ({ event }) => ({
-              target: "#blocked",
-              context: stageCrashed("ship", event.error),
-            }),
-          },
+          invoke: { id: "ship", src: "ship", input: stageInput, onDone: { target: "#shipped" } },
         },
         lastStage: { type: "history", target: "intake" },
       },

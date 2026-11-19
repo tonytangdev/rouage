@@ -32,7 +32,7 @@ _Avoid_: Step, phase
 The state machine that carries out one stage. The lifecycle starts it when the work item enters the stage and stops it when the work item leaves. See [ADR 0002](docs/adr/0002-lifecycle-as-two-levels-of-persisted-machines.md).
 
 **Outcome**:
-How a stage machine finished, such as `reproduced`, `needsSample` or `changesRequested`. The lifecycle, not the stage, decides where each outcome leads.
+How a stage machine finished, such as `reproduced`, `needsSample` or `changesRequested`. The lifecycle, not the stage, decides where each outcome leads. A stage that cannot finish has no outcome: it fails, and the work item becomes blocked.
 _Avoid_: Result, status
 
 **Provision**:

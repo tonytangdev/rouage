@@ -40,10 +40,7 @@ describe("work item persistence", () => {
     Effect.gen(function* () {
       const original = yield* startWorkItem();
       original.finish("intake", { _tag: "classified", kind: "bug" });
-      original.finish("spec", {
-        _tag: "failed",
-        reason: { tag: "AgentTimedOut", message: "no answer" },
-      });
+      original.fail("spec", { tag: "AgentTimedOut", message: "no answer" });
       const workItem = yield* restoredWorkItem(throughJson(original.save()));
       workItem.send({ type: "retry", ...reviewer });
       expect(workItem.stage()).toStrictEqual("spec");
