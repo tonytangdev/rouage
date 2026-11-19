@@ -81,7 +81,7 @@ A plugin kind that does work using AI, such as Claude Code.
 A plugin kind that does work deterministically, without AI.
 
 **Sandbox**:
-A plugin kind that isolates where a work item's work runs, such as Docker.
+A plugin kind that isolates where a work item's work runs, such as Docker. A work item keeps one sandbox from Provision until it is shipped or cancelled, when the sandbox is torn down; a blocked work item keeps its sandbox.
 _Avoid_: Environment, container
 
 **Skill**:
@@ -93,8 +93,11 @@ A plugin kind that gives access to a user's real data, such as a database.
 ### Data
 
 **Sample**:
-A subset of real data, taken from a data source to reproduce a bug against the exact data that triggers it.
+A subset of real data, taken from a data source to reproduce a bug against the exact data that triggers it. Reproduce asks for one with a sample request, and Provision takes it into the sandbox.
 _Avoid_: Dump, snapshot, fixture
+
+**Sample request**:
+Reproduce's description of the data a bug needs, which sends the work item back to Provision to take a sample.
 
 **Schema access**:
 The default access level to a data source: the agent sees its structure but no rows.

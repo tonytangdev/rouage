@@ -2,6 +2,8 @@
 
 A stage that produces an artifact, such as a spec, a reproduction or a demo, finishes with an outcome that carries a reference to it: a plain string the plugin chose, such as an issue comment URL, a file path or an evidence ID. The plugin stores the content. The lifecycle keeps the latest reference in the work item's context and passes it to every stage in `StageInput`. Rouage never reads the string or the content behind it. Humans at a gate need to know what they are approving, and later stages need to find earlier work without each plugin inventing its own lookup. Holding only a reference keeps the context plain JSON (ADR 0002) and leaves the content's format to the plugins.
 
+The same rule covers references that are not artifacts: the sandbox a work item runs in and the sample taken into it are held as opaque `sandboxRef` and `sampleRef` strings, so a plugin that fills one port can find what another prepared (ADR 0005).
+
 When a stage runs again after a rejection or a return from Blocked, its port gets the previous reference with the feedback, so the plugin revises the artifact rather than starting over. A reference is only replaced by the stage's next outcome. A rejection never clears it.
 
 ## Considered Options

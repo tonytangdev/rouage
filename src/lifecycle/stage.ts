@@ -35,7 +35,23 @@ export interface StageFacts {
   readonly feedback: string | null;
   /** The reference to the latest written spec, opaque to Rouage; only the next written spec replaces it (ADR 0004). */
   readonly specRef: string | null;
+  /** The reference to the work item's sandbox, opaque to Rouage; set by Provision (ADR 0004). */
+  readonly sandboxRef: string | null;
+  /** Reproduce's description of the data a bug needs, which Provision takes a sample of; never cleared (ADR 0005). */
+  readonly sampleRequest: string | null;
+  /** The reference to the sample Provision took into the sandbox, opaque to Rouage (ADR 0004). */
+  readonly sampleRef: string | null;
 }
+
+/** The facts of a work item no stage has worked on yet; only `issueRef` is known from the start. */
+export const noFactsYet: Omit<StageFacts, "issueRef"> = {
+  kind: null,
+  feedback: null,
+  specRef: null,
+  sandboxRef: null,
+  sampleRequest: null,
+  sampleRef: null,
+};
 
 /** What the lifecycle passes to every stage machine it starts. */
 export interface StageInput extends StageFacts {
@@ -44,10 +60,19 @@ export interface StageInput extends StageFacts {
 
 /** Builds a stage's input from the work item; takes XState's input-function argument so it can be passed as is. */
 export const stageInput = ({
-  context: { id, issueRef, kind, feedback, specRef },
+  context: { id, issueRef, kind, feedback, specRef, sandboxRef, sampleRequest, sampleRef },
 }: {
   readonly context: StageFacts & { readonly id: string };
-}): StageInput => ({ workItemId: id, issueRef, kind, feedback, specRef });
+}): StageInput => ({
+  workItemId: id,
+  issueRef,
+  kind,
+  feedback,
+  specRef,
+  sandboxRef,
+  sampleRequest,
+  sampleRef,
+});
 
 /**
  * Each stage of the default lifecycle and the outcome its stage machine
@@ -57,10 +82,14 @@ export const stageInput = ({
 export interface StageOutcomes {
   readonly intake: { readonly _tag: "classified"; readonly kind: Kind };
   readonly spec: { readonly _tag: "written"; readonly specRef: string };
-  readonly provision: { readonly _tag: "provisioned" };
+  readonly provision: {
+    readonly _tag: "provisioned";
+    readonly sandboxRef: string;
+    readonly sampleRef: string | null;
+  };
   readonly reproduce:
     | { readonly _tag: "reproduced" }
-    | { readonly _tag: "needsSample" }
+    | { readonly _tag: "needsSample"; readonly sampleRequest: string }
     | { readonly _tag: "cannotReproduce"; readonly reason: string };
   readonly plan: { readonly _tag: "planned"; readonly demo: boolean };
   readonly build: { readonly _tag: "built" };

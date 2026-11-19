@@ -64,7 +64,7 @@ describe("a work item in the Spec stage", () => {
       workItem.advanceTo("spec", { kind: "bug" });
       yield* workItem.reaches("specGate");
       workItem.send({ type: "approve", ...reviewer });
-      workItem.finish("provision", { _tag: "provisioned" });
+      workItem.finish("provision", { _tag: "provisioned", sandboxRef: "box-1", sampleRef: null });
       workItem.finish("reproduce", { _tag: "cannotReproduce", reason: "works on staging" });
       workItem.send({ type: "backToSpec", ...reviewer, comment: "Name the browser" });
       yield* workItem.reaches("specGate");

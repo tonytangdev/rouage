@@ -1,7 +1,7 @@
 import { blockedOn, stageErrored } from "./blocked.ts";
 import { lifecycleSetup } from "./lifecycle-setup.ts";
 import { goneAround, loopExhausted, loopLimitReached, noLoopsYet } from "./loops.ts";
-import { stageInput } from "./stage.ts";
+import { noFactsYet, stageInput } from "./stage.ts";
 import { innermostState } from "./state-value.ts";
 import { approved, recordDecision, rejected } from "./work-item.ts";
 
@@ -13,12 +13,10 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
   context: ({ input }) => ({
     id: input.id,
     issueRef: input.issueRef,
-    kind: null,
+    ...noFactsYet,
     limits: input.limits,
     counters: noLoopsYet,
     demoPlanned: false,
-    feedback: null,
-    specRef: null,
     blocked: null,
     decisions: [],
   }),
@@ -82,8 +80,12 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             id: "provision",
             src: "provision",
             input: stageInput,
-            onDone: ({ context }) =>
-              context.kind === "bug" ? { target: "reproduce" } : { target: "plan" },
+            onDone: ({ context, event: { output } }) => {
+              const prepared = { sandboxRef: output.sandboxRef, sampleRef: output.sampleRef };
+              return context.kind === "bug"
+                ? { target: "reproduce", context: prepared }
+                : { target: "plan", context: prepared };
+            },
           },
         },
         reproduce: {
@@ -107,7 +109,13 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
               if (loopExhausted(context, "reproduce")) {
                 return { target: "#blocked", context: loopLimitReached(context, "reproduce") };
               }
-              return { target: "provision", context: goneAround(context, "reproduce") };
+              return {
+                target: "provision",
+                context: {
+                  sampleRequest: output.sampleRequest,
+                  ...goneAround(context, "reproduce"),
+                },
+              };
             },
           },
         },
