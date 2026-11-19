@@ -35,12 +35,10 @@ const stubController = (real: RealStages) => {
       }
     };
   };
-  const stubs = stubStages(attach);
-  const lifecycle =
-    real.build === undefined
-      ? defaultLifecycle.provide({ actors: stubs })
-      : defaultLifecycle.provide({ actors: { ...stubs, build: real.build } });
-  return { running, lifecycle };
+  return {
+    running,
+    lifecycle: defaultLifecycle.provide({ actors: { ...stubStages(attach), ...real } }),
+  };
 };
 
 const drive = (workItem: WorkItem, running: ReadonlyMap<StageName, RunningStub>) => {

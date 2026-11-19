@@ -1,9 +1,15 @@
 import { Deferred, Effect, Layer } from "effect";
 
-import type { TestReport } from "./agent.ts";
+import type { BuildTask, FixTask, TestReport } from "./agent.ts";
 import { Agent, AgentFailed } from "./agent.ts";
 
 export type AgentStep = "implement" | "test" | "fix";
+
+/** One request the agent received, with the task it was given. */
+export type AgentCall =
+  | { readonly step: "implement"; readonly task: BuildTask }
+  | { readonly step: "test"; readonly task: BuildTask }
+  | { readonly step: "fix"; readonly task: FixTask };
 
 export interface FakeAgentScript {
   /** What each test run reports, in order. */
@@ -31,18 +37,18 @@ const outcomeOf = <A>(script: FakeAgentScript, step: AgentStep, result: Effect.E
  * the script dies, so a test that under-scripts its agent fails loudly.
  */
 export const fakeAgent = Effect.fnUntraced(function* (script: FakeAgentScript) {
-  const steps: AgentStep[] = [];
+  const calls: AgentCall[] = [];
   const reports = [...script.testReports];
   const begun = {
     implement: yield* Deferred.make<AgentStep>(),
     test: yield* Deferred.make<AgentStep>(),
     fix: yield* Deferred.make<AgentStep>(),
   };
-  const run = <A>(step: AgentStep, result: Effect.Effect<A>) =>
+  const run = <A>(call: AgentCall, result: Effect.Effect<A>) =>
     Effect.suspend(() => {
-      steps.push(step);
-      return Deferred.succeed(begun[step], step).pipe(
-        Effect.andThen(outcomeOf(script, step, result)),
+      calls.push(call);
+      return Deferred.succeed(begun[call.step], call.step).pipe(
+        Effect.andThen(outcomeOf(script, call.step, result)),
       );
     });
   const nextReport = Effect.suspend(() => {
@@ -52,13 +58,14 @@ export const fakeAgent = Effect.fnUntraced(function* (script: FakeAgentScript) {
       : Effect.succeed(report);
   });
   const agent = Agent.of({
-    implement: () => run("implement", Effect.void),
-    test: () => run("test", nextReport),
-    fix: () => run("fix", Effect.void),
+    implement: (task) => run({ step: "implement", task }, Effect.void),
+    test: (task) => run({ step: "test", task }, nextReport),
+    fix: (task) => run({ step: "fix", task }, Effect.void),
   });
   return {
     layer: Layer.succeed(Agent, agent),
-    steps: (): readonly AgentStep[] => steps,
+    calls: (): readonly AgentCall[] => calls,
+    steps: (): readonly AgentStep[] => calls.map((call) => call.step),
     started: (step: AgentStep) => Deferred.await(begun[step]).pipe(Effect.asVoid),
   };
 });

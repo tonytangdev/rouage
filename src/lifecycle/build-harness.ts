@@ -36,5 +36,5 @@ export const runBuild = Effect.fnUntraced(function* (
   yield* Effect.tryPromise(() => waitFor(started, (snapshot) => snapshot.status !== "active")).pipe(
     Effect.ignore,
   );
-  return { snapshot: started.getSnapshot(), steps: agent.steps() };
+  return { snapshot: started.getSnapshot(), steps: agent.steps(), calls: agent.calls() };
 });

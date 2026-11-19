@@ -46,7 +46,7 @@ const attemptsExhausted = (context: BuildContext, failures: string) =>
   new StageFailure({
     reason: {
       tag: "FixAttemptsExhausted",
-      message: `Tests still failed after ${context.fixAttempts} fix attempts: ${failures}`,
+      message: `Tests still failed after Build spent its fix-attempt budget of ${context.fixAttempts}: ${failures}`,
     },
   });
 

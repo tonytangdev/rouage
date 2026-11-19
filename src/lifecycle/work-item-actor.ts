@@ -18,11 +18,16 @@ import type { WorkItemContext, WorkItemInput } from "./work-item.ts";
 
 type DefaultLifecycle = typeof defaultLifecycle;
 
+interface LifecycleIdentity {
+  readonly id: string;
+  readonly version: string;
+}
+
 /**
- * The default lifecycle with any stage implementations provided. Providing
- * stages gives each set of stages its own machine type, so a work item accepts
- * any logic with the default lifecycle's snapshot, events and input; its
- * structure, id and version are the default lifecycle's.
+ * The default lifecycle with any stage implementations provided, identified by
+ * its own id and version. Providing stages gives each set of stages its own
+ * machine type, so a work item accepts any logic with the default lifecycle's
+ * snapshot, events and input.
  */
 export type Lifecycle = ActorLogic<
   SnapshotFrom<DefaultLifecycle>,
@@ -30,7 +35,8 @@ export type Lifecycle = ActorLogic<
   WorkItemInput,
   AnyActorSystem,
   EmittedFrom<DefaultLifecycle>
->;
+> &
+  LifecycleIdentity;
 type WorkItemActor = Actor<Lifecycle>;
 
 /** A running work item. The XState actor behind it stays inside this module. */
@@ -71,11 +77,6 @@ const PersistedEnvelope = Schema.Struct({
   machine: Schema.Struct({ id: Schema.String, version: Schema.String }),
 });
 
-interface LifecycleIdentity {
-  readonly id: string;
-  readonly version: string;
-}
-
 export class LifecycleVersionMismatch extends Data.TaggedError("LifecycleVersionMismatch")<{
   readonly expected: LifecycleIdentity;
   readonly found: LifecycleIdentity;
@@ -111,8 +112,8 @@ export const createWorkItem = Effect.fnUntraced(function* (
 
 const unreadable = (message: string) => new UnreadableSnapshot({ message });
 
-// Validated against the default lifecycle because providing stages swaps
-// their implementations but cannot change the states a snapshot may name.
+// Decoded with the default lifecycle's schema because `Lifecycle` shares its
+// snapshot type; restoring then rejects any state the given lifecycle lacks.
 const validateSnapshot = Effect.fnUntraced(function* (persisted: unknown) {
   const result = yield* Effect.tryPromise({
     try: () => Promise.resolve(snapshotSchema(defaultLifecycle)["~standard"].validate(persisted)),
@@ -133,7 +134,7 @@ export const restoreWorkItem = Effect.fnUntraced(function* (
   lifecycle: Lifecycle,
   persisted: unknown,
 ) {
-  const expected = { id: defaultLifecycle.id, version: defaultLifecycle.version };
+  const expected = { id: lifecycle.id, version: lifecycle.version };
   const { machine: found } = yield* Schema.decodeUnknownEffect(PersistedEnvelope)(persisted).pipe(
     Effect.mapError((error) => unreadable(error.message)),
   );

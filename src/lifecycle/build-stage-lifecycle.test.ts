@@ -75,4 +75,19 @@ describe("a work item in the Build stage", () => {
       expect(after.agent.steps()).toStrictEqual(["fix", "test"]);
     }),
   );
+
+  it.effect("builds again with the reviewer's feedback when Review requests changes", () =>
+    Effect.gen(function* () {
+      const { agent, build } = yield* scriptedBuild({ testReports: [testsPassed, testsPassed] });
+      const workItem = yield* startWorkItem({ build });
+      throughPlan(workItem);
+      yield* workItem.reaches("review");
+      workItem.finish("review", { _tag: "changesRequested", feedback: "rename totals" });
+      yield* workItem.reaches("review");
+      expect(agent.calls().filter((call) => call.step === "implement")).toStrictEqual([
+        { step: "implement", task: { workItemId: "wi-1", feedback: null } },
+        { step: "implement", task: { workItemId: "wi-1", feedback: "rename totals" } },
+      ]);
+    }),
+  );
 });
