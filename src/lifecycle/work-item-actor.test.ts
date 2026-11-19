@@ -22,9 +22,9 @@ describe("work item persistence", () => {
       original.finish("intake", { _tag: "classified", kind: "bug" });
       original.finish("spec", { _tag: "written", specRef: "spec-1" });
       original.send({ type: "approve", ...reviewer });
-      original.finish("provision", { _tag: "provisioned" });
-      original.finish("reproduce", { _tag: "needsSample" });
-      original.finish("provision", { _tag: "provisioned" });
+      original.finish("provision", { _tag: "provisioned", sandboxRef: "box-1", sampleRef: null });
+      original.finish("reproduce", { _tag: "needsSample", sampleRequest: "orders over 100" });
+      original.finish("provision", { _tag: "provisioned", sandboxRef: "box-1", sampleRef: null });
       const workItem = yield* restoredWorkItem(throughJson(original.save()));
       expect(workItem.context().counters).toStrictEqual({ review: 0, reproduce: 1 });
       workItem.finish("reproduce", { _tag: "reproduced" });

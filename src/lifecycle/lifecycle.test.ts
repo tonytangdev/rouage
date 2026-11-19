@@ -49,6 +49,9 @@ describe("lifecycle", () => {
         kind: "bug",
         feedback: "missing edge case",
         specRef: "spec-1",
+        sandboxRef: null,
+        sampleRequest: null,
+        sampleRef: null,
       });
     }),
   );
@@ -62,6 +65,9 @@ describe("lifecycle", () => {
         kind: "feature",
         feedback: null,
         specRef: "spec-1",
+        sandboxRef: null,
+        sampleRequest: null,
+        sampleRef: null,
       });
     }),
   );
@@ -69,7 +75,7 @@ describe("lifecycle", () => {
   it.effect("sends a bug from Provision to Reproduce, then to Plan once reproduced", () =>
     Effect.gen(function* () {
       const workItem = yield* startAt("provision", { kind: "bug" });
-      workItem.finish("provision", { _tag: "provisioned" });
+      workItem.finish("provision", { _tag: "provisioned", sandboxRef: "box-1", sampleRef: null });
       expect(workItem.stage()).toStrictEqual("reproduce");
       workItem.finish("reproduce", { _tag: "reproduced" });
       expect(workItem.stage()).toStrictEqual("plan");
@@ -79,7 +85,7 @@ describe("lifecycle", () => {
   it.effect("sends a feature from Provision straight to Plan", () =>
     Effect.gen(function* () {
       const workItem = yield* startAt("provision", { kind: "feature" });
-      workItem.finish("provision", { _tag: "provisioned" });
+      workItem.finish("provision", { _tag: "provisioned", sandboxRef: "box-1", sampleRef: null });
       expect(workItem.stage()).toStrictEqual("plan");
     }),
   );
@@ -87,7 +93,7 @@ describe("lifecycle", () => {
   it.effect("blocks a bug that cannot be reproduced, and a human can send it back to Spec", () =>
     Effect.gen(function* () {
       const workItem = yield* startAt("provision", { kind: "bug" });
-      workItem.finish("provision", { _tag: "provisioned" });
+      workItem.finish("provision", { _tag: "provisioned", sandboxRef: "box-1", sampleRef: null });
       workItem.finish("reproduce", { _tag: "cannotReproduce", reason: "works on staging" });
       expect(workItem.stage()).toStrictEqual("blocked");
       expect(workItem.context().blocked).toStrictEqual({
@@ -103,8 +109,41 @@ describe("lifecycle", () => {
         kind: "bug",
         feedback: "clarify the steps",
         specRef: "spec-1",
+        sandboxRef: "box-1",
+        sampleRequest: null,
+        sampleRef: null,
       });
     }),
+  );
+
+  it.effect(
+    "passes Reproduce's sample request to Provision, and the sample it took to Reproduce",
+    () =>
+      Effect.gen(function* () {
+        const workItem = yield* startAt("provision", { kind: "bug" });
+        workItem.finish("provision", { _tag: "provisioned", sandboxRef: "box-1", sampleRef: null });
+        workItem.finish("reproduce", { _tag: "needsSample", sampleRequest: "orders over 100" });
+        expect(workItem.stageInput("provision")).toMatchObject({
+          sandboxRef: "box-1",
+          sampleRequest: "orders over 100",
+          sampleRef: null,
+        });
+        workItem.finish("provision", {
+          _tag: "provisioned",
+          sandboxRef: "box-1",
+          sampleRef: "s-1",
+        });
+        expect(workItem.stageInput("reproduce")).toStrictEqual({
+          workItemId: "wi-1",
+          issueRef: "#1",
+          kind: "bug",
+          feedback: null,
+          specRef: "spec-1",
+          sandboxRef: "box-1",
+          sampleRequest: "orders over 100",
+          sampleRef: "s-1",
+        });
+      }),
   );
 
   it.effect(
@@ -113,8 +152,12 @@ describe("lifecycle", () => {
       Effect.gen(function* () {
         const workItem = yield* startAt("provision", { kind: "bug" });
         const askForSample = () => {
-          workItem.finish("provision", { _tag: "provisioned" });
-          workItem.finish("reproduce", { _tag: "needsSample" });
+          workItem.finish("provision", {
+            _tag: "provisioned",
+            sandboxRef: "box-1",
+            sampleRef: null,
+          });
+          workItem.finish("reproduce", { _tag: "needsSample", sampleRequest: "orders over 100" });
         };
         askForSample();
         expect(workItem.stage()).toStrictEqual("provision");
@@ -135,8 +178,8 @@ describe("lifecycle", () => {
     () =>
       Effect.gen(function* () {
         const workItem = yield* startAt("provision", { kind: "bug" });
-        workItem.finish("provision", { _tag: "provisioned" });
-        workItem.finish("reproduce", { _tag: "needsSample" });
+        workItem.finish("provision", { _tag: "provisioned", sandboxRef: "box-1", sampleRef: null });
+        workItem.finish("reproduce", { _tag: "needsSample", sampleRequest: "orders over 100" });
         workItem.fail("provision", { tag: "SandboxUnavailable", message: "docker is not running" });
         expect(workItem.stage()).toStrictEqual("blocked");
         expect(workItem.context().blocked).toStrictEqual({
@@ -192,6 +235,9 @@ describe("lifecycle", () => {
           kind: "feature",
           feedback: "rename the flag",
           specRef: "spec-1",
+          sandboxRef: "box-1",
+          sampleRequest: null,
+          sampleRef: null,
         });
         requestChanges();
         requestChanges();
@@ -230,6 +276,9 @@ describe("lifecycle", () => {
         kind: "feature",
         feedback: "wait for the release freeze",
         specRef: "spec-1",
+        sandboxRef: "box-1",
+        sampleRequest: null,
+        sampleRef: null,
       });
     }),
   );
@@ -286,6 +335,9 @@ describe("lifecycle", () => {
         kind: null,
         feedback: "body filled in",
         specRef: null,
+        sandboxRef: null,
+        sampleRequest: null,
+        sampleRef: null,
       });
     }),
   );

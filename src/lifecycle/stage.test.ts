@@ -11,6 +11,9 @@ const input = {
   kind: "bug" as const,
   feedback: null,
   specRef: null,
+  sandboxRef: null,
+  sampleRequest: null,
+  sampleRef: null,
 };
 
 const startReview = Effect.fnUntraced(function* () {

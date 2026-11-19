@@ -19,6 +19,9 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
     demoPlanned: false,
     feedback: null,
     specRef: null,
+    sandboxRef: null,
+    sampleRequest: null,
+    sampleRef: null,
     blocked: null,
     decisions: [],
   }),
@@ -82,8 +85,12 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             id: "provision",
             src: "provision",
             input: stageInput,
-            onDone: ({ context }) =>
-              context.kind === "bug" ? { target: "reproduce" } : { target: "plan" },
+            onDone: ({ context, event: { output } }) => {
+              const prepared = { sandboxRef: output.sandboxRef, sampleRef: output.sampleRef };
+              return context.kind === "bug"
+                ? { target: "reproduce", context: prepared }
+                : { target: "plan", context: prepared };
+            },
           },
         },
         reproduce: {
@@ -107,7 +114,13 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
               if (loopExhausted(context, "reproduce")) {
                 return { target: "#blocked", context: loopLimitReached(context, "reproduce") };
               }
-              return { target: "provision", context: goneAround(context, "reproduce") };
+              return {
+                target: "provision",
+                context: {
+                  sampleRequest: output.sampleRequest,
+                  ...goneAround(context, "reproduce"),
+                },
+              };
             },
           },
         },

@@ -69,7 +69,7 @@ const defaultPath = ({ kind = "feature", demo = false }: Route): readonly Waypoi
 const passingOutcomes = (route: Route): { readonly [Stage in StageName]: OutcomeOf<Stage> } => ({
   intake: { _tag: "classified", kind: route.kind ?? "feature" },
   spec: { _tag: "written", specRef: "spec-1" },
-  provision: { _tag: "provisioned" },
+  provision: { _tag: "provisioned", sandboxRef: "box-1", sampleRef: null },
   reproduce: { _tag: "reproduced" },
   plan: { _tag: "planned", demo: route.demo ?? false },
   build: { _tag: "built" },

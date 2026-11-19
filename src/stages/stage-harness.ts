@@ -12,6 +12,9 @@ export const aloneInput: StageInput = {
   kind: null,
   feedback: null,
   specRef: null,
+  sandboxRef: null,
+  sampleRequest: null,
+  sampleRef: null,
 };
 
 /** Starts a stage actor outside any lifecycle and waits until it finishes or fails; the actor stops when the test's scope closes. */
