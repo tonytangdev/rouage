@@ -15,7 +15,6 @@ interface Settled {
   readonly error: unknown;
 }
 
-/** One stage implementation driven to each way a stage can end, with what the contract expects of it. */
 interface StageAdapter {
   readonly name: string;
   readonly finished: Effect.Effect<Settled, unknown, Scope.Scope>;

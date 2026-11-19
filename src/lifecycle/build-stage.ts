@@ -35,9 +35,11 @@ const agentStep = <Input, Output>(
     Agent.use((agent) => step(agent, input)).pipe(Effect.mapError(stageFailureOf)),
   );
 
+const DEFAULT_FIX_ATTEMPTS = 3;
+
 const resolveFixAttempts = (override: number | undefined) =>
   override === undefined
-    ? Config.Int("ROUAGE_MAX_BUILD_FIXES").pipe(Config.withDefault(3))
+    ? Config.Int("ROUAGE_MAX_BUILD_FIXES").pipe(Config.withDefault(DEFAULT_FIX_ATTEMPTS))
     : Config.succeed(override);
 
 const attemptsExhausted = (context: BuildContext, failures: string) =>
@@ -117,11 +119,12 @@ const buildMachine = (services: Context.Context<Agent>, fixAttempts: number) =>
   });
 
 /**
- * The Build stage machine: implement, then test and fix until the tests pass.
- * Each step runs with the `Agent` in context. The fix attempts come from
- * `options`, then `ROUAGE_MAX_BUILD_FIXES`, then 3, and each Build run keeps
- * the number it started with. Fails with a `StageFailure` when the agent
- * cannot finish a step or the tests still fail after the last fix attempt.
+ * The Build stage machine, running its steps with the `Agent` in context. Fix
+ * attempts come from `options`, then `ROUAGE_MAX_BUILD_FIXES`, then
+ * `DEFAULT_FIX_ATTEMPTS`; each Build run keeps the number it started with, so a
+ * restart never moves the budget of a run in flight. Fails with a
+ * `StageFailure` when the agent cannot finish a step or the tests still fail
+ * after the last fix attempt.
  */
 export const buildStage = Effect.fnUntraced(function* (options: BuildOptions = {}) {
   const services = yield* Effect.context<Agent>();

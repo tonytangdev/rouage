@@ -27,10 +27,8 @@ const outcomeOf = <A>(script: FakeAgentScript, step: AgentStep, result: Effect.E
 };
 
 /**
- * An agent that follows a script instead of calling an AI. It records each
- * step it is asked to run, and `started(step)` completes once that step has
- * begun. A test run beyond the script dies, so a test that under-scripts its
- * agent fails loudly.
+ * An agent that follows a script instead of calling an AI. A test run beyond
+ * the script dies, so a test that under-scripts its agent fails loudly.
  */
 export const fakeAgent = Effect.fnUntraced(function* (script: FakeAgentScript) {
   const steps: AgentStep[] = [];

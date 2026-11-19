@@ -9,7 +9,6 @@ import { buildStage } from "./build-stage.ts";
 export const testsPassed = { _tag: "passed" } as const;
 export const testsFailed = { _tag: "failed", failures: "1 test failed: totals add VAT" } as const;
 
-/** A Build stage whose agent follows `script`, with that agent for inspecting the steps it ran. */
 export const scriptedBuild = Effect.fnUntraced(function* (
   script: FakeAgentScript,
   options: BuildOptions = {},
@@ -18,7 +17,7 @@ export const scriptedBuild = Effect.fnUntraced(function* (
   return { agent, build: yield* buildStage(options).pipe(Effect.provide(agent.layer)) };
 });
 
-/** Runs a Build stage on its own until it finishes or fails, for the length of the test. */
+/** Runs a Build stage outside any lifecycle until it finishes or fails; the actor stops when the test's scope closes. */
 export const runBuild = Effect.fnUntraced(function* (
   script: FakeAgentScript,
   options: BuildOptions = {},
