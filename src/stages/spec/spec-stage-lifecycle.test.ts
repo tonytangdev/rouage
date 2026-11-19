@@ -1,22 +1,16 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { restoredWorkItem, startWorkItem, throughJson } from "../../lifecycle/lifecycle-harness.ts";
-import { scriptedSpec, unclearIssue, writtenSpec } from "./spec-harness.ts";
-
-type DrivenWorkItem = Effect.Success<ReturnType<typeof startWorkItem>>;
-
-const reviewer = { by: "ada", at: "2026-11-19T10:00:00.000Z" };
+import type { DrivenWorkItem } from "../../lifecycle/lifecycle-harness.ts";
+import {
+  restoredWorkItem,
+  reviewer,
+  startWorkItem,
+  throughJson,
+} from "../../lifecycle/lifecycle-harness.ts";
+import { firstWrite, scriptedSpec, unclearIssue, writtenSpec } from "./spec-harness.ts";
 
 const revisedSpec = { _tag: "written", specRef: "spec-2" } as const;
-
-const firstWrite = {
-  workItemId: "wi-1",
-  issueRef: "#1",
-  kind: "bug",
-  feedback: null,
-  previous: null,
-} as const;
 
 const classifyAsBug = (workItem: DrivenWorkItem) => {
   workItem.finish("intake", { _tag: "classified", kind: "bug" });
@@ -29,7 +23,7 @@ describe("a work item in the Spec stage", () => {
       const workItem = yield* startWorkItem({ spec });
       classifyAsBug(workItem);
       yield* workItem.reaches("specGate");
-      expect(workItem.context().spec).toStrictEqual("spec-1");
+      expect(workItem.context().specRef).toStrictEqual("spec-1");
     }),
   );
 
@@ -41,10 +35,10 @@ describe("a work item in the Spec stage", () => {
       yield* workItem.reaches("specGate");
       workItem.send({ type: "reject", ...reviewer, comment: "Cover the empty cart" });
       yield* workItem.reaches("specGate");
-      expect(workItem.context().spec).toStrictEqual("spec-2");
+      expect(workItem.context().specRef).toStrictEqual("spec-2");
       expect(specWriter.calls()).toStrictEqual([
         firstWrite,
-        { ...firstWrite, feedback: "Cover the empty cart", previous: "spec-1" },
+        { ...firstWrite, feedback: "Cover the empty cart", previousSpecRef: "spec-1" },
       ]);
     }),
   );
@@ -65,6 +59,25 @@ describe("a work item in the Spec stage", () => {
         firstWrite,
         { ...firstWrite, feedback: "It should list the open orders" },
       ]);
+    }),
+  );
+
+  it.effect("revises the approved spec once a later stage's block sends it back to Spec", () =>
+    Effect.gen(function* () {
+      const { specWriter, spec } = yield* scriptedSpec({ results: [writtenSpec, revisedSpec] });
+      const workItem = yield* startWorkItem({ spec });
+      classifyAsBug(workItem);
+      yield* workItem.reaches("specGate");
+      workItem.send({ type: "approve", ...reviewer });
+      workItem.finish("provision", { _tag: "provisioned" });
+      workItem.finish("reproduce", { _tag: "cannotReproduce", reason: "works on staging" });
+      workItem.send({ type: "backToSpec", ...reviewer, comment: "Name the browser" });
+      yield* workItem.reaches("specGate");
+      expect(specWriter.calls().at(-1)).toStrictEqual({
+        ...firstWrite,
+        feedback: "Name the browser",
+        previousSpecRef: "spec-1",
+      });
     }),
   );
 

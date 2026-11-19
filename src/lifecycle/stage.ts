@@ -34,7 +34,7 @@ export interface StageInput {
   readonly kind: Kind | null;
   readonly feedback: string | null;
   /** The reference to the latest written spec, opaque to Rouage (ADR 0004). */
-  readonly spec: string | null;
+  readonly specRef: string | null;
 }
 
 interface StageInputSource {
@@ -42,7 +42,7 @@ interface StageInputSource {
   readonly issueRef: string;
   readonly kind: Kind | null;
   readonly feedback: string | null;
-  readonly spec: string | null;
+  readonly specRef: string | null;
 }
 
 /** Builds a stage's input from the work item; takes XState's input-function argument so it can be passed as is. */
@@ -51,7 +51,7 @@ export const stageInput = ({ context }: { readonly context: StageInputSource }):
   issueRef: context.issueRef,
   kind: context.kind,
   feedback: context.feedback,
-  spec: context.spec,
+  specRef: context.specRef,
 });
 
 /**

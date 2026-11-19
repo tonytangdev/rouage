@@ -10,7 +10,7 @@ const input = {
   issueRef: "#1",
   kind: "bug" as const,
   feedback: null,
-  spec: null,
+  specRef: null,
 };
 
 const startReview = Effect.fnUntraced(function* () {

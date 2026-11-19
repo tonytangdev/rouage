@@ -4,7 +4,7 @@ import { Effect } from "effect";
 import { describeStageContract } from "../../lifecycle/stage-contract.ts";
 import { failureReasonOf } from "../../lifecycle/stage.ts";
 import { portAdapter } from "../port-stage-contract.ts";
-import { classifiedInput, runSpec, unclearIssue, writtenSpec } from "./spec-harness.ts";
+import { classifiedInput, firstWrite, runSpec, unclearIssue, writtenSpec } from "./spec-harness.ts";
 
 describe("spec stage", () => {
   it.effect("finishes with the reference to the spec the writer wrote", () =>
@@ -18,16 +18,10 @@ describe("spec stage", () => {
     Effect.gen(function* () {
       const { calls } = yield* runSpec(
         { results: [writtenSpec] },
-        { ...classifiedInput, feedback: "Cover the empty cart", spec: "spec-0" },
+        { ...classifiedInput, feedback: "Cover the empty cart", specRef: "spec-0" },
       );
       expect(calls).toStrictEqual([
-        {
-          workItemId: "wi-1",
-          issueRef: "#1",
-          kind: "bug",
-          feedback: "Cover the empty cart",
-          previous: "spec-0",
-        },
+        { ...firstWrite, feedback: "Cover the empty cart", previousSpecRef: "spec-0" },
       ]);
     }),
   );

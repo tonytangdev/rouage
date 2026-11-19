@@ -22,7 +22,7 @@ const writeTask = ({
   issueRef: context.issueRef,
   kind: input.kind,
   feedback: context.feedback,
-  previous: context.spec,
+  previousSpecRef: context.specRef,
 });
 
 const unclassified = () =>

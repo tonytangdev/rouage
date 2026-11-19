@@ -66,6 +66,12 @@ const drive = (workItem: WorkItem, running: ReadonlyMap<StageName, RunningStub>)
   };
 };
 
+/** A human deciding at a gate or for a blocked work item, as tests send them. */
+export const reviewer = { by: "ada", at: "2026-11-19T10:00:00.000Z" } as const;
+
+/** A work item the harness started or restored, driven by a test. */
+export type DrivenWorkItem = ReturnType<typeof drive>;
+
 /** Round-trips a saved work item through JSON, as a store that keeps it as text would. */
 export const throughJson = (persisted: unknown): unknown => JSON.parse(JSON.stringify(persisted));
 

@@ -13,6 +13,15 @@ export const unclearIssue = {
   reason: "The issue names the page but not what it should show",
 } as const;
 
+/** What the writer is asked on a classified bug's first write. */
+export const firstWrite = {
+  workItemId: "wi-1",
+  issueRef: "#1",
+  kind: "bug",
+  feedback: null,
+  previousSpecRef: null,
+} as const;
+
 /** The input a Spec stage run alone starts with: a classified bug. */
 export const classifiedInput: StageInput = { ...aloneInput, kind: "bug" };
 

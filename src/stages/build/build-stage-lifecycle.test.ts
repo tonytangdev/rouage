@@ -1,12 +1,14 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { restoredWorkItem, startWorkItem, throughJson } from "../../lifecycle/lifecycle-harness.ts";
+import type { DrivenWorkItem } from "../../lifecycle/lifecycle-harness.ts";
+import {
+  restoredWorkItem,
+  reviewer,
+  startWorkItem,
+  throughJson,
+} from "../../lifecycle/lifecycle-harness.ts";
 import { scriptedBuild, testsFailed, testsPassed } from "./build-harness.ts";
-
-type DrivenWorkItem = Effect.Success<ReturnType<typeof startWorkItem>>;
-
-const reviewer = { by: "ada", at: "2026-11-19T10:00:00.000Z" };
 
 const throughPlan = (workItem: DrivenWorkItem) => {
   workItem.finish("intake", { _tag: "classified", kind: "feature" });

@@ -1,9 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { startWorkItem } from "./lifecycle-harness.ts";
-
-const reviewer = { by: "ada", at: "2026-11-19T10:00:00.000Z" };
+import { reviewer, startWorkItem } from "./lifecycle-harness.ts";
 
 const startAtSpecGate = Effect.fnUntraced(function* () {
   const workItem = yield* startWorkItem();
@@ -72,7 +70,7 @@ describe("lifecycle", () => {
         issueRef: "#1",
         kind: "bug",
         feedback: "missing edge case",
-        spec: "spec-1",
+        specRef: "spec-1",
       });
     }),
   );
@@ -85,7 +83,7 @@ describe("lifecycle", () => {
         issueRef: "#1",
         kind: "feature",
         feedback: null,
-        spec: "spec-1",
+        specRef: "spec-1",
       });
     }),
   );
@@ -126,7 +124,7 @@ describe("lifecycle", () => {
         issueRef: "#1",
         kind: "bug",
         feedback: "clarify the steps",
-        spec: "spec-1",
+        specRef: "spec-1",
       });
     }),
   );
@@ -215,7 +213,7 @@ describe("lifecycle", () => {
           issueRef: "#1",
           kind: "feature",
           feedback: "rename the flag",
-          spec: "spec-1",
+          specRef: "spec-1",
         });
         requestChanges();
         requestChanges();
@@ -253,7 +251,7 @@ describe("lifecycle", () => {
         issueRef: "#1",
         kind: "feature",
         feedback: "wait for the release freeze",
-        spec: "spec-1",
+        specRef: "spec-1",
       });
     }),
   );
@@ -309,7 +307,7 @@ describe("lifecycle", () => {
         issueRef: "#1",
         kind: null,
         feedback: "body filled in",
-        spec: null,
+        specRef: null,
       });
     }),
   );
