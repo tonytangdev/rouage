@@ -33,6 +33,8 @@ export interface WorkItemContext {
   readonly counters: LoopCounts;
   readonly demoPlanned: boolean;
   readonly feedback: string | null;
+  /** The reference to the latest written spec; only the next written spec replaces it (ADR 0004). */
+  readonly spec: string | null;
   readonly blocked: Blocked | null;
   readonly decisions: readonly Decision[];
 }

@@ -18,6 +18,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
     counters: noLoopsYet,
     demoPlanned: false,
     feedback: null,
+    spec: null,
     blocked: null,
     decisions: [],
   }),
@@ -58,7 +59,10 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             id: "spec",
             src: "spec",
             input: stageInput,
-            onDone: { target: "specGate", context: { feedback: null } },
+            onDone: ({ event: { output } }) => ({
+              target: "specGate",
+              context: { feedback: null, spec: output.specRef },
+            }),
           },
         },
         specGate: {

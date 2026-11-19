@@ -8,7 +8,7 @@ describe("lifecycle harness", () => {
     Effect.gen(function* () {
       const workItem = yield* startWorkItem();
       expect(() => {
-        workItem.finish("spec", { _tag: "written" });
+        workItem.finish("spec", { _tag: "written", specRef: "spec-1" });
       }).toThrow(StageNotRunning);
     }),
   );

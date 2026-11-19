@@ -10,7 +10,7 @@ const reviewer = { by: "ada", at: "2026-11-19T10:00:00.000Z" };
 
 const throughPlan = (workItem: DrivenWorkItem) => {
   workItem.finish("intake", { _tag: "classified", kind: "feature" });
-  workItem.finish("spec", { _tag: "written" });
+  workItem.finish("spec", { _tag: "written", specRef: "spec-1" });
   workItem.send({ type: "approve", ...reviewer });
   workItem.finish("provision", { _tag: "provisioned" });
   workItem.finish("plan", { _tag: "planned", demo: false });

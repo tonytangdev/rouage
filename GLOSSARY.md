@@ -35,6 +35,10 @@ The state machine that carries out one stage. The lifecycle starts it when the w
 How a stage machine finished, such as `reproduced`, `needsSample` or `changesRequested`. The lifecycle, not the stage, decides where each outcome leads. A stage that cannot finish has no outcome: it fails, and the work item becomes blocked.
 _Avoid_: Result, status
 
+**Spec**:
+The written expected behaviour of a work item, approved by a human at the spec gate before any work on it starts.
+_Avoid_: Requirements, PRD
+
 **Provision**:
 The stage that prepares the sandbox a work item runs in, before any reproduction or build.
 _Avoid_: Setup, bootstrap

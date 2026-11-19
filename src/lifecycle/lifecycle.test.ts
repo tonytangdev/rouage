@@ -8,14 +8,14 @@ const reviewer = { by: "ada", at: "2026-11-19T10:00:00.000Z" };
 const startAtSpecGate = Effect.fnUntraced(function* () {
   const workItem = yield* startWorkItem();
   workItem.finish("intake", { _tag: "classified", kind: "bug" });
-  workItem.finish("spec", { _tag: "written" });
+  workItem.finish("spec", { _tag: "written", specRef: "spec-1" });
   return workItem;
 });
 
 const startAtProvision = Effect.fnUntraced(function* (kind: "bug" | "feature") {
   const workItem = yield* startWorkItem();
   workItem.finish("intake", { _tag: "classified", kind });
-  workItem.finish("spec", { _tag: "written" });
+  workItem.finish("spec", { _tag: "written", specRef: "spec-1" });
   workItem.send({ type: "approve", ...reviewer });
   return workItem;
 });
@@ -72,6 +72,20 @@ describe("lifecycle", () => {
         issueRef: "#1",
         kind: "bug",
         feedback: "missing edge case",
+        spec: "spec-1",
+      });
+    }),
+  );
+
+  it.effect("passes the written spec on to the stages after Spec", () =>
+    Effect.gen(function* () {
+      const workItem = yield* startAtProvision("feature");
+      expect(workItem.stageInput("provision")).toStrictEqual({
+        workItemId: "wi-1",
+        issueRef: "#1",
+        kind: "feature",
+        feedback: null,
+        spec: "spec-1",
       });
     }),
   );
@@ -112,6 +126,7 @@ describe("lifecycle", () => {
         issueRef: "#1",
         kind: "bug",
         feedback: "clarify the steps",
+        spec: "spec-1",
       });
     }),
   );
@@ -200,6 +215,7 @@ describe("lifecycle", () => {
           issueRef: "#1",
           kind: "feature",
           feedback: "rename the flag",
+          spec: "spec-1",
         });
         requestChanges();
         requestChanges();
@@ -237,6 +253,7 @@ describe("lifecycle", () => {
         issueRef: "#1",
         kind: "feature",
         feedback: "wait for the release freeze",
+        spec: "spec-1",
       });
     }),
   );
@@ -292,6 +309,7 @@ describe("lifecycle", () => {
         issueRef: "#1",
         kind: null,
         feedback: "body filled in",
+        spec: null,
       });
     }),
   );
