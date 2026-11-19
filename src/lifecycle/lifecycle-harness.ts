@@ -2,7 +2,7 @@ import { Data, Effect } from "effect";
 import type { AnyActorRef, AnyStateMachine } from "xstate";
 
 import { defaultLifecycle } from "./lifecycle.ts";
-import type { FailureReason, OutcomeOf, StageInput, StageName } from "./stage.ts";
+import type { FailureReason, Kind, OutcomeOf, StageInput, StageName } from "./stage.ts";
 import type { AttachStub } from "./stub-stage.ts";
 import { stubStages } from "./stub-stage.ts";
 import type { WorkItem } from "./work-item-actor.ts";
@@ -38,6 +38,48 @@ const stubController = (real: RealStages) => {
   };
 };
 
+/** A human deciding at a gate or for a blocked work item, as tests send them. */
+export const reviewer = { by: "ada", at: "2026-11-19T10:00:00.000Z" } as const;
+
+/** A place on the default path a test can advance a work item to: a stage or a gate. */
+export type Waypoint = StageName | "specGate" | "shipGate";
+
+/** How a work item routes along the default path; a feature with no demo unless set. */
+export interface Route {
+  readonly kind?: Kind;
+  readonly demo?: boolean;
+}
+
+const gates: ReadonlySet<Waypoint> = new Set(["specGate", "shipGate"]);
+
+const defaultPath = ({ kind = "feature", demo = false }: Route): readonly Waypoint[] => [
+  "intake",
+  "spec",
+  "specGate",
+  "provision",
+  ...(kind === "bug" ? ["reproduce" as const] : []),
+  "plan",
+  "build",
+  ...(demo ? ["demo" as const] : []),
+  "review",
+  "shipGate",
+  "ship",
+];
+
+const passingOutcomes = (route: Route): { readonly [Stage in StageName]: OutcomeOf<Stage> } => ({
+  intake: { _tag: "classified", kind: route.kind ?? "feature" },
+  spec: { _tag: "written", specRef: "spec-1" },
+  provision: { _tag: "provisioned" },
+  reproduce: { _tag: "reproduced" },
+  plan: { _tag: "planned", demo: route.demo ?? false },
+  build: { _tag: "built" },
+  demo: { _tag: "demonstrated" },
+  review: { _tag: "approved" },
+  ship: { _tag: "shipped" },
+});
+
+const isStage = (waypoint: Waypoint): waypoint is StageName => !gates.has(waypoint);
+
 const drive = (workItem: WorkItem, running: ReadonlyMap<StageName, RunningStub>) => {
   const stub = (stage: StageName) => {
     const found = running.get(stage);
@@ -63,14 +105,20 @@ const drive = (workItem: WorkItem, running: ReadonlyMap<StageName, RunningStub>)
     crash: (stage: StageName, message: string) => {
       stub(stage).send({ type: "crash", message });
     },
+    /** Finishes every stub stage and approves every gate on the default path before `waypoint`, so the work item stops there. */
+    advanceTo: (waypoint: Waypoint, route: Route = {}) => {
+      const path = defaultPath(route);
+      const outcomes = passingOutcomes(route);
+      for (const passed of path.slice(0, path.indexOf(waypoint))) {
+        if (isStage(passed)) {
+          stub(passed).send({ type: "finish", outcome: outcomes[passed] });
+        } else {
+          workItem.send({ type: "approve", ...reviewer });
+        }
+      }
+    },
   };
 };
-
-/** A human deciding at a gate or for a blocked work item, as tests send them. */
-export const reviewer = { by: "ada", at: "2026-11-19T10:00:00.000Z" } as const;
-
-/** A work item the harness started or restored, driven by a test. */
-export type DrivenWorkItem = ReturnType<typeof drive>;
 
 /** Round-trips a saved work item through JSON, as a store that keeps it as text would. */
 export const throughJson = (persisted: unknown): unknown => JSON.parse(JSON.stringify(persisted));

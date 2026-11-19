@@ -4,6 +4,7 @@ import { Effect } from "effect";
 import { describeStageContract } from "../../lifecycle/stage-contract.ts";
 import { failureReasonOf } from "../../lifecycle/stage.ts";
 import { portAdapter } from "../port-stage-contract.ts";
+import { specWriterPort } from "./fake-spec-writer.ts";
 import { classifiedInput, firstWrite, runSpec, unclearIssue, writtenSpec } from "./spec-harness.ts";
 
 describe("spec stage", () => {
@@ -54,9 +55,7 @@ describe("spec stage", () => {
 describeStageContract(
   portAdapter({
     name: "spec",
-    port: "spec writer",
-    gaveUpTag: "SpecWriterGaveUp",
-    firstStep: "write",
+    port: specWriterPort,
     outcome: { _tag: "written", specRef: "spec-1" },
     run: (misbehaving) => runSpec({ results: [writtenSpec], misbehaving }),
   }),

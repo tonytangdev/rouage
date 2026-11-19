@@ -1,29 +1,15 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import type { DrivenWorkItem } from "../../lifecycle/lifecycle-harness.ts";
-import {
-  restoredWorkItem,
-  reviewer,
-  startWorkItem,
-  throughJson,
-} from "../../lifecycle/lifecycle-harness.ts";
+import { restoredWorkItem, startWorkItem, throughJson } from "../../lifecycle/lifecycle-harness.ts";
 import { scriptedBuild, testsFailed, testsPassed } from "./build-harness.ts";
-
-const throughPlan = (workItem: DrivenWorkItem) => {
-  workItem.finish("intake", { _tag: "classified", kind: "feature" });
-  workItem.finish("spec", { _tag: "written", specRef: "spec-1" });
-  workItem.send({ type: "approve", ...reviewer });
-  workItem.finish("provision", { _tag: "provisioned" });
-  workItem.finish("plan", { _tag: "planned", demo: false });
-};
 
 describe("a work item in the Build stage", () => {
   it.effect("moves on to Review once Build's tests pass", () =>
     Effect.gen(function* () {
       const { build } = yield* scriptedBuild({ testReports: [testsFailed, testsPassed] });
       const workItem = yield* startWorkItem({ build });
-      throughPlan(workItem);
+      workItem.advanceTo("build");
       yield* workItem.reaches("review");
       expect(workItem.context().blocked).toBeNull();
     }),
@@ -36,7 +22,7 @@ describe("a work item in the Build stage", () => {
         misbehaving: { step: "implement", as: "failing" },
       });
       const workItem = yield* startWorkItem({ build });
-      throughPlan(workItem);
+      workItem.advanceTo("build");
       yield* workItem.reaches("blocked");
       expect(workItem.context().blocked).toStrictEqual({
         from: "build",
@@ -52,7 +38,7 @@ describe("a work item in the Build stage", () => {
         misbehaving: { step: "test", as: "hanging" },
       });
       const original = yield* startWorkItem({ build: before.build });
-      throughPlan(original);
+      original.advanceTo("build");
       yield* before.builder.started("test");
       const after = yield* scriptedBuild({ testReports: [testsFailed, testsPassed] });
       const workItem = yield* restoredWorkItem(throughJson(original.save()), {
@@ -70,7 +56,7 @@ describe("a work item in the Build stage", () => {
         { fixAttempts: 1 },
       );
       const original = yield* startWorkItem({ build: before.build });
-      throughPlan(original);
+      original.advanceTo("build");
       yield* before.builder.started("fix");
       const after = yield* scriptedBuild({ testReports: [testsFailed] }, { fixAttempts: 3 });
       const workItem = yield* restoredWorkItem(throughJson(original.save()), {
@@ -86,7 +72,7 @@ describe("a work item in the Build stage", () => {
     Effect.gen(function* () {
       const { builder, build } = yield* scriptedBuild({ testReports: [testsPassed, testsPassed] });
       const workItem = yield* startWorkItem({ build });
-      throughPlan(workItem);
+      workItem.advanceTo("build");
       yield* workItem.reaches("review");
       workItem.finish("review", { _tag: "changesRequested", feedback: "rename totals" });
       yield* workItem.reaches("review");

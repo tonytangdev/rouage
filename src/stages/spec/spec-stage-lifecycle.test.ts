@@ -1,7 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import type { DrivenWorkItem } from "../../lifecycle/lifecycle-harness.ts";
 import {
   restoredWorkItem,
   reviewer,
@@ -12,16 +11,12 @@ import { firstWrite, scriptedSpec, unclearIssue, writtenSpec } from "./spec-harn
 
 const revisedSpec = { _tag: "written", specRef: "spec-2" } as const;
 
-const classifyAsBug = (workItem: DrivenWorkItem) => {
-  workItem.finish("intake", { _tag: "classified", kind: "bug" });
-};
-
 describe("a work item in the Spec stage", () => {
   it.effect("waits at the spec gate holding the reference to the written spec", () =>
     Effect.gen(function* () {
       const { spec } = yield* scriptedSpec({ results: [writtenSpec] });
       const workItem = yield* startWorkItem({ spec });
-      classifyAsBug(workItem);
+      workItem.advanceTo("spec", { kind: "bug" });
       yield* workItem.reaches("specGate");
       expect(workItem.context().specRef).toStrictEqual("spec-1");
     }),
@@ -31,7 +26,7 @@ describe("a work item in the Spec stage", () => {
     Effect.gen(function* () {
       const { specWriter, spec } = yield* scriptedSpec({ results: [writtenSpec, revisedSpec] });
       const workItem = yield* startWorkItem({ spec });
-      classifyAsBug(workItem);
+      workItem.advanceTo("spec", { kind: "bug" });
       yield* workItem.reaches("specGate");
       workItem.send({ type: "reject", ...reviewer, comment: "Cover the empty cart" });
       yield* workItem.reaches("specGate");
@@ -47,7 +42,7 @@ describe("a work item in the Spec stage", () => {
     Effect.gen(function* () {
       const { specWriter, spec } = yield* scriptedSpec({ results: [unclearIssue, writtenSpec] });
       const workItem = yield* startWorkItem({ spec });
-      classifyAsBug(workItem);
+      workItem.advanceTo("spec", { kind: "bug" });
       yield* workItem.reaches("blocked");
       expect(workItem.context().blocked).toStrictEqual({
         from: "spec",
@@ -66,7 +61,7 @@ describe("a work item in the Spec stage", () => {
     Effect.gen(function* () {
       const { specWriter, spec } = yield* scriptedSpec({ results: [writtenSpec, revisedSpec] });
       const workItem = yield* startWorkItem({ spec });
-      classifyAsBug(workItem);
+      workItem.advanceTo("spec", { kind: "bug" });
       yield* workItem.reaches("specGate");
       workItem.send({ type: "approve", ...reviewer });
       workItem.finish("provision", { _tag: "provisioned" });
@@ -88,7 +83,7 @@ describe("a work item in the Spec stage", () => {
         misbehaving: { step: "write", as: "hanging" },
       });
       const original = yield* startWorkItem({ spec: before.spec });
-      classifyAsBug(original);
+      original.advanceTo("spec", { kind: "bug" });
       yield* before.specWriter.started("write");
       const after = yield* scriptedSpec({ results: [writtenSpec] });
       const workItem = yield* restoredWorkItem(throughJson(original.save()), { spec: after.spec });

@@ -1,5 +1,7 @@
 import { Deferred, Effect } from "effect";
 
+import type { PortGaveUp } from "./port-stage.ts";
+
 /** How a scripted fake port goes wrong: `failing` gives up, `crashing` dies with a defect, `hanging` never finishes so a test can save or stop the work item mid-step. */
 export type Misbehaviour = "failing" | "crashing" | "hanging";
 
@@ -15,15 +17,23 @@ export const gaveUpMessage = (port: string, step: string) => `The ${port} gave u
 /** The defect message a fake port dies with when `crashing` during `step`. */
 export const crashMessage = (port: string, step: string) => `The ${port} exited during ${step}`;
 
-interface PortScript<Step extends string, GaveUp> {
+/** A port as its fake declares it once, for the fake's workings and the stage contract suite alike. */
+export interface FakePort<Step extends string, GaveUp extends PortGaveUp> {
   /** The port's name as messages call it. */
   readonly port: string;
-  readonly steps: readonly Step[];
-  readonly misbehaving: Misbehaving<Step> | undefined;
+  /** Every step of the port, the one a stage runs first leading. */
+  readonly steps: readonly [Step, ...Step[]];
   readonly gaveUp: (message: string) => GaveUp;
 }
 
-const behaving = <A, GaveUp>(
+interface PortScript<Step extends string, GaveUp extends PortGaveUp> extends FakePort<
+  Step,
+  GaveUp
+> {
+  readonly misbehaving: Misbehaving<Step> | undefined;
+}
+
+const behaving = <A, GaveUp extends PortGaveUp>(
   script: PortScript<string, GaveUp>,
   step: string,
   answer: Effect.Effect<A>,
@@ -46,7 +56,7 @@ const behaving = <A, GaveUp>(
 export const scriptedPort = Effect.fnUntraced(function* <
   Step extends string,
   Call extends { readonly step: Step },
-  GaveUp,
+  GaveUp extends PortGaveUp,
 >(script: PortScript<Step, GaveUp>) {
   const calls: Call[] = [];
   const begun = new Map<string, Deferred.Deferred<boolean>>();

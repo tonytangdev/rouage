@@ -4,6 +4,7 @@ import { Effect } from "effect";
 import { describeStageContract } from "../../lifecycle/stage-contract.ts";
 import { failureReasonOf } from "../../lifecycle/stage.ts";
 import { portAdapter } from "../port-stage-contract.ts";
+import { classifierPort } from "./fake-classifier.ts";
 import { isBug, isFeature, isUnclear, runIntake } from "./intake-harness.ts";
 
 describe("intake stage", () => {
@@ -42,9 +43,7 @@ describe("intake stage", () => {
 describeStageContract(
   portAdapter({
     name: "intake",
-    port: "classifier",
-    gaveUpTag: "ClassifierGaveUp",
-    firstStep: "classify",
+    port: classifierPort,
     outcome: { _tag: "classified", kind: "bug" },
     run: (misbehaving) => runIntake({ results: [isBug], misbehaving }),
   }),

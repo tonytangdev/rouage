@@ -1,6 +1,6 @@
 import { Effect, Layer } from "effect";
 
-import type { Misbehaving } from "../fake-script.ts";
+import type { FakePort, Misbehaving } from "../fake-script.ts";
 import { scriptedAnswers, scriptedPort } from "../fake-script.ts";
 import type { BuildTask, FixTask, TestReport } from "./builder.ts";
 import { Builder, BuilderGaveUp } from "./builder.ts";
@@ -13,6 +13,13 @@ export type BuildCall =
   | { readonly step: "test"; readonly task: BuildTask }
   | { readonly step: "fix"; readonly task: FixTask };
 
+/** The builder as its fake and the stage contract suite know it. */
+export const builderPort: FakePort<BuildStep, BuilderGaveUp> = {
+  port: "builder",
+  steps: ["implement", "test", "fix"],
+  gaveUp: (message) => new BuilderGaveUp({ message }),
+};
+
 export interface FakeBuilderScript {
   /** What each test run reports, in order. */
   readonly testReports: readonly TestReport[];
@@ -22,10 +29,8 @@ export interface FakeBuilderScript {
 /** A builder that follows a script instead of calling an AI. */
 export const fakeBuilder = Effect.fnUntraced(function* (script: FakeBuilderScript) {
   const port = yield* scriptedPort<BuildStep, BuildCall, BuilderGaveUp>({
-    port: "builder",
-    steps: ["implement", "test", "fix"],
+    ...builderPort,
     misbehaving: script.misbehaving,
-    gaveUp: (message) => new BuilderGaveUp({ message }),
   });
   const reports = scriptedAnswers(script.testReports, "builder's test run");
   const builder = Builder.of({

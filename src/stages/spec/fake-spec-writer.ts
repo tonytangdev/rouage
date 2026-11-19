@@ -1,6 +1,6 @@
 import { Effect, Layer } from "effect";
 
-import type { Misbehaving } from "../fake-script.ts";
+import type { FakePort, Misbehaving } from "../fake-script.ts";
 import { scriptedAnswers, scriptedPort } from "../fake-script.ts";
 import type { WriteTask, Written } from "./spec-writer.ts";
 import { SpecWriter, SpecWriterGaveUp } from "./spec-writer.ts";
@@ -12,6 +12,13 @@ interface WriteCall {
   readonly task: WriteTask;
 }
 
+/** The spec writer as its fake and the stage contract suite know it. */
+export const specWriterPort: FakePort<WriteStep, SpecWriterGaveUp> = {
+  port: "spec writer",
+  steps: ["write"],
+  gaveUp: (message) => new SpecWriterGaveUp({ message }),
+};
+
 export interface FakeSpecWriterScript {
   /** What each write returns, in order. */
   readonly results: readonly Written[];
@@ -21,12 +28,10 @@ export interface FakeSpecWriterScript {
 /** A spec writer that follows a script instead of writing a spec. */
 export const fakeSpecWriter = Effect.fnUntraced(function* (script: FakeSpecWriterScript) {
   const port = yield* scriptedPort<WriteStep, WriteCall, SpecWriterGaveUp>({
-    port: "spec writer",
-    steps: ["write"],
+    ...specWriterPort,
     misbehaving: script.misbehaving,
-    gaveUp: (message) => new SpecWriterGaveUp({ message }),
   });
-  const results = scriptedAnswers(script.results, "spec writer");
+  const results = scriptedAnswers(script.results, specWriterPort.port);
   const specWriter = SpecWriter.of({
     write: (task) => port.run({ step: "write", task }, results),
   });

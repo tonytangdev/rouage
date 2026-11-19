@@ -12,4 +12,28 @@ describe("lifecycle harness", () => {
       }).toThrow(StageNotRunning);
     }),
   );
+
+  it.effect("advances a bug with a demo through Reproduce and Demo to the ship gate", () =>
+    Effect.gen(function* () {
+      const workItem = yield* startWorkItem();
+      workItem.advanceTo("shipGate", { kind: "bug", demo: true });
+      expect(workItem.stage()).toStrictEqual("shipGate");
+      expect(workItem.context()).toMatchObject({
+        kind: "bug",
+        demoPlanned: true,
+        specRef: "spec-1",
+      });
+      expect(workItem.context().decisions.map((decision) => decision.state)).toStrictEqual([
+        "specGate",
+      ]);
+    }),
+  );
+
+  it.effect("advances a feature to Plan without reproducing it", () =>
+    Effect.gen(function* () {
+      const workItem = yield* startWorkItem();
+      workItem.advanceTo("plan", { kind: "feature" });
+      expect(workItem.stage()).toStrictEqual("plan");
+    }),
+  );
 });
