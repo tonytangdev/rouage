@@ -50,6 +50,7 @@ stateDiagram-v2
     Reproduce --> Provision: needs a sample
     Reproduce --> Blocked: cannot reproduce
     Blocked --> Spec: human input
+    Blocked --> Reproduce: retry
     Plan --> Build
     Build --> Demo: demo planned
     Build --> Review
@@ -58,6 +59,8 @@ stateDiagram-v2
     Review --> Ship: 🚦 ship approved
     Ship --> [*]
 ```
+
+A stage that fails, or a loop that goes around too many times, also makes the work item **blocked**, and a human can retry the stage it came from. A human can cancel a work item at any point.
 
 | Stage         | What happens                                                                                                                    |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------- |

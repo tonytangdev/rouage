@@ -28,6 +28,13 @@ A work item kind: new or changed behaviour.
 One step of the lifecycle. The default stages are Intake, Spec, Provision, Reproduce, Plan, Build, Demo, Review and Ship.
 _Avoid_: Step, phase
 
+**Stage machine**:
+The state machine that carries out one stage. The lifecycle starts it when the work item enters the stage and stops it when the work item leaves. See [ADR 0002](docs/adr/0002-lifecycle-as-two-levels-of-persisted-machines.md).
+
+**Outcome**:
+How a stage machine finished, such as `reproduced`, `needsSample` or `changesRequested`. The lifecycle, not the stage, decides where each outcome leads.
+_Avoid_: Result, status
+
 **Provision**:
 The stage that prepares the sandbox a work item runs in, before any reproduction or build.
 _Avoid_: Setup, bootstrap
@@ -37,7 +44,13 @@ A transition that waits for a human decision before the work item moves on.
 _Avoid_: Checkpoint, approval step
 
 **Blocked**:
-The state of a work item that cannot progress without human input, such as a bug that cannot be reproduced.
+The state of a work item that cannot progress without human input: a bug that cannot be reproduced, a stage that failed, or a loop that reached its limit. It records the stage the work item came from, so a human can retry that stage, send the work item back to Spec, or cancel it.
+
+**Cancelled**:
+The final state of a work item a human stopped. The stage it was in stops with it.
+
+**Loop limit**:
+The most times a work item may go around one loop of the lifecycle, such as Review back to Build, before it becomes blocked.
 
 ### Evidence
 

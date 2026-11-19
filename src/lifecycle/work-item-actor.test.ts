@@ -1,0 +1,69 @@
+import { describe, expect, it } from "@effect/vitest";
+import { Effect } from "effect";
+
+import { restoredWorkItem, startWorkItem } from "./lifecycle-harness.ts";
+
+const reviewer = { by: "ada", at: "2026-11-19T10:00:00.000Z" };
+
+const throughJson = (persisted: unknown): unknown => JSON.parse(JSON.stringify(persisted));
+
+describe("work item persistence", () => {
+  it.effect("resumes a work item saved while it waits at a gate", () =>
+    Effect.gen(function* () {
+      const original = yield* startWorkItem();
+      original.finish("intake", { _tag: "classified", kind: "feature" });
+      original.finish("spec", { _tag: "written" });
+      const workItem = yield* restoredWorkItem(throughJson(original.save()));
+      expect(workItem.stage()).toStrictEqual("specGate");
+      workItem.send({ type: "approve", ...reviewer });
+      expect(workItem.stage()).toStrictEqual("provision");
+    }),
+  );
+
+  it.effect("resumes a work item saved while a stage machine runs, keeping its loop counters", () =>
+    Effect.gen(function* () {
+      const original = yield* startWorkItem();
+      original.finish("intake", { _tag: "classified", kind: "bug" });
+      original.finish("spec", { _tag: "written" });
+      original.send({ type: "approve", ...reviewer });
+      original.finish("provision", { _tag: "provisioned" });
+      original.finish("reproduce", { _tag: "needsSample" });
+      original.finish("provision", { _tag: "provisioned" });
+      const workItem = yield* restoredWorkItem(throughJson(original.save()));
+      expect(workItem.context().counters).toStrictEqual({ review: 0, reproduce: 1 });
+      workItem.finish("reproduce", { _tag: "reproduced" });
+      expect(workItem.stage()).toStrictEqual("plan");
+    }),
+  );
+
+  it.effect("refuses a snapshot saved under another lifecycle version", () =>
+    Effect.gen(function* () {
+      const original = yield* startWorkItem();
+      const persisted = { ...original.save(), machine: { id: "lifecycle", version: "0" } };
+      const error = yield* Effect.flip(restoredWorkItem(throughJson(persisted)));
+      expect(error).toMatchObject({
+        _tag: "LifecycleVersionMismatch",
+        expected: { id: "lifecycle", version: "1" },
+        found: { id: "lifecycle", version: "0" },
+      });
+    }),
+  );
+
+  it.effect("refuses a snapshot saved by another lifecycle", () =>
+    Effect.gen(function* () {
+      const original = yield* startWorkItem();
+      const persisted = { ...original.save(), machine: { id: "hotfix", version: "1" } };
+      const error = yield* Effect.flip(restoredWorkItem(throughJson(persisted)));
+      expect(error._tag).toStrictEqual("LifecycleVersionMismatch");
+    }),
+  );
+
+  it.effect("refuses a snapshot that names a state the lifecycle does not have", () =>
+    Effect.gen(function* () {
+      const original = yield* startWorkItem();
+      const persisted = { ...original.save(), value: "deploy" };
+      const error = yield* Effect.flip(restoredWorkItem(throughJson(persisted)));
+      expect(error._tag).toStrictEqual("UnreadableSnapshot");
+    }),
+  );
+});
