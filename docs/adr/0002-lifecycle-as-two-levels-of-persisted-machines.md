@@ -20,7 +20,7 @@ Each persisted snapshot carries the lifecycle machine's `id` and `version`. Rest
 
 ## Consequences
 
-- A stage implementation is anything that accepts the stage input and finishes with that stage's outcome type. XState's `provide` typing does not yet accept every such implementation; see #3.
+- A stage implementation is anything that accepts the stage input and finishes with that stage's outcome type. The lifecycle declares each stage as a `StageLogic` slot (`src/lifecycle/stage-slot.ts`) typed by its input and outcome alone, so `provide` accepts a stage machine with any context of its own; see #3.
 - Lifecycle tests drive the machine with events alone; no plugin, sandbox or agent is needed.
 - Values that must not change mid-flight, such as loop limits read from configuration, are resolved by Effect when the work item is created and stored in its context.
 - Transitions read no clock: events that record a decision carry their own timestamp.

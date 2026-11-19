@@ -1,28 +1,56 @@
 import { Data, Effect, Schema } from "effect";
-import type { Actor, EventFrom, SnapshotFrom } from "xstate";
-import { createActor } from "xstate";
+import type {
+  Actor,
+  ActorLogic,
+  AnyActorSystem,
+  EmittedFrom,
+  EventFrom,
+  SnapshotFrom,
+} from "xstate";
+import { createActor, waitFor } from "xstate";
 import { restoreActor, snapshotSchema } from "xstate/persist";
 
-import type { defaultLifecycle } from "./lifecycle.ts";
+import { defaultLifecycle } from "./lifecycle.ts";
 import type { LoopLimits } from "./loops.ts";
 import { resolveLoopLimits } from "./loops.ts";
 import { innermostState } from "./state-value.ts";
-import type { WorkItemContext } from "./work-item.ts";
+import type { WorkItemContext, WorkItemInput } from "./work-item.ts";
 
-export type Lifecycle = typeof defaultLifecycle;
+type DefaultLifecycle = typeof defaultLifecycle;
+
+/**
+ * The default lifecycle with any stage implementations provided. Providing
+ * stages gives each set of stages its own machine type, so a work item accepts
+ * any logic with the default lifecycle's snapshot, events and input; its
+ * structure, id and version are the default lifecycle's.
+ */
+export type Lifecycle = ActorLogic<
+  SnapshotFrom<DefaultLifecycle>,
+  EventFrom<DefaultLifecycle>,
+  WorkItemInput,
+  AnyActorSystem,
+  EmittedFrom<DefaultLifecycle>
+>;
 type WorkItemActor = Actor<Lifecycle>;
 
 /** A running work item. The XState actor behind it stays inside this module. */
 export interface WorkItem {
   /** The innermost active state, such as `"specGate"` or `"blocked"`. */
   readonly state: () => string;
-  readonly status: () => SnapshotFrom<Lifecycle>["status"];
+  readonly status: () => SnapshotFrom<DefaultLifecycle>["status"];
   readonly context: () => WorkItemContext;
   /** Sends a human decision to the work item. */
-  readonly send: (event: EventFrom<Lifecycle>) => void;
+  readonly send: (event: EventFrom<DefaultLifecycle>) => void;
   /** The work item's state as plain JSON, ready to store. */
   readonly save: () => ReturnType<WorkItemActor["getPersistedSnapshot"]>;
+  /** Completes once the innermost active state is `state`; fails with `StateNotReached` if the work item stops first. */
+  readonly reaches: (state: string) => Effect.Effect<void, StateNotReached>;
 }
+
+export class StateNotReached extends Data.TaggedError("StateNotReached")<{
+  readonly state: string;
+  readonly message: string;
+}> {}
 
 const workItemOf = (actor: WorkItemActor): WorkItem => ({
   state: () => innermostState(actor.getSnapshot().value),
@@ -32,6 +60,11 @@ const workItemOf = (actor: WorkItemActor): WorkItem => ({
     actor.send(event);
   },
   save: () => actor.getPersistedSnapshot(),
+  reaches: (state) =>
+    Effect.tryPromise({
+      try: () => waitFor(actor, (snapshot) => innermostState(snapshot.value) === state),
+      catch: (error) => new StateNotReached({ state, message: String(error) }),
+    }).pipe(Effect.asVoid),
 });
 
 const PersistedEnvelope = Schema.Struct({
@@ -78,9 +111,11 @@ export const createWorkItem = Effect.fnUntraced(function* (
 
 const unreadable = (message: string) => new UnreadableSnapshot({ message });
 
-const validateSnapshot = Effect.fnUntraced(function* (lifecycle: Lifecycle, persisted: unknown) {
+// Validated against the default lifecycle because providing stages swaps
+// their implementations but cannot change the states a snapshot may name.
+const validateSnapshot = Effect.fnUntraced(function* (persisted: unknown) {
   const result = yield* Effect.tryPromise({
-    try: () => Promise.resolve(snapshotSchema(lifecycle)["~standard"].validate(persisted)),
+    try: () => Promise.resolve(snapshotSchema(defaultLifecycle)["~standard"].validate(persisted)),
     catch: (error) => unreadable(String(error)),
   });
   if (result.issues !== undefined) {
@@ -98,14 +133,14 @@ export const restoreWorkItem = Effect.fnUntraced(function* (
   lifecycle: Lifecycle,
   persisted: unknown,
 ) {
-  const expected = { id: lifecycle.id, version: lifecycle.version };
+  const expected = { id: defaultLifecycle.id, version: defaultLifecycle.version };
   const { machine: found } = yield* Schema.decodeUnknownEffect(PersistedEnvelope)(persisted).pipe(
     Effect.mapError((error) => unreadable(error.message)),
   );
   if (found.id !== expected.id || found.version !== expected.version) {
     return yield* new LifecycleVersionMismatch({ expected, found });
   }
-  const snapshot = yield* validateSnapshot(lifecycle, persisted);
+  const snapshot = yield* validateSnapshot(persisted);
   const actor = yield* runScoped(() => restoreActor(lifecycle, snapshot).start());
   const restored = actor.getSnapshot();
   if (restored.status === "error") {

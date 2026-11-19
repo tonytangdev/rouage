@@ -2,13 +2,23 @@ import type { ActorRefFrom } from "xstate";
 import { setup, types } from "xstate";
 
 import type { Blocked } from "./blocked.ts";
+import { stageSlot } from "./stage-slot.ts";
 import type { StageName } from "./stage.ts";
-import { stubStages } from "./stub-stage.ts";
 import type { HumanDecision, WorkItemContext, WorkItemInput } from "./work-item.ts";
 
 // XState needs each stage slot as its own key, and the compiler only checks
 // those keys against `StageName` through `satisfies`.
-const stages = stubStages() satisfies Record<StageName, unknown>;
+const stages = {
+  intake: stageSlot("intake"),
+  spec: stageSlot("spec"),
+  provision: stageSlot("provision"),
+  reproduce: stageSlot("reproduce"),
+  plan: stageSlot("plan"),
+  build: stageSlot("build"),
+  demo: stageSlot("demo"),
+  review: stageSlot("review"),
+  ship: stageSlot("ship"),
+} satisfies Record<StageName, unknown>;
 
 type StageRef<Name extends StageName> = ActorRefFrom<(typeof stages)[Name]>;
 
