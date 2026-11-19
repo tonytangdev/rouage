@@ -1,11 +1,29 @@
 import { describe, expect, it } from "@effect/vitest";
+import type { Scope } from "effect";
 import { Effect, Function } from "effect";
 import { createActor } from "xstate";
 
+import { runBuild, testsPassed } from "./build-harness.ts";
+import type { FailureReason } from "./stage.ts";
 import { failureReasonOf } from "./stage.ts";
 import { stubStage } from "./stub-stage.ts";
 
 const input = { workItemId: "wi-1", kind: "bug" as const, feedback: null };
+
+interface Settled {
+  readonly output: unknown;
+  readonly error: unknown;
+}
+
+interface StageAdapter {
+  readonly name: string;
+  readonly finished: Effect.Effect<Settled, unknown, Scope.Scope>;
+  readonly outcome: unknown;
+  readonly failed: Effect.Effect<Settled, unknown, Scope.Scope>;
+  readonly failure: FailureReason;
+  readonly crashed: Effect.Effect<Settled, unknown, Scope.Scope>;
+  readonly crashMessage: string;
+}
 
 const startReview = Effect.fnUntraced(function* () {
   const actor = createActor(stubStage("review"), { input });
@@ -17,37 +35,68 @@ const startReview = Effect.fnUntraced(function* () {
   );
 });
 
-describe("stage contract, stub adapter", () => {
-  it.effect("finishes with the outcome it is sent", () =>
-    Effect.gen(function* () {
-      const stage = yield* startReview();
-      stage.send({ type: "finish", outcome: { _tag: "changesRequested", feedback: "rename" } });
-      expect(stage.getSnapshot().output).toStrictEqual({
-        _tag: "changesRequested",
-        feedback: "rename",
-      });
-    }),
-  );
+const stubAdapter: StageAdapter = {
+  name: "stub",
+  finished: Effect.gen(function* () {
+    const stage = yield* startReview();
+    stage.send({ type: "finish", outcome: { _tag: "changesRequested", feedback: "rename" } });
+    return stage.getSnapshot();
+  }),
+  outcome: { _tag: "changesRequested", feedback: "rename" },
+  failed: Effect.gen(function* () {
+    const stage = yield* startReview();
+    stage.send({ type: "fail", reason: { tag: "AgentTimedOut", message: "no answer" } });
+    return stage.getSnapshot();
+  }),
+  failure: { tag: "AgentTimedOut", message: "no answer" },
+  crashed: Effect.gen(function* () {
+    const stage = yield* startReview();
+    stage.send({ type: "crash", message: "agent exited with code 1" });
+    return stage.getSnapshot();
+  }),
+  crashMessage: "agent exited with code 1",
+};
 
-  it.effect("fails with a StageFailure whose reason blocks the work item", () =>
-    Effect.gen(function* () {
-      const stage = yield* startReview();
-      stage.send({ type: "fail", reason: { tag: "AgentTimedOut", message: "no answer" } });
-      expect(failureReasonOf(stage.getSnapshot().error)).toStrictEqual({
-        tag: "AgentTimedOut",
-        message: "no answer",
-      });
-    }),
-  );
+const buildAdapter: StageAdapter = {
+  name: "build",
+  finished: Effect.map(runBuild({ testReports: [testsPassed] }), ({ snapshot }) => snapshot),
+  outcome: { _tag: "built" },
+  failed: Effect.map(
+    runBuild({ testReports: [testsPassed], failing: "implement" }),
+    ({ snapshot }) => snapshot,
+  ),
+  failure: { tag: "AgentFailed", message: "The agent gave up during implement" },
+  crashed: Effect.map(
+    runBuild({ testReports: [testsPassed], crashing: "test" }),
+    ({ snapshot }) => snapshot,
+  ),
+  crashMessage: "The agent exited during test",
+};
 
-  it.effect("counts any other error as a crash", () =>
-    Effect.gen(function* () {
-      const stage = yield* startReview();
-      stage.send({ type: "crash", message: "agent exited with code 1" });
-      expect(failureReasonOf(stage.getSnapshot().error)).toStrictEqual({
-        tag: "StageCrashed",
-        message: "agent exited with code 1",
-      });
-    }),
-  );
-});
+for (const adapter of [stubAdapter, buildAdapter]) {
+  describe(`stage contract, ${adapter.name} adapter`, () => {
+    it.effect("finishes with its outcome", () =>
+      Effect.gen(function* () {
+        const { output } = yield* adapter.finished;
+        expect(output).toStrictEqual(adapter.outcome);
+      }),
+    );
+
+    it.effect("fails with a StageFailure whose reason blocks the work item", () =>
+      Effect.gen(function* () {
+        const { error } = yield* adapter.failed;
+        expect(failureReasonOf(error)).toStrictEqual(adapter.failure);
+      }),
+    );
+
+    it.effect("counts any other error as a crash", () =>
+      Effect.gen(function* () {
+        const { error } = yield* adapter.crashed;
+        expect(failureReasonOf(error)).toStrictEqual({
+          tag: "StageCrashed",
+          message: adapter.crashMessage,
+        });
+      }),
+    );
+  });
+}

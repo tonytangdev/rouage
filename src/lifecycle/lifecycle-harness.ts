@@ -1,6 +1,7 @@
 import { Data, Effect } from "effect";
 import type { AnyActorRef } from "xstate";
 
+import type { buildStage } from "./build-stage.ts";
 import { defaultLifecycle } from "./lifecycle.ts";
 import type { FailureReason, OutcomeOf, StageInput, StageName } from "./stage.ts";
 import type { AttachStub } from "./stub-stage.ts";
@@ -19,7 +20,12 @@ interface RunningStub {
   readonly input: StageInput;
 }
 
-const stubController = () => {
+/** Real stage implementations to run instead of stubs; every other stage stays a stub. */
+export interface RealStages {
+  readonly build?: Effect.Success<ReturnType<typeof buildStage>>;
+}
+
+const stubController = (real: RealStages) => {
   const running = new Map<StageName, RunningStub>();
   const attach: AttachStub = (stage, self, input) => {
     running.set(stage, { self, input });
@@ -29,7 +35,10 @@ const stubController = () => {
       }
     };
   };
-  return { running, lifecycle: defaultLifecycle.provide({ actors: stubStages(attach) }) };
+  return {
+    running,
+    lifecycle: defaultLifecycle.provide({ actors: { ...stubStages(attach), ...real } }),
+  };
 };
 
 const drive = (workItem: WorkItem, running: ReadonlyMap<StageName, RunningStub>) => {
@@ -45,6 +54,7 @@ const drive = (workItem: WorkItem, running: ReadonlyMap<StageName, RunningStub>)
     status: workItem.status,
     context: workItem.context,
     save: workItem.save,
+    reaches: workItem.reaches,
     send: workItem.send,
     stageInput: (stage: StageName) => running.get(stage)?.input,
     finish: <Stage extends StageName>(stage: Stage, outcome: OutcomeOf<Stage>) => {
@@ -59,9 +69,9 @@ const drive = (workItem: WorkItem, running: ReadonlyMap<StageName, RunningStub>)
   };
 };
 
-/** Starts a work item on the default lifecycle, with loop limits of 3, for the length of the test. */
-export const startWorkItem = Effect.fnUntraced(function* () {
-  const { running, lifecycle } = stubController();
+/** Starts a work item on the default lifecycle, with loop limits of 3 and a stub for every stage not in `real`, for the length of the test. */
+export const startWorkItem = Effect.fnUntraced(function* (real: RealStages = {}) {
+  const { running, lifecycle } = stubController(real);
   const workItem = yield* createWorkItem(lifecycle, {
     id: "wi-1",
     issueRef: "#1",
@@ -70,8 +80,11 @@ export const startWorkItem = Effect.fnUntraced(function* () {
   return drive(workItem, running);
 });
 
-/** Resumes a saved work item on the default lifecycle for the length of the test. */
-export const restoredWorkItem = Effect.fnUntraced(function* (persisted: unknown) {
-  const { running, lifecycle } = stubController();
+/** Resumes a saved work item on the default lifecycle, with a stub for every stage not in `real`, for the length of the test. */
+export const restoredWorkItem = Effect.fnUntraced(function* (
+  persisted: unknown,
+  real: RealStages = {},
+) {
+  const { running, lifecycle } = stubController(real);
   return drive(yield* restoreWorkItem(lifecycle, persisted), running);
 });

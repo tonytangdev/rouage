@@ -25,8 +25,8 @@ type StubStep<Stage extends StageName> = StubEvent<Stage> | { readonly type: "xs
 
 /**
  * A stage that finishes with whichever outcome it is sent, fails with a
- * `StageFailure` when sent `fail`, or crashes when sent `crash`, so the
- * lifecycle can be driven by events before real stages exist.
+ * `StageFailure` when sent `fail`, or crashes when sent `crash`, so a test
+ * can drive the lifecycle by events alone.
  */
 export const stubStage = <Stage extends StageName>(stage: Stage, attach: AttachStub = detached) =>
   createStepLogic<{ readonly input: StageInput }, OutcomeOf<Stage>, StubStep<Stage>, StageInput>({
