@@ -66,6 +66,10 @@ Evidence, captured after a change, that it works. Optional, decided during Plan.
 An external tool connected to Rouage through a contract for its kind.
 _Avoid_: App, integration, extension
 
+**Port**:
+The interface a stage machine runs its steps through, named for the job it asks for, such as Builder or Classifier. A plugin fills a port, and one plugin may fill several. A port that cannot carry out a step gives up, and the stage fails with the port's reason.
+_Avoid_: Service
+
 **Agent**:
 A plugin kind that does work using AI, such as Claude Code.
 

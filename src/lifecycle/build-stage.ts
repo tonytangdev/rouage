@@ -2,9 +2,9 @@ import type { Context } from "effect";
 import { Config, Effect } from "effect";
 import { setup, types } from "xstate";
 
-import type { BuildFailed, BuildTask, FixTask } from "../plugins/builder.ts";
+import type { BuildTask, FixTask } from "../plugins/builder.ts";
 import { Builder } from "../plugins/builder.ts";
-import { effectStep } from "./effect-step.ts";
+import { portStep } from "./port-step.ts";
 import type { OutcomeOf, StageInput } from "./stage.ts";
 import { StageFailure } from "./stage.ts";
 
@@ -23,17 +23,6 @@ const buildTask = ({ context }: { readonly context: BuildContext }): BuildTask =
   workItemId: context.input.workItemId,
   feedback: context.input.feedback,
 });
-
-const stageFailureOf = (error: BuildFailed) =>
-  new StageFailure({ reason: { tag: error._tag, message: error.message } });
-
-const builderStep = <Input, Output>(
-  services: Context.Context<Builder>,
-  step: (builder: Builder["Service"], input: Input) => Effect.Effect<Output, BuildFailed>,
-) =>
-  effectStep(services, (input: Input) =>
-    Builder.use((builder) => step(builder, input)).pipe(Effect.mapError(stageFailureOf)),
-  );
 
 const DEFAULT_FIX_ATTEMPTS = 3;
 
@@ -58,9 +47,11 @@ const buildSetup = (services: Context.Context<Builder>) =>
       output: types<OutcomeOf<"build">>(),
     },
     actors: {
-      implement: builderStep(services, (builder, task: BuildTask) => builder.implement(task)),
-      test: builderStep(services, (builder, task: BuildTask) => builder.test(task)),
-      fix: builderStep(services, (builder, task: FixTask) => builder.fix(task)),
+      implement: portStep(services, (task: BuildTask) =>
+        Builder.use((builder) => builder.implement(task)),
+      ),
+      test: portStep(services, (task: BuildTask) => Builder.use((builder) => builder.test(task))),
+      fix: portStep(services, (task: FixTask) => Builder.use((builder) => builder.fix(task))),
     },
     states: {
       implementing: {},

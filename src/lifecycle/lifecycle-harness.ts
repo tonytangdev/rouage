@@ -71,6 +71,9 @@ const drive = (workItem: WorkItem, running: ReadonlyMap<StageName, RunningStub>)
   };
 };
 
+/** Round-trips a saved work item through JSON, as a store that keeps it as text would. */
+export const throughJson = (persisted: unknown): unknown => JSON.parse(JSON.stringify(persisted));
+
 /** Starts a work item on the default lifecycle, with loop limits of 3 and a stub for every stage not in `real`, for the length of the test. */
 export const startWorkItem = Effect.fnUntraced(function* (real: RealStages = {}) {
   const { running, lifecycle } = stubController(real);

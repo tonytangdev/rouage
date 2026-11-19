@@ -1,49 +1,34 @@
 import { Deferred, Effect, Layer } from "effect";
 
 import type { Classification, ClassifyTask } from "./classifier.ts";
-import { Classifier, ClassifyFailed } from "./classifier.ts";
+import { Classifier, ClassifierGaveUp } from "./classifier.ts";
+import type { Misbehaviour } from "./fake-script.ts";
+import { behaving, scriptedAnswers } from "./fake-script.ts";
 
 export interface FakeClassifierScript {
   /** What each classification returns, in order. */
   readonly results: readonly Classification[];
-  /**
-   * How every classification goes wrong: `failing` fails with `ClassifyFailed`,
-   * `crashing` dies with a defect, and `hanging` never finishes, so a test can
-   * save or stop the work item while it runs.
-   */
-  readonly misbehaving?: "failing" | "crashing" | "hanging";
+  /** How every classification goes wrong, if it does. */
+  readonly misbehaving?: Misbehaviour;
 }
 
-const verdictOf = (script: FakeClassifierScript, result: Effect.Effect<Classification>) => {
-  if (script.misbehaving === "failing") {
-    return Effect.fail(new ClassifyFailed({ message: "The classifier gave up on the issue" }));
-  }
-  if (script.misbehaving === "crashing") {
-    return Effect.die(new Error("The classifier exited while classifying"));
-  }
-  return script.misbehaving === "hanging" ? Effect.never : result;
+const wrongdoing = {
+  gaveUp: new ClassifierGaveUp({ message: "The classifier gave up on the issue" }),
+  defect: "The classifier exited while classifying",
 };
 
-/**
- * A classifier that follows a script instead of reading an issue. A
- * classification beyond the script dies, so a test that under-scripts its
- * classifier fails loudly.
- */
+/** A classifier that follows a script instead of reading an issue. */
 export const fakeClassifier = Effect.fnUntraced(function* (script: FakeClassifierScript) {
   const calls: ClassifyTask[] = [];
-  const results = [...script.results];
+  const results = scriptedAnswers(script.results, "classifier");
   const begun = yield* Deferred.make<boolean>();
-  const nextResult = Effect.suspend(() => {
-    const result = results.shift();
-    return result === undefined
-      ? Effect.die(new Error("The fake classifier ran out of scripted results"))
-      : Effect.succeed(result);
-  });
   const classifier = Classifier.of({
     classify: (task) =>
       Effect.suspend(() => {
         calls.push(task);
-        return Deferred.succeed(begun, true).pipe(Effect.andThen(verdictOf(script, nextResult)));
+        return Deferred.succeed(begun, true).pipe(
+          Effect.andThen(behaving(script.misbehaving, wrongdoing, results)),
+        );
       }),
   });
   return {

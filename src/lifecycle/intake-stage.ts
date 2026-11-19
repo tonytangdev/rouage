@@ -2,9 +2,9 @@ import type { Context } from "effect";
 import { Effect } from "effect";
 import { setup, types } from "xstate";
 
-import type { ClassifyFailed, ClassifyTask } from "../plugins/classifier.ts";
+import type { ClassifyTask } from "../plugins/classifier.ts";
 import { Classifier } from "../plugins/classifier.ts";
-import { effectStep } from "./effect-step.ts";
+import { portStep } from "./port-step.ts";
 import type { Kind, OutcomeOf, StageInput } from "./stage.ts";
 import { StageFailure } from "./stage.ts";
 
@@ -13,9 +13,6 @@ const classifyTask = ({ context }: { readonly context: StageInput }): ClassifyTa
   issueRef: context.issueRef,
   feedback: context.feedback,
 });
-
-const stageFailureOf = (error: ClassifyFailed) =>
-  new StageFailure({ reason: { tag: error._tag, message: error.message } });
 
 const unclassifiable = (reason: string) =>
   new StageFailure({ reason: { tag: "Unclassifiable", message: reason } });
@@ -28,10 +25,8 @@ const intakeSetup = (services: Context.Context<Classifier>) =>
       output: types<OutcomeOf<"intake">>(),
     },
     actors: {
-      classify: effectStep(services, (task: ClassifyTask) =>
-        Classifier.use((classifier) => classifier.classify(task)).pipe(
-          Effect.mapError(stageFailureOf),
-        ),
+      classify: portStep(services, (task: ClassifyTask) =>
+        Classifier.use((classifier) => classifier.classify(task)),
       ),
     },
     states: {
@@ -55,7 +50,7 @@ const intakeMachine = (services: Context.Context<Classifier>) =>
             if (output._tag === "unclear") {
               throw unclassifiable(output.reason);
             }
-            return { target: "classified", input: { kind: output._tag } };
+            return { target: "classified", input: { kind: output.kind } };
           },
         },
       },

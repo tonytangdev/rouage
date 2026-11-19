@@ -15,8 +15,8 @@ export type TestReport =
   | { readonly _tag: "passed" }
   | { readonly _tag: "failed"; readonly failures: string };
 
-/** The builder could not carry out a task. */
-export class BuildFailed extends Data.TaggedError("BuildFailed")<{
+/** The builder could not carry out a step. */
+export class BuilderGaveUp extends Data.TaggedError("BuilderGaveUp")<{
   readonly message: string;
 }> {}
 
@@ -24,8 +24,8 @@ export class BuildFailed extends Data.TaggedError("BuildFailed")<{
 export class Builder extends Context.Service<
   Builder,
   {
-    readonly implement: (task: BuildTask) => Effect.Effect<void, BuildFailed>;
-    readonly test: (task: BuildTask) => Effect.Effect<TestReport, BuildFailed>;
-    readonly fix: (task: FixTask) => Effect.Effect<void, BuildFailed>;
+    readonly implement: (task: BuildTask) => Effect.Effect<void, BuilderGaveUp>;
+    readonly test: (task: BuildTask) => Effect.Effect<TestReport, BuilderGaveUp>;
+    readonly fix: (task: FixTask) => Effect.Effect<void, BuilderGaveUp>;
   }
 >()("rouage/plugins/Builder") {}

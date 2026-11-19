@@ -5,24 +5,20 @@ import { createActor } from "xstate";
 
 import { runBuild, testsPassed } from "./build-harness.ts";
 import { isBug, runIntake } from "./intake-harness.ts";
+import type { Settled } from "./stage-harness.ts";
 import type { FailureReason } from "./stage.ts";
 import { failureReasonOf } from "./stage.ts";
 import { stubStage } from "./stub-stage.ts";
 
 const input = { workItemId: "wi-1", issueRef: "#1", kind: "bug" as const, feedback: null };
 
-interface Settled {
-  readonly output: unknown;
-  readonly error: unknown;
-}
-
 interface StageAdapter {
   readonly name: string;
-  readonly finished: Effect.Effect<Settled, unknown, Scope.Scope>;
+  readonly finished: Effect.Effect<Settled<unknown>, unknown, Scope.Scope>;
   readonly outcome: unknown;
-  readonly failed: Effect.Effect<Settled, unknown, Scope.Scope>;
+  readonly failed: Effect.Effect<Settled<unknown>, unknown, Scope.Scope>;
   readonly failure: FailureReason;
-  readonly crashed: Effect.Effect<Settled, unknown, Scope.Scope>;
+  readonly crashed: Effect.Effect<Settled<unknown>, unknown, Scope.Scope>;
   readonly crashMessage: string;
 }
 
@@ -60,32 +56,32 @@ const stubAdapter: StageAdapter = {
 
 const buildAdapter: StageAdapter = {
   name: "build",
-  finished: Effect.map(runBuild({ testReports: [testsPassed] }), ({ snapshot }) => snapshot),
+  finished: Effect.map(runBuild({ testReports: [testsPassed] }), ({ settled }) => settled),
   outcome: { _tag: "built" },
   failed: Effect.map(
-    runBuild({ testReports: [testsPassed], failing: "implement" }),
-    ({ snapshot }) => snapshot,
+    runBuild({ testReports: [testsPassed], misbehaving: { step: "implement", as: "failing" } }),
+    ({ settled }) => settled,
   ),
-  failure: { tag: "BuildFailed", message: "The builder gave up during implement" },
+  failure: { tag: "BuilderGaveUp", message: "The builder gave up during implement" },
   crashed: Effect.map(
-    runBuild({ testReports: [testsPassed], crashing: "test" }),
-    ({ snapshot }) => snapshot,
+    runBuild({ testReports: [testsPassed], misbehaving: { step: "test", as: "crashing" } }),
+    ({ settled }) => settled,
   ),
   crashMessage: "The builder exited during test",
 };
 
 const intakeAdapter: StageAdapter = {
   name: "intake",
-  finished: Effect.map(runIntake({ results: [isBug] }), ({ snapshot }) => snapshot),
+  finished: Effect.map(runIntake({ results: [isBug] }), ({ settled }) => settled),
   outcome: { _tag: "classified", kind: "bug" },
   failed: Effect.map(
     runIntake({ results: [isBug], misbehaving: "failing" }),
-    ({ snapshot }) => snapshot,
+    ({ settled }) => settled,
   ),
-  failure: { tag: "ClassifyFailed", message: "The classifier gave up on the issue" },
+  failure: { tag: "ClassifierGaveUp", message: "The classifier gave up on the issue" },
   crashed: Effect.map(
     runIntake({ results: [isBug], misbehaving: "crashing" }),
-    ({ snapshot }) => snapshot,
+    ({ settled }) => settled,
   ),
   crashMessage: "The classifier exited while classifying",
 };

@@ -7,15 +7,15 @@ import { failureReasonOf } from "./stage.ts";
 describe("intake stage", () => {
   it.effect("classifies the work item as a bug when the classifier finds a bug", () =>
     Effect.gen(function* () {
-      const { snapshot } = yield* runIntake({ results: [isBug] });
-      expect(snapshot.output).toStrictEqual({ _tag: "classified", kind: "bug" });
+      const { settled } = yield* runIntake({ results: [isBug] });
+      expect(settled.output).toStrictEqual({ _tag: "classified", kind: "bug" });
     }),
   );
 
   it.effect("classifies the work item as a feature when the classifier finds a feature", () =>
     Effect.gen(function* () {
-      const { snapshot } = yield* runIntake({ results: [isFeature] });
-      expect(snapshot.output).toStrictEqual({ _tag: "classified", kind: "feature" });
+      const { settled } = yield* runIntake({ results: [isFeature] });
+      expect(settled.output).toStrictEqual({ _tag: "classified", kind: "feature" });
     }),
   );
 
@@ -28,8 +28,8 @@ describe("intake stage", () => {
 
   it.effect("fails as Unclassifiable when the classifier cannot tell", () =>
     Effect.gen(function* () {
-      const { snapshot } = yield* runIntake({ results: [isUnclear] });
-      expect(failureReasonOf(snapshot.error)).toStrictEqual({
+      const { settled } = yield* runIntake({ results: [isUnclear] });
+      expect(failureReasonOf(settled.error)).toStrictEqual({
         tag: "Unclassifiable",
         message: "The issue asks for a change without saying what is wrong today",
       });

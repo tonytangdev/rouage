@@ -2,13 +2,11 @@ import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
 import { scriptedBuild, testsFailed, testsPassed } from "./build-harness.ts";
-import { restoredWorkItem, startWorkItem } from "./lifecycle-harness.ts";
+import { restoredWorkItem, startWorkItem, throughJson } from "./lifecycle-harness.ts";
 
 type DrivenWorkItem = Effect.Success<ReturnType<typeof startWorkItem>>;
 
 const reviewer = { by: "ada", at: "2026-11-19T10:00:00.000Z" };
-
-const throughJson = (persisted: unknown): unknown => JSON.parse(JSON.stringify(persisted));
 
 const throughPlan = (workItem: DrivenWorkItem) => {
   workItem.finish("intake", { _tag: "classified", kind: "feature" });
@@ -31,20 +29,26 @@ describe("a work item in the Build stage", () => {
 
   it.effect("becomes blocked on Build when Build fails", () =>
     Effect.gen(function* () {
-      const { build } = yield* scriptedBuild({ testReports: [testsPassed], failing: "implement" });
+      const { build } = yield* scriptedBuild({
+        testReports: [testsPassed],
+        misbehaving: { step: "implement", as: "failing" },
+      });
       const workItem = yield* startWorkItem({ build });
       throughPlan(workItem);
       yield* workItem.reaches("blocked");
       expect(workItem.context().blocked).toStrictEqual({
         from: "build",
-        reason: { tag: "BuildFailed", message: "The builder gave up during implement" },
+        reason: { tag: "BuilderGaveUp", message: "The builder gave up during implement" },
       });
     }),
   );
 
   it.effect("resumes Build at the step it was saved in", () =>
     Effect.gen(function* () {
-      const before = yield* scriptedBuild({ testReports: [], hanging: "test" });
+      const before = yield* scriptedBuild({
+        testReports: [],
+        misbehaving: { step: "test", as: "hanging" },
+      });
       const original = yield* startWorkItem({ build: before.build });
       throughPlan(original);
       yield* before.builder.started("test");
@@ -60,7 +64,7 @@ describe("a work item in the Build stage", () => {
   it.effect("keeps the fix attempts a Build started with when it is restored mid-fix", () =>
     Effect.gen(function* () {
       const before = yield* scriptedBuild(
-        { testReports: [testsFailed], hanging: "fix" },
+        { testReports: [testsFailed], misbehaving: { step: "fix", as: "hanging" } },
         { fixAttempts: 1 },
       );
       const original = yield* startWorkItem({ build: before.build });
