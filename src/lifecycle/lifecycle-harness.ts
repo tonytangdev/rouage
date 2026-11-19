@@ -1,7 +1,6 @@
 import { Data, Effect } from "effect";
-import type { AnyActorRef } from "xstate";
+import type { AnyActorRef, AnyStateMachine } from "xstate";
 
-import type { buildStage } from "./build-stage.ts";
 import { defaultLifecycle } from "./lifecycle.ts";
 import type { FailureReason, OutcomeOf, StageInput, StageName } from "./stage.ts";
 import type { AttachStub } from "./stub-stage.ts";
@@ -21,9 +20,7 @@ interface RunningStub {
 }
 
 /** Real stage implementations to run instead of stubs; every other stage stays a stub. */
-export interface RealStages {
-  readonly build?: Effect.Success<ReturnType<typeof buildStage>>;
-}
+export type RealStages = Partial<Readonly<Record<StageName, AnyStateMachine>>>;
 
 const stubController = (real: RealStages) => {
   const running = new Map<StageName, RunningStub>();
@@ -68,6 +65,9 @@ const drive = (workItem: WorkItem, running: ReadonlyMap<StageName, RunningStub>)
     },
   };
 };
+
+/** Round-trips a saved work item through JSON, as a store that keeps it as text would. */
+export const throughJson = (persisted: unknown): unknown => JSON.parse(JSON.stringify(persisted));
 
 /** Starts a work item on the default lifecycle, with loop limits of 3 and a stub for every stage not in `real`, for the length of the test. */
 export const startWorkItem = Effect.fnUntraced(function* (real: RealStages = {}) {

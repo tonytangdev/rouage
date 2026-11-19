@@ -1,29 +1,11 @@
-import { describe, expect, it } from "@effect/vitest";
-import type { Scope } from "effect";
 import { Effect, Function } from "effect";
 import { createActor } from "xstate";
 
-import { runBuild, testsPassed } from "./build-harness.ts";
-import type { FailureReason } from "./stage.ts";
-import { failureReasonOf } from "./stage.ts";
+import { describeStageContract } from "./stage-contract.ts";
+import type { StageAdapter } from "./stage-contract.ts";
 import { stubStage } from "./stub-stage.ts";
 
-const input = { workItemId: "wi-1", kind: "bug" as const, feedback: null };
-
-interface Settled {
-  readonly output: unknown;
-  readonly error: unknown;
-}
-
-interface StageAdapter {
-  readonly name: string;
-  readonly finished: Effect.Effect<Settled, unknown, Scope.Scope>;
-  readonly outcome: unknown;
-  readonly failed: Effect.Effect<Settled, unknown, Scope.Scope>;
-  readonly failure: FailureReason;
-  readonly crashed: Effect.Effect<Settled, unknown, Scope.Scope>;
-  readonly crashMessage: string;
-}
+const input = { workItemId: "wi-1", issueRef: "#1", kind: "bug" as const, feedback: null };
 
 const startReview = Effect.fnUntraced(function* () {
   const actor = createActor(stubStage("review"), { input });
@@ -57,46 +39,4 @@ const stubAdapter: StageAdapter = {
   crashMessage: "agent exited with code 1",
 };
 
-const buildAdapter: StageAdapter = {
-  name: "build",
-  finished: Effect.map(runBuild({ testReports: [testsPassed] }), ({ snapshot }) => snapshot),
-  outcome: { _tag: "built" },
-  failed: Effect.map(
-    runBuild({ testReports: [testsPassed], failing: "implement" }),
-    ({ snapshot }) => snapshot,
-  ),
-  failure: { tag: "AgentFailed", message: "The agent gave up during implement" },
-  crashed: Effect.map(
-    runBuild({ testReports: [testsPassed], crashing: "test" }),
-    ({ snapshot }) => snapshot,
-  ),
-  crashMessage: "The agent exited during test",
-};
-
-for (const adapter of [stubAdapter, buildAdapter]) {
-  describe(`stage contract, ${adapter.name} adapter`, () => {
-    it.effect("finishes with its outcome", () =>
-      Effect.gen(function* () {
-        const { output } = yield* adapter.finished;
-        expect(output).toStrictEqual(adapter.outcome);
-      }),
-    );
-
-    it.effect("fails with a StageFailure whose reason blocks the work item", () =>
-      Effect.gen(function* () {
-        const { error } = yield* adapter.failed;
-        expect(failureReasonOf(error)).toStrictEqual(adapter.failure);
-      }),
-    );
-
-    it.effect("counts any other error as a crash", () =>
-      Effect.gen(function* () {
-        const { error } = yield* adapter.crashed;
-        expect(failureReasonOf(error)).toStrictEqual({
-          tag: "StageCrashed",
-          message: adapter.crashMessage,
-        });
-      }),
-    );
-  });
-}
+describeStageContract(stubAdapter);

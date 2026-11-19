@@ -1,0 +1,24 @@
+# A folder per stage, owning its port; stages depend on the lifecycle, never the reverse
+
+Each stage implementation of the default lifecycle lives in its own folder under `src/stages/<stage>/`. That folder holds:
+
+- the stage machine,
+- the **port** it runs its steps through (such as Builder or Classifier),
+- the port's fake,
+- the stage's test harness and its tests.
+
+What every port stage shares sits at the root of `src/stages/`: the step helper that turns a port giving up into a `StageFailure`, the scripted-port workings behind every fake, and the runner for testing a stage alone.
+
+A port belongs to its stage, because it is the interface that one stage needs from the outside world, written in that stage's terms (see "Port" in `GLOSSARY.md`). A plugin fills ports; it does not define them.
+
+Dependencies run one way. Stages import the lifecycle's stage contract (`StageInput`, `Kind`, `StageFailure`, the stage contract suite). The lifecycle, including its test support, never imports a stage. This is why the lifecycle harness types the real stages it runs as any state machine, and why each stage folder runs the stage contract suite against itself.
+
+## Considered Options
+
+- **Ports in `src/plugins/`, stage machines in `src/lifecycle/`.** This was the first layout. It was rejected because one stage was spread across six files in two folders, and the two folders imported each other: the stages imported their ports, and a port imported `Kind` from the lifecycle.
+- **Type the lifecycle harness's real stages from each stage factory.** This gave a compile-time check that a stage fits its slot. It was rejected because the lifecycle then depended on every stage. The stage contract suite and each stage's lifecycle tests catch a stage that does not fit its slot when the tests run.
+
+## Consequences
+
+- Adding a stage means adding one folder. Nothing under `src/lifecycle/` changes.
+- `src/plugins/` is reserved for real adapters that fill ports, such as a Claude Code plugin. It does not exist until the first one does.
