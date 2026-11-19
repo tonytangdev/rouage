@@ -38,7 +38,7 @@ describe("a work item in the Intake stage", () => {
 
   it.effect("classifies again when restored mid-classification", () =>
     Effect.gen(function* () {
-      const before = yield* scriptedIntake({ results: [], hanging: true });
+      const before = yield* scriptedIntake({ results: [], misbehaving: "hanging" });
       const original = yield* startWorkItem({ intake: before.intake });
       yield* before.classifier.started;
       const after = yield* scriptedIntake({ results: [isBug] });
@@ -46,7 +46,9 @@ describe("a work item in the Intake stage", () => {
         intake: after.intake,
       });
       yield* workItem.reaches("spec");
-      expect(after.classifier.calls()).toHaveLength(1);
+      expect(after.classifier.calls()).toStrictEqual([
+        { workItemId: "wi-1", issueRef: "#1", feedback: null },
+      ]);
     }),
   );
 });

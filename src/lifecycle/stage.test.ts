@@ -78,9 +78,15 @@ const intakeAdapter: StageAdapter = {
   name: "intake",
   finished: Effect.map(runIntake({ results: [isBug] }), ({ snapshot }) => snapshot),
   outcome: { _tag: "classified", kind: "bug" },
-  failed: Effect.map(runIntake({ results: [isBug], failing: true }), ({ snapshot }) => snapshot),
+  failed: Effect.map(
+    runIntake({ results: [isBug], misbehaving: "failing" }),
+    ({ snapshot }) => snapshot,
+  ),
   failure: { tag: "ClassifyFailed", message: "The classifier gave up on the issue" },
-  crashed: Effect.map(runIntake({ results: [isBug], crashing: true }), ({ snapshot }) => snapshot),
+  crashed: Effect.map(
+    runIntake({ results: [isBug], misbehaving: "crashing" }),
+    ({ snapshot }) => snapshot,
+  ),
   crashMessage: "The classifier exited while classifying",
 };
 

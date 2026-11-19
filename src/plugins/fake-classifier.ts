@@ -6,22 +6,22 @@ import { Classifier, ClassifyFailed } from "./classifier.ts";
 export interface FakeClassifierScript {
   /** What each classification returns, in order. */
   readonly results: readonly Classification[];
-  /** Fails with `ClassifyFailed` every time it classifies. */
-  readonly failing?: boolean;
-  /** Dies with a defect every time it classifies. */
-  readonly crashing?: boolean;
-  /** Never finishes classifying, so a test can save or stop the work item while it runs. */
-  readonly hanging?: boolean;
+  /**
+   * How every classification goes wrong: `failing` fails with `ClassifyFailed`,
+   * `crashing` dies with a defect, and `hanging` never finishes, so a test can
+   * save or stop the work item while it runs.
+   */
+  readonly misbehaving?: "failing" | "crashing" | "hanging";
 }
 
 const verdictOf = (script: FakeClassifierScript, result: Effect.Effect<Classification>) => {
-  if (script.failing === true) {
+  if (script.misbehaving === "failing") {
     return Effect.fail(new ClassifyFailed({ message: "The classifier gave up on the issue" }));
   }
-  if (script.crashing === true) {
+  if (script.misbehaving === "crashing") {
     return Effect.die(new Error("The classifier exited while classifying"));
   }
-  return script.hanging === true ? Effect.never : result;
+  return script.misbehaving === "hanging" ? Effect.never : result;
 };
 
 /**
