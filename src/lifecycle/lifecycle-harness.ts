@@ -2,7 +2,8 @@ import { Data, Effect } from "effect";
 import type { AnyActorRef, AnyStateMachine } from "xstate";
 
 import { defaultLifecycle } from "./lifecycle.ts";
-import type { FailureReason, Kind, OutcomeOf, StageInput, StageName } from "./stage.ts";
+import type { FailureReason, Kind, OutcomeOf, StageFacts, StageInput, StageName } from "./stage.ts";
+import { noFactsYet } from "./stage.ts";
 import type { AttachStub } from "./stub-stage.ts";
 import { stubStages } from "./stub-stage.ts";
 import type { WorkItem } from "./work-item-actor.ts";
@@ -37,6 +38,14 @@ const stubController = (real: RealStages) => {
     lifecycle: defaultLifecycle.provide({ actors: { ...stubStages(attach), ...real } }),
   };
 };
+
+/** The input a stage of the test work item receives: no facts yet except `facts`. */
+export const stageInputWith = (facts: Partial<StageFacts> = {}): StageInput => ({
+  workItemId: "wi-1",
+  issueRef: "#1",
+  ...noFactsYet,
+  ...facts,
+});
 
 /** A human deciding at a gate or for a blocked work item, as tests send them. */
 export const reviewer = { by: "ada", at: "2026-11-19T10:00:00.000Z" } as const;

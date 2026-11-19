@@ -43,6 +43,16 @@ export interface StageFacts {
   readonly sampleRef: string | null;
 }
 
+/** The facts of a work item no stage has worked on yet; only `issueRef` is known from the start. */
+export const noFactsYet: Omit<StageFacts, "issueRef"> = {
+  kind: null,
+  feedback: null,
+  specRef: null,
+  sandboxRef: null,
+  sampleRequest: null,
+  sampleRef: null,
+};
+
 /** What the lifecycle passes to every stage machine it starts. */
 export interface StageInput extends StageFacts {
   readonly workItemId: string;

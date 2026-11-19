@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
 import type { Route, Waypoint } from "./lifecycle-harness.ts";
-import { reviewer, startWorkItem } from "./lifecycle-harness.ts";
+import { reviewer, stageInputWith, startWorkItem } from "./lifecycle-harness.ts";
 
 const startAt = Effect.fnUntraced(function* (waypoint: Waypoint, route: Route = {}) {
   const workItem = yield* startWorkItem();
@@ -43,32 +43,18 @@ describe("lifecycle", () => {
       const workItem = yield* startAt("specGate", { kind: "bug" });
       workItem.send({ type: "reject", ...reviewer, comment: "missing edge case" });
       expect(workItem.stage()).toStrictEqual("spec");
-      expect(workItem.stageInput("spec")).toStrictEqual({
-        workItemId: "wi-1",
-        issueRef: "#1",
-        kind: "bug",
-        feedback: "missing edge case",
-        specRef: "spec-1",
-        sandboxRef: null,
-        sampleRequest: null,
-        sampleRef: null,
-      });
+      expect(workItem.stageInput("spec")).toStrictEqual(
+        stageInputWith({ kind: "bug", feedback: "missing edge case", specRef: "spec-1" }),
+      );
     }),
   );
 
   it.effect("passes the written spec on to the stages after Spec", () =>
     Effect.gen(function* () {
       const workItem = yield* startAt("provision", { kind: "feature" });
-      expect(workItem.stageInput("provision")).toStrictEqual({
-        workItemId: "wi-1",
-        issueRef: "#1",
-        kind: "feature",
-        feedback: null,
-        specRef: "spec-1",
-        sandboxRef: null,
-        sampleRequest: null,
-        sampleRef: null,
-      });
+      expect(workItem.stageInput("provision")).toStrictEqual(
+        stageInputWith({ kind: "feature", specRef: "spec-1" }),
+      );
     }),
   );
 
@@ -103,16 +89,14 @@ describe("lifecycle", () => {
       workItem.send({ type: "backToSpec", ...reviewer, comment: "clarify the steps" });
       expect(workItem.stage()).toStrictEqual("spec");
       expect(workItem.context().blocked).toBeNull();
-      expect(workItem.stageInput("spec")).toStrictEqual({
-        workItemId: "wi-1",
-        issueRef: "#1",
-        kind: "bug",
-        feedback: "clarify the steps",
-        specRef: "spec-1",
-        sandboxRef: "box-1",
-        sampleRequest: null,
-        sampleRef: null,
-      });
+      expect(workItem.stageInput("spec")).toStrictEqual(
+        stageInputWith({
+          kind: "bug",
+          feedback: "clarify the steps",
+          specRef: "spec-1",
+          sandboxRef: "box-1",
+        }),
+      );
     }),
   );
 
@@ -133,16 +117,15 @@ describe("lifecycle", () => {
           sandboxRef: "box-1",
           sampleRef: "s-1",
         });
-        expect(workItem.stageInput("reproduce")).toStrictEqual({
-          workItemId: "wi-1",
-          issueRef: "#1",
-          kind: "bug",
-          feedback: null,
-          specRef: "spec-1",
-          sandboxRef: "box-1",
-          sampleRequest: "orders over 100",
-          sampleRef: "s-1",
-        });
+        expect(workItem.stageInput("reproduce")).toStrictEqual(
+          stageInputWith({
+            kind: "bug",
+            specRef: "spec-1",
+            sandboxRef: "box-1",
+            sampleRequest: "orders over 100",
+            sampleRef: "s-1",
+          }),
+        );
       }),
   );
 
@@ -229,16 +212,14 @@ describe("lifecycle", () => {
         };
         requestChanges();
         expect(workItem.stage()).toStrictEqual("build");
-        expect(workItem.stageInput("build")).toStrictEqual({
-          workItemId: "wi-1",
-          issueRef: "#1",
-          kind: "feature",
-          feedback: "rename the flag",
-          specRef: "spec-1",
-          sandboxRef: "box-1",
-          sampleRequest: null,
-          sampleRef: null,
-        });
+        expect(workItem.stageInput("build")).toStrictEqual(
+          stageInputWith({
+            kind: "feature",
+            feedback: "rename the flag",
+            specRef: "spec-1",
+            sandboxRef: "box-1",
+          }),
+        );
         requestChanges();
         requestChanges();
         requestChanges();
@@ -270,16 +251,14 @@ describe("lifecycle", () => {
       const workItem = yield* startAt("shipGate");
       workItem.send({ type: "reject", ...reviewer, comment: "wait for the release freeze" });
       expect(workItem.stage()).toStrictEqual("build");
-      expect(workItem.stageInput("build")).toStrictEqual({
-        workItemId: "wi-1",
-        issueRef: "#1",
-        kind: "feature",
-        feedback: "wait for the release freeze",
-        specRef: "spec-1",
-        sandboxRef: "box-1",
-        sampleRequest: null,
-        sampleRef: null,
-      });
+      expect(workItem.stageInput("build")).toStrictEqual(
+        stageInputWith({
+          kind: "feature",
+          feedback: "wait for the release freeze",
+          specRef: "spec-1",
+          sandboxRef: "box-1",
+        }),
+      );
     }),
   );
 
@@ -329,16 +308,9 @@ describe("lifecycle", () => {
       workItem.fail("intake", { tag: "IssueUnreadable", message: "the issue body is empty" });
       workItem.send({ type: "backToSpec", ...reviewer, comment: "body filled in" });
       expect(workItem.stage()).toStrictEqual("intake");
-      expect(workItem.stageInput("intake")).toStrictEqual({
-        workItemId: "wi-1",
-        issueRef: "#1",
-        kind: null,
-        feedback: "body filled in",
-        specRef: null,
-        sandboxRef: null,
-        sampleRequest: null,
-        sampleRef: null,
-      });
+      expect(workItem.stageInput("intake")).toStrictEqual(
+        stageInputWith({ feedback: "body filled in" }),
+      );
     }),
   );
 });
