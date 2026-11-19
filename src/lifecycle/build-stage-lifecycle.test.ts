@@ -37,7 +37,7 @@ describe("a work item in the Build stage", () => {
       yield* workItem.reaches("blocked");
       expect(workItem.context().blocked).toStrictEqual({
         from: "build",
-        reason: { tag: "AgentFailed", message: "The agent gave up during implement" },
+        reason: { tag: "BuildFailed", message: "The builder gave up during implement" },
       });
     }),
   );
@@ -47,13 +47,13 @@ describe("a work item in the Build stage", () => {
       const before = yield* scriptedBuild({ testReports: [], hanging: "test" });
       const original = yield* startWorkItem({ build: before.build });
       throughPlan(original);
-      yield* before.agent.started("test");
+      yield* before.builder.started("test");
       const after = yield* scriptedBuild({ testReports: [testsFailed, testsPassed] });
       const workItem = yield* restoredWorkItem(throughJson(original.save()), {
         build: after.build,
       });
       yield* workItem.reaches("review");
-      expect(after.agent.steps()).toStrictEqual(["test", "fix", "test"]);
+      expect(after.builder.steps()).toStrictEqual(["test", "fix", "test"]);
     }),
   );
 
@@ -65,26 +65,26 @@ describe("a work item in the Build stage", () => {
       );
       const original = yield* startWorkItem({ build: before.build });
       throughPlan(original);
-      yield* before.agent.started("fix");
+      yield* before.builder.started("fix");
       const after = yield* scriptedBuild({ testReports: [testsFailed] }, { fixAttempts: 3 });
       const workItem = yield* restoredWorkItem(throughJson(original.save()), {
         build: after.build,
       });
       yield* workItem.reaches("blocked");
       expect(workItem.context().blocked?.reason.tag).toStrictEqual("FixAttemptsExhausted");
-      expect(after.agent.steps()).toStrictEqual(["fix", "test"]);
+      expect(after.builder.steps()).toStrictEqual(["fix", "test"]);
     }),
   );
 
   it.effect("builds again with the reviewer's feedback when Review requests changes", () =>
     Effect.gen(function* () {
-      const { agent, build } = yield* scriptedBuild({ testReports: [testsPassed, testsPassed] });
+      const { builder, build } = yield* scriptedBuild({ testReports: [testsPassed, testsPassed] });
       const workItem = yield* startWorkItem({ build });
       throughPlan(workItem);
       yield* workItem.reaches("review");
       workItem.finish("review", { _tag: "changesRequested", feedback: "rename totals" });
       yield* workItem.reaches("review");
-      expect(agent.calls().filter((call) => call.step === "implement")).toStrictEqual([
+      expect(builder.calls().filter((call) => call.step === "implement")).toStrictEqual([
         { step: "implement", task: { workItemId: "wi-1", feedback: null } },
         { step: "implement", task: { workItemId: "wi-1", feedback: "rename totals" } },
       ]);

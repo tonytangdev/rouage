@@ -65,12 +65,12 @@ const buildAdapter: StageAdapter = {
     runBuild({ testReports: [testsPassed], failing: "implement" }),
     ({ snapshot }) => snapshot,
   ),
-  failure: { tag: "AgentFailed", message: "The agent gave up during implement" },
+  failure: { tag: "BuildFailed", message: "The builder gave up during implement" },
   crashed: Effect.map(
     runBuild({ testReports: [testsPassed], crashing: "test" }),
     ({ snapshot }) => snapshot,
   ),
-  crashMessage: "The agent exited during test",
+  crashMessage: "The builder exited during test",
 };
 
 for (const adapter of [stubAdapter, buildAdapter]) {

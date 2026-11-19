@@ -1,8 +1,8 @@
 import { Effect, Function } from "effect";
 import { createActor, waitFor } from "xstate";
 
-import type { FakeAgentScript } from "../plugins/fake-agent.ts";
-import { fakeAgent } from "../plugins/fake-agent.ts";
+import type { FakeBuilderScript } from "../plugins/fake-builder.ts";
+import { fakeBuilder } from "../plugins/fake-builder.ts";
 import type { BuildOptions } from "./build-stage.ts";
 import { buildStage } from "./build-stage.ts";
 
@@ -10,19 +10,19 @@ export const testsPassed = { _tag: "passed" } as const;
 export const testsFailed = { _tag: "failed", failures: "1 test failed: totals add VAT" } as const;
 
 export const scriptedBuild = Effect.fnUntraced(function* (
-  script: FakeAgentScript,
+  script: FakeBuilderScript,
   options: BuildOptions = {},
 ) {
-  const agent = yield* fakeAgent(script);
-  return { agent, build: yield* buildStage(options).pipe(Effect.provide(agent.layer)) };
+  const builder = yield* fakeBuilder(script);
+  return { builder, build: yield* buildStage(options).pipe(Effect.provide(builder.layer)) };
 });
 
 /** Runs a Build stage outside any lifecycle until it finishes or fails; the actor stops when the test's scope closes. */
 export const runBuild = Effect.fnUntraced(function* (
-  script: FakeAgentScript,
+  script: FakeBuilderScript,
   options: BuildOptions = {},
 ) {
-  const { agent, build } = yield* scriptedBuild(script, options);
+  const { builder, build } = yield* scriptedBuild(script, options);
   const actor = createActor(build, {
     input: { workItemId: "wi-1", kind: "feature", feedback: null },
   });
@@ -36,5 +36,5 @@ export const runBuild = Effect.fnUntraced(function* (
   yield* Effect.tryPromise(() => waitFor(started, (snapshot) => snapshot.status !== "active")).pipe(
     Effect.ignore,
   );
-  return { snapshot: started.getSnapshot(), steps: agent.steps(), calls: agent.calls() };
+  return { snapshot: started.getSnapshot(), steps: builder.steps(), calls: builder.calls() };
 });

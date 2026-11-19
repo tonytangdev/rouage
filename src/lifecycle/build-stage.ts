@@ -2,8 +2,8 @@ import type { Context } from "effect";
 import { Config, Effect } from "effect";
 import { setup, types } from "xstate";
 
-import type { AgentFailed, BuildTask, FixTask } from "../plugins/agent.ts";
-import { Agent } from "../plugins/agent.ts";
+import type { BuildFailed, BuildTask, FixTask } from "../plugins/builder.ts";
+import { Builder } from "../plugins/builder.ts";
 import { effectStep } from "./effect-step.ts";
 import type { OutcomeOf, StageInput } from "./stage.ts";
 import { StageFailure } from "./stage.ts";
@@ -15,7 +15,7 @@ interface BuildContext {
 }
 
 export interface BuildOptions {
-  /** How many times the agent may fix failing tests before Build fails. */
+  /** How many times the builder may fix failing tests before Build fails. */
   readonly fixAttempts?: number;
 }
 
@@ -24,15 +24,15 @@ const buildTask = ({ context }: { readonly context: BuildContext }): BuildTask =
   feedback: context.input.feedback,
 });
 
-const stageFailureOf = (error: AgentFailed) =>
+const stageFailureOf = (error: BuildFailed) =>
   new StageFailure({ reason: { tag: error._tag, message: error.message } });
 
-const agentStep = <Input, Output>(
-  services: Context.Context<Agent>,
-  step: (agent: Agent["Service"], input: Input) => Effect.Effect<Output, AgentFailed>,
+const builderStep = <Input, Output>(
+  services: Context.Context<Builder>,
+  step: (builder: Builder["Service"], input: Input) => Effect.Effect<Output, BuildFailed>,
 ) =>
   effectStep(services, (input: Input) =>
-    Agent.use((agent) => step(agent, input)).pipe(Effect.mapError(stageFailureOf)),
+    Builder.use((builder) => step(builder, input)).pipe(Effect.mapError(stageFailureOf)),
   );
 
 const DEFAULT_FIX_ATTEMPTS = 3;
@@ -50,7 +50,7 @@ const attemptsExhausted = (context: BuildContext, failures: string) =>
     },
   });
 
-const buildSetup = (services: Context.Context<Agent>) =>
+const buildSetup = (services: Context.Context<Builder>) =>
   setup({
     schemas: {
       input: types<StageInput>(),
@@ -58,9 +58,9 @@ const buildSetup = (services: Context.Context<Agent>) =>
       output: types<OutcomeOf<"build">>(),
     },
     actors: {
-      implement: agentStep(services, (agent, task: BuildTask) => agent.implement(task)),
-      test: agentStep(services, (agent, task: BuildTask) => agent.test(task)),
-      fix: agentStep(services, (agent, task: FixTask) => agent.fix(task)),
+      implement: builderStep(services, (builder, task: BuildTask) => builder.implement(task)),
+      test: builderStep(services, (builder, task: BuildTask) => builder.test(task)),
+      fix: builderStep(services, (builder, task: FixTask) => builder.fix(task)),
     },
     states: {
       implementing: {},
@@ -70,7 +70,7 @@ const buildSetup = (services: Context.Context<Agent>) =>
     },
   });
 
-const buildMachine = (services: Context.Context<Agent>, fixAttempts: number) =>
+const buildMachine = (services: Context.Context<Builder>, fixAttempts: number) =>
   buildSetup(services).createMachine({
     id: "build",
     context: ({ input }) => ({ input, fixAttempts, fixesMade: 0 }),
@@ -119,14 +119,14 @@ const buildMachine = (services: Context.Context<Agent>, fixAttempts: number) =>
   });
 
 /**
- * The Build stage machine, running its steps with the `Agent` in context. Fix
+ * The Build stage machine, running its steps with the `Builder` in context. Fix
  * attempts come from `options`, then `ROUAGE_MAX_BUILD_FIXES`, then
  * `DEFAULT_FIX_ATTEMPTS`; each Build run keeps the number it started with, so a
  * restart never moves the budget of a run in flight. Fails with a
- * `StageFailure` when the agent cannot finish a step or the tests still fail
+ * `StageFailure` when the builder cannot finish a step or the tests still fail
  * after the last fix attempt.
  */
 export const buildStage = Effect.fnUntraced(function* (options: BuildOptions = {}) {
-  const services = yield* Effect.context<Agent>();
+  const services = yield* Effect.context<Builder>();
   return buildMachine(services, yield* resolveFixAttempts(options.fixAttempts));
 });
