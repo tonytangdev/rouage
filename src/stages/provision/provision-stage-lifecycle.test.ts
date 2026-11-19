@@ -95,28 +95,32 @@ describe("a work item in the Provision stage", () => {
     }),
   );
 
-  it.effect("samples again, without provisioning again, when restored mid-sampling", () =>
-    Effect.gen(function* () {
-      const before = yield* scriptedProvision({
-        provisioner: { results: [sandbox, sandbox] },
-        sampler: { results: [], misbehaving: { step: "sample", as: "hanging" } },
-      });
-      const original = yield* startWorkItem({ provision: before.provision });
-      original.advanceTo("provision", { kind: "bug" });
-      yield* original.reaches("reproduce");
-      original.finish("reproduce", askForSample);
-      yield* before.sampler.started("sample");
-      const after = yield* scriptedProvision({
-        provisioner: { results: [] },
-        sampler: { results: [sample] },
-      });
-      const workItem = yield* restoredWorkItem(throughJson(original.save()), {
-        provision: after.provision,
-      });
-      yield* workItem.reaches("reproduce");
-      expect(after.sampler.calls()).toStrictEqual([firstSample]);
-      expect(after.provisioner.calls()).toStrictEqual([]);
-      expect(workItem.context().sampleRef).toStrictEqual("sample-1");
-    }),
+  it.effect(
+    "provisions and samples again when restored mid-sampling, in case the sandbox was lost",
+    () =>
+      Effect.gen(function* () {
+        const before = yield* scriptedProvision({
+          provisioner: { results: [sandbox, sandbox] },
+          sampler: { results: [], misbehaving: { step: "sample", as: "hanging" } },
+        });
+        const original = yield* startWorkItem({ provision: before.provision });
+        original.advanceTo("provision", { kind: "bug" });
+        yield* original.reaches("reproduce");
+        original.finish("reproduce", askForSample);
+        yield* before.sampler.started("sample");
+        const after = yield* scriptedProvision({
+          provisioner: { results: [sandbox] },
+          sampler: { results: [sample] },
+        });
+        const workItem = yield* restoredWorkItem(throughJson(original.save()), {
+          provision: after.provision,
+        });
+        yield* workItem.reaches("reproduce");
+        expect(after.sampler.calls()).toStrictEqual([firstSample]);
+        expect(after.provisioner.calls()).toStrictEqual([
+          { step: "provision", task: { ...firstProvision, previousSandboxRef: "box-1" } },
+        ]);
+        expect(workItem.context().sampleRef).toStrictEqual("sample-1");
+      }),
   );
 });
