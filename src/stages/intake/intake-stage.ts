@@ -1,10 +1,9 @@
-import type { Context } from "effect";
-import { Effect } from "effect";
 import { setup, types } from "xstate";
 
 import type { Kind, OutcomeOf, StageInput } from "../../lifecycle/stage.ts";
 import { StageFailure } from "../../lifecycle/stage.ts";
-import { portStep } from "../port-step.ts";
+import type { PortStep } from "../port-stage.ts";
+import { portStage } from "../port-stage.ts";
 import type { ClassifyTask } from "./classifier.ts";
 import { Classifier } from "./classifier.ts";
 
@@ -17,7 +16,7 @@ const classifyTask = ({ context }: { readonly context: StageInput }): ClassifyTa
 const unclassifiable = (reason: string) =>
   new StageFailure({ reason: { tag: "Unclassifiable", message: reason } });
 
-const intakeSetup = (services: Context.Context<Classifier>) =>
+const intakeSetup = (step: PortStep<Classifier["Service"]>) =>
   setup({
     schemas: {
       input: types<StageInput>(),
@@ -25,9 +24,7 @@ const intakeSetup = (services: Context.Context<Classifier>) =>
       output: types<OutcomeOf<"intake">>(),
     },
     actors: {
-      classify: portStep(services, (task: ClassifyTask) =>
-        Classifier.use((classifier) => classifier.classify(task)),
-      ),
+      classify: step((classifier, task: ClassifyTask) => classifier.classify(task)),
     },
     states: {
       classifying: {},
@@ -35,8 +32,8 @@ const intakeSetup = (services: Context.Context<Classifier>) =>
     },
   });
 
-const intakeMachine = (services: Context.Context<Classifier>) =>
-  intakeSetup(services).createMachine({
+const intakeMachine = (step: PortStep<Classifier["Service"]>) =>
+  intakeSetup(step).createMachine({
     id: "intake",
     context: ({ input }) => input,
     initial: "classifying",
@@ -66,6 +63,4 @@ const intakeMachine = (services: Context.Context<Classifier>) =>
  * `Classifier` in context. Fails with a `StageFailure` when the classifier
  * cannot finish or cannot tell a bug from a feature.
  */
-export const intakeStage = Effect.fnUntraced(function* () {
-  return intakeMachine(yield* Effect.context<Classifier>());
-});
+export const intakeStage = portStage(Classifier, intakeMachine);

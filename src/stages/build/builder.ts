@@ -28,4 +28,4 @@ export class Builder extends Context.Service<
     readonly test: (task: BuildTask) => Effect.Effect<TestReport, BuilderGaveUp>;
     readonly fix: (task: FixTask) => Effect.Effect<void, BuilderGaveUp>;
   }
->()("rouage/plugins/Builder") {}
+>()("rouage/stages/build/Builder") {}

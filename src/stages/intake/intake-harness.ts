@@ -15,7 +15,7 @@ export const isUnclear = {
 
 export const scriptedIntake = Effect.fnUntraced(function* (script: FakeClassifierScript) {
   const classifier = yield* fakeClassifier(script);
-  return { classifier, intake: yield* intakeStage().pipe(Effect.provide(classifier.layer)) };
+  return { classifier, intake: yield* intakeStage.pipe(Effect.provide(classifier.layer)) };
 });
 
 /** Runs an Intake stage outside any lifecycle until it finishes or fails. */

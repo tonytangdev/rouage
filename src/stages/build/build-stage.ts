@@ -1,10 +1,10 @@
-import type { Context } from "effect";
 import { Config, Effect } from "effect";
 import { setup, types } from "xstate";
 
 import type { OutcomeOf, StageInput } from "../../lifecycle/stage.ts";
 import { StageFailure } from "../../lifecycle/stage.ts";
-import { portStep } from "../port-step.ts";
+import type { PortStep } from "../port-stage.ts";
+import { portStage } from "../port-stage.ts";
 import type { BuildTask, FixTask } from "./builder.ts";
 import { Builder } from "./builder.ts";
 
@@ -39,7 +39,7 @@ const attemptsExhausted = (context: BuildContext, failures: string) =>
     },
   });
 
-const buildSetup = (services: Context.Context<Builder>) =>
+const buildSetup = (step: PortStep<Builder["Service"]>) =>
   setup({
     schemas: {
       input: types<StageInput>(),
@@ -47,11 +47,9 @@ const buildSetup = (services: Context.Context<Builder>) =>
       output: types<OutcomeOf<"build">>(),
     },
     actors: {
-      implement: portStep(services, (task: BuildTask) =>
-        Builder.use((builder) => builder.implement(task)),
-      ),
-      test: portStep(services, (task: BuildTask) => Builder.use((builder) => builder.test(task))),
-      fix: portStep(services, (task: FixTask) => Builder.use((builder) => builder.fix(task))),
+      implement: step((builder, task: BuildTask) => builder.implement(task)),
+      test: step((builder, task: BuildTask) => builder.test(task)),
+      fix: step((builder, task: FixTask) => builder.fix(task)),
     },
     states: {
       implementing: {},
@@ -61,8 +59,8 @@ const buildSetup = (services: Context.Context<Builder>) =>
     },
   });
 
-const buildMachine = (services: Context.Context<Builder>, fixAttempts: number) =>
-  buildSetup(services).createMachine({
+const buildMachine = (step: PortStep<Builder["Service"]>, fixAttempts: number) =>
+  buildSetup(step).createMachine({
     id: "build",
     context: ({ input }) => ({ input, fixAttempts, fixesMade: 0 }),
     initial: "implementing",
@@ -118,6 +116,6 @@ const buildMachine = (services: Context.Context<Builder>, fixAttempts: number) =
  * after the last fix attempt.
  */
 export const buildStage = Effect.fnUntraced(function* (options: BuildOptions = {}) {
-  const services = yield* Effect.context<Builder>();
-  return buildMachine(services, yield* resolveFixAttempts(options.fixAttempts));
+  const fixAttempts = yield* resolveFixAttempts(options.fixAttempts);
+  return yield* portStage(Builder, (step) => buildMachine(step, fixAttempts));
 });

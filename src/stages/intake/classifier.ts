@@ -30,4 +30,4 @@ export class Classifier extends Context.Service<
   {
     readonly classify: (task: ClassifyTask) => Effect.Effect<Classification, ClassifierGaveUp>;
   }
->()("rouage/plugins/Classifier") {}
+>()("rouage/stages/intake/Classifier") {}
