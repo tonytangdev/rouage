@@ -1,16 +1,6 @@
 import type { Blocked } from "./blocked.ts";
-import type { Kind } from "./outcomes.ts";
-
-export interface LoopLimits {
-  readonly review: number;
-  readonly reproduce: number;
-}
-
-/** How many times a work item has gone around each loop. */
-export interface LoopCounts {
-  readonly review: number;
-  readonly reproduce: number;
-}
+import type { LoopCounts, LoopLimits } from "./loops.ts";
+import type { Kind } from "./stage.ts";
 
 export interface WorkItemInput {
   readonly id: string;
@@ -46,8 +36,6 @@ export interface WorkItemContext {
   readonly blocked: Blocked | null;
   readonly decisions: readonly Decision[];
 }
-
-export const noLoopsYet: LoopCounts = { review: 0, reproduce: 0 };
 
 export const recordDecision = (
   context: WorkItemContext,

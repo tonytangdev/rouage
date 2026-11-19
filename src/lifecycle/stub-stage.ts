@@ -1,47 +1,61 @@
-import { assertEvent, setup, types } from "xstate";
+import type { AnyActorRef } from "xstate";
+import { createStepLogic } from "xstate";
 
-import type { FailureReason, StageInput } from "./outcomes.ts";
-import { StageFailure } from "./outcomes.ts";
+import type { FailureReason, OutcomeOf, StageInput, StageName } from "./stage.ts";
+import { StageFailure } from "./stage.ts";
+
+export type StubEvent<Stage extends StageName> =
+  | { readonly type: "finish"; readonly outcome: OutcomeOf<Stage> }
+  | { readonly type: "fail"; readonly reason: FailureReason }
+  | { readonly type: "crash"; readonly message: string };
 
 /**
- * A stage machine that finishes with whichever outcome it is sent, fails with
- * a `StageFailure` when sent `fail`, or crashes when sent `crash`, so the lifecycle can be driven by events before real
- * stages exist. It keeps its input in context so tests can see what the
- * lifecycle passed it.
+ * Called when a stub stage starts, and again when a work item holding it is
+ * restored. `self` accepts `StubEvent`s for `stage`. The returned cleanup runs
+ * when the stub stops.
  */
-export const stubStage = <Outcome>() =>
-  setup({
-    schemas: {
-      input: types<StageInput>(),
-      context: types<{ input: StageInput }>(),
-      events: {
-        finish: types<{ outcome: Outcome }>(),
-        fail: types<{ reason: FailureReason }>(),
-        crash: types<{ message: string }>(),
-      },
-    },
-  }).createMachine({
-    id: "stubStage",
+export type AttachStub = (stage: StageName, self: AnyActorRef, input: StageInput) => () => void;
+
+const detached: AttachStub = () => () => {
+  // A stub nobody drives has nothing to detach from.
+};
+
+// Step logic runs once for XState's initial event before any stub event.
+type StubStep<Stage extends StageName> = StubEvent<Stage> | { readonly type: "xstate.init" };
+
+/**
+ * A stage that finishes with whichever outcome it is sent, fails with a
+ * `StageFailure` when sent `fail`, or crashes when sent `crash`, so the
+ * lifecycle can be driven by events before real stages exist.
+ */
+export const stubStage = <Stage extends StageName>(stage: Stage, attach: AttachStub = detached) =>
+  createStepLogic<{ readonly input: StageInput }, OutcomeOf<Stage>, StubStep<Stage>, StageInput>({
     context: ({ input }) => ({ input }),
-    initial: "working",
-    states: {
-      working: {
-        on: {
-          finish: { target: "finished" },
-          fail: ({ event }) => {
-            throw new StageFailure({ reason: event.reason });
-          },
-          crash: ({ event }) => {
-            throw new Error(event.message);
-          },
-        },
-      },
-      finished: {
-        type: "final",
-        output: ({ event }) => {
-          assertEvent(event, "finish");
-          return event.outcome;
-        },
-      },
+    run: ({ context, event, self }, enq) => {
+      // A keyed effect, because XState re-attaches it when the work item is restored.
+      enq.effect("attach", () => attach(stage, self, context.input));
+      if (event.type === "finish") {
+        return { status: "done", output: event.outcome };
+      }
+      if (event.type === "fail") {
+        return { status: "error", error: new StageFailure({ reason: event.reason }) };
+      }
+      if (event.type === "crash") {
+        return { status: "error", error: new Error(event.message) };
+      }
+      return {};
     },
   });
+
+/** A stub for every stage, each passing itself to `attach` when it starts. */
+export const stubStages = (attach: AttachStub = detached) => ({
+  intake: stubStage("intake", attach),
+  spec: stubStage("spec", attach),
+  provision: stubStage("provision", attach),
+  reproduce: stubStage("reproduce", attach),
+  plan: stubStage("plan", attach),
+  build: stubStage("build", attach),
+  demo: stubStage("demo", attach),
+  review: stubStage("review", attach),
+  ship: stubStage("ship", attach),
+});

@@ -1,14 +1,38 @@
 import { Data, Effect, Schema } from "effect";
-import type { Actor } from "xstate";
+import type { Actor, EventFrom, SnapshotFrom } from "xstate";
 import { createActor } from "xstate";
 import { restoreActor, snapshotSchema } from "xstate/persist";
 
 import type { defaultLifecycle } from "./lifecycle.ts";
-import { resolveLoopLimits } from "./loop-limits.ts";
-import type { LoopLimits } from "./work-item.ts";
+import type { LoopLimits } from "./loops.ts";
+import { resolveLoopLimits } from "./loops.ts";
+import { innermostState } from "./state-value.ts";
+import type { WorkItemContext } from "./work-item.ts";
 
 export type Lifecycle = typeof defaultLifecycle;
-export type WorkItemActor = Actor<Lifecycle>;
+type WorkItemActor = Actor<Lifecycle>;
+
+/** A running work item. The XState actor behind it stays inside this module. */
+export interface WorkItem {
+  /** The innermost active state, such as `"specGate"` or `"blocked"`. */
+  readonly state: () => string;
+  readonly status: () => SnapshotFrom<Lifecycle>["status"];
+  readonly context: () => WorkItemContext;
+  /** Sends a human decision to the work item. */
+  readonly send: (event: EventFrom<Lifecycle>) => void;
+  /** The work item's state as plain JSON, ready to store. */
+  readonly save: () => ReturnType<WorkItemActor["getPersistedSnapshot"]>;
+}
+
+const workItemOf = (actor: WorkItemActor): WorkItem => ({
+  state: () => innermostState(actor.getSnapshot().value),
+  status: () => actor.getSnapshot().status,
+  context: () => actor.getSnapshot().context,
+  send: (event) => {
+    actor.send(event);
+  },
+  save: () => actor.getPersistedSnapshot(),
+});
 
 const PersistedEnvelope = Schema.Struct({
   machine: Schema.Struct({ id: Schema.String, version: Schema.String }),
@@ -46,13 +70,11 @@ export const createWorkItem = Effect.fnUntraced(function* (
   item: NewWorkItem,
 ) {
   const limits = yield* resolveLoopLimits(item.limits);
-  return yield* runScoped(() =>
+  const actor = yield* runScoped(() =>
     createActor(lifecycle, { input: { id: item.id, issueRef: item.issueRef, limits } }).start(),
   );
+  return workItemOf(actor);
 });
-
-/** The work item's state as plain JSON, ready to store. */
-export const saveWorkItem = (actor: WorkItemActor) => actor.getPersistedSnapshot();
 
 const unreadable = (message: string) => new UnreadableSnapshot({ message });
 
@@ -89,5 +111,5 @@ export const restoreWorkItem = Effect.fnUntraced(function* (
   if (restored.status === "error") {
     return yield* unreadable(String(restored.error));
   }
-  return actor;
+  return workItemOf(actor);
 });

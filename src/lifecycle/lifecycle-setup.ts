@@ -2,34 +2,15 @@ import type { ActorRefFrom } from "xstate";
 import { setup, types } from "xstate";
 
 import type { Blocked } from "./blocked.ts";
-import type {
-  BuildOutcome,
-  DemoOutcome,
-  IntakeOutcome,
-  PlanOutcome,
-  ProvisionOutcome,
-  ReproduceOutcome,
-  ReviewOutcome,
-  ShipOutcome,
-  SpecOutcome,
-  StageInput,
-} from "./outcomes.ts";
-import { stubStage } from "./stub-stage.ts";
+import type { StageName } from "./stage.ts";
+import { stubStages } from "./stub-stage.ts";
 import type { HumanDecision, WorkItemContext, WorkItemInput } from "./work-item.ts";
 
-const stages = {
-  intake: stubStage<IntakeOutcome>(),
-  spec: stubStage<SpecOutcome>(),
-  provision: stubStage<ProvisionOutcome>(),
-  reproduce: stubStage<ReproduceOutcome>(),
-  plan: stubStage<PlanOutcome>(),
-  build: stubStage<BuildOutcome>(),
-  demo: stubStage<DemoOutcome>(),
-  review: stubStage<ReviewOutcome>(),
-  ship: stubStage<ShipOutcome>(),
-};
+// XState needs each stage slot as its own key, and the compiler only checks
+// those keys against `StageName` through `satisfies`.
+const stages = stubStages() satisfies Record<StageName, unknown>;
 
-type StageRef<Name extends keyof typeof stages> = ActorRefFrom<(typeof stages)[Name]>;
+type StageRef<Name extends StageName> = ActorRefFrom<(typeof stages)[Name]>;
 
 export const lifecycleSetup = setup({
   schemas: {
@@ -53,7 +34,7 @@ export const lifecycleSetup = setup({
       demo: types<StageRef<"demo">>(),
       review: types<StageRef<"review">>(),
       ship: types<StageRef<"ship">>(),
-    },
+    } satisfies Record<StageName, unknown>,
   },
   actors: stages,
   states: {
@@ -78,11 +59,4 @@ export const lifecycleSetup = setup({
     shipped: { id: "shipped", type: "final" },
     cancelled: { type: "final" },
   },
-});
-
-/** What every stage machine is started with. */
-export const stageInput = ({ context }: { context: WorkItemContext }): StageInput => ({
-  workItemId: context.id,
-  kind: context.kind,
-  feedback: context.feedback,
 });

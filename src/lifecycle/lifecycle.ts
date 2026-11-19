@@ -1,7 +1,9 @@
-import { blockedOn, loopLimitReached, stageErrored } from "./blocked.ts";
-import { lifecycleSetup, stageInput } from "./lifecycle-setup.ts";
+import { blockedOn, stageErrored } from "./blocked.ts";
+import { lifecycleSetup } from "./lifecycle-setup.ts";
+import { goneAround, loopExhausted, loopLimitReached, noLoopsYet } from "./loops.ts";
+import { stageInput } from "./stage.ts";
 import { innermostState } from "./state-value.ts";
-import { approved, noLoopsYet, recordDecision, rejected } from "./work-item.ts";
+import { approved, recordDecision, rejected } from "./work-item.ts";
 
 // Every transition names its target as a literal, even where a helper could
 // compute it, so Stately's editor can draw every arrow (ADR 0002).
@@ -98,21 +100,10 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
                   }),
                 };
               }
-              if (context.counters.reproduce >= context.limits.reproduce) {
-                return {
-                  target: "#blocked",
-                  context: loopLimitReached(
-                    "reproduce",
-                    `Reproduce went back to Provision ${context.limits.reproduce} times`,
-                  ),
-                };
+              if (loopExhausted(context, "reproduce")) {
+                return { target: "#blocked", context: loopLimitReached(context, "reproduce") };
               }
-              return {
-                target: "provision",
-                context: {
-                  counters: { ...context.counters, reproduce: context.counters.reproduce + 1 },
-                },
-              };
+              return { target: "provision", context: goneAround(context, "reproduce") };
             },
           },
         },
@@ -150,21 +141,12 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
               if (output._tag === "approved") {
                 return { target: "shipGate" };
               }
-              if (context.counters.review >= context.limits.review) {
-                return {
-                  target: "#blocked",
-                  context: loopLimitReached(
-                    "review",
-                    `Review sent the change back to Build ${context.limits.review} times`,
-                  ),
-                };
+              if (loopExhausted(context, "review")) {
+                return { target: "#blocked", context: loopLimitReached(context, "review") };
               }
               return {
                 target: "build",
-                context: {
-                  feedback: output.feedback,
-                  counters: { ...context.counters, review: context.counters.review + 1 },
-                },
+                context: { feedback: output.feedback, ...goneAround(context, "review") },
               };
             },
           },
