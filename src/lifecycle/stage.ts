@@ -30,12 +30,14 @@ export const failureReasonOf = (error: unknown): FailureReason => {
 /** What the lifecycle passes to every stage machine it starts. */
 export interface StageInput {
   readonly workItemId: string;
+  readonly issueRef: string;
   readonly kind: Kind | null;
   readonly feedback: string | null;
 }
 
 interface StageInputSource {
   readonly id: string;
+  readonly issueRef: string;
   readonly kind: Kind | null;
   readonly feedback: string | null;
 }
@@ -43,6 +45,7 @@ interface StageInputSource {
 /** Builds a stage's input from the work item; takes XState's input-function argument so it can be passed as is. */
 export const stageInput = ({ context }: { readonly context: StageInputSource }): StageInput => ({
   workItemId: context.id,
+  issueRef: context.issueRef,
   kind: context.kind,
   feedback: context.feedback,
 });

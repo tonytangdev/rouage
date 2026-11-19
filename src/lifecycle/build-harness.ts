@@ -24,7 +24,7 @@ export const runBuild = Effect.fnUntraced(function* (
 ) {
   const { builder, build } = yield* scriptedBuild(script, options);
   const actor = createActor(build, {
-    input: { workItemId: "wi-1", kind: "feature", feedback: null },
+    input: { workItemId: "wi-1", issueRef: "#1", kind: "feature", feedback: null },
   });
   // A root actor's error with no error observer is reported to the host as unhandled.
   actor.subscribe({ error: Function.constVoid });

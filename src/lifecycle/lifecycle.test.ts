@@ -69,6 +69,7 @@ describe("lifecycle", () => {
       expect(workItem.stage()).toStrictEqual("spec");
       expect(workItem.stageInput("spec")).toStrictEqual({
         workItemId: "wi-1",
+        issueRef: "#1",
         kind: "bug",
         feedback: "missing edge case",
       });
@@ -108,6 +109,7 @@ describe("lifecycle", () => {
       expect(workItem.context().blocked).toBeNull();
       expect(workItem.stageInput("spec")).toStrictEqual({
         workItemId: "wi-1",
+        issueRef: "#1",
         kind: "bug",
         feedback: "clarify the steps",
       });
@@ -195,6 +197,7 @@ describe("lifecycle", () => {
         expect(workItem.stage()).toStrictEqual("build");
         expect(workItem.stageInput("build")).toStrictEqual({
           workItemId: "wi-1",
+          issueRef: "#1",
           kind: "feature",
           feedback: "rename the flag",
         });
@@ -231,6 +234,7 @@ describe("lifecycle", () => {
       expect(workItem.stage()).toStrictEqual("build");
       expect(workItem.stageInput("build")).toStrictEqual({
         workItemId: "wi-1",
+        issueRef: "#1",
         kind: "feature",
         feedback: "wait for the release freeze",
       });
@@ -285,6 +289,7 @@ describe("lifecycle", () => {
       expect(workItem.stage()).toStrictEqual("intake");
       expect(workItem.stageInput("intake")).toStrictEqual({
         workItemId: "wi-1",
+        issueRef: "#1",
         kind: null,
         feedback: "body filled in",
       });

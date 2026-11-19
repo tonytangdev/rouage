@@ -2,6 +2,7 @@ import { Data, Effect } from "effect";
 import type { AnyActorRef } from "xstate";
 
 import type { buildStage } from "./build-stage.ts";
+import type { intakeStage } from "./intake-stage.ts";
 import { defaultLifecycle } from "./lifecycle.ts";
 import type { FailureReason, OutcomeOf, StageInput, StageName } from "./stage.ts";
 import type { AttachStub } from "./stub-stage.ts";
@@ -22,6 +23,7 @@ interface RunningStub {
 
 /** Real stage implementations to run instead of stubs; every other stage stays a stub. */
 export interface RealStages {
+  readonly intake?: Effect.Success<ReturnType<typeof intakeStage>>;
   readonly build?: Effect.Success<ReturnType<typeof buildStage>>;
 }
 

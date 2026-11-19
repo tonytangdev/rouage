@@ -4,11 +4,12 @@ import { Effect, Function } from "effect";
 import { createActor } from "xstate";
 
 import { runBuild, testsPassed } from "./build-harness.ts";
+import { isBug, runIntake } from "./intake-harness.ts";
 import type { FailureReason } from "./stage.ts";
 import { failureReasonOf } from "./stage.ts";
 import { stubStage } from "./stub-stage.ts";
 
-const input = { workItemId: "wi-1", kind: "bug" as const, feedback: null };
+const input = { workItemId: "wi-1", issueRef: "#1", kind: "bug" as const, feedback: null };
 
 interface Settled {
   readonly output: unknown;
@@ -73,7 +74,17 @@ const buildAdapter: StageAdapter = {
   crashMessage: "The builder exited during test",
 };
 
-for (const adapter of [stubAdapter, buildAdapter]) {
+const intakeAdapter: StageAdapter = {
+  name: "intake",
+  finished: Effect.map(runIntake({ results: [isBug] }), ({ snapshot }) => snapshot),
+  outcome: { _tag: "classified", kind: "bug" },
+  failed: Effect.map(runIntake({ results: [isBug], failing: true }), ({ snapshot }) => snapshot),
+  failure: { tag: "ClassifyFailed", message: "The classifier gave up on the issue" },
+  crashed: Effect.map(runIntake({ results: [isBug], crashing: true }), ({ snapshot }) => snapshot),
+  crashMessage: "The classifier exited while classifying",
+};
+
+for (const adapter of [stubAdapter, buildAdapter, intakeAdapter]) {
   describe(`stage contract, ${adapter.name} adapter`, () => {
     it.effect("finishes with its outcome", () =>
       Effect.gen(function* () {
