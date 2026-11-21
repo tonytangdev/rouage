@@ -130,10 +130,10 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
                 case "cannotReproduce": {
                   return {
                     target: "#blocked",
-                    context: blockedOn("reproduce", {
-                      tag: "CannotReproduce",
-                      message: output.reason,
-                    }),
+                    context: {
+                      ...stageFinished(context, "reproduce", output),
+                      ...blockedOn("reproduce", { tag: "CannotReproduce", message: output.reason }),
+                    },
                   };
                 }
                 case "checkPassed": {

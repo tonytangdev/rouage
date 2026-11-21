@@ -112,6 +112,19 @@ describe("lifecycle", () => {
     }),
   );
 
+  it.effect(
+    "clears the feedback Reproduce acted on when it finds the bug cannot be reproduced",
+    () =>
+      Effect.gen(function* () {
+        const workItem = yield* startAt("reproduce", { kind: "bug" });
+        workItem.fail("reproduce", { tag: "ReproducerGaveUp", message: "the sandbox timed out" });
+        workItem.send({ type: "retry", ...reviewer, comment: "use the staging data" });
+        workItem.finish("reproduce", { _tag: "cannotReproduce", reason: "works on staging" });
+        workItem.send({ type: "retry", ...reviewer });
+        expect(workItem.stageInput("reproduce")?.feedback).toBeNull();
+      }),
+  );
+
   it.effect("blocks a bug that cannot be reproduced, and a human can send it back to Spec", () =>
     Effect.gen(function* () {
       const workItem = yield* startAt("provision", { kind: "bug" });
