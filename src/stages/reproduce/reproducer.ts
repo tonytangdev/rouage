@@ -1,19 +1,21 @@
 import type { Effect } from "effect";
-import { Context, Data } from "effect";
+import { Context, Data, Schema } from "effect";
 
-import type { RunBrief } from "../run-brief.ts";
+import { RunBriefSchema } from "../run-brief.ts";
 
-export interface CaptureTask extends RunBrief {
-  readonly issueRef: string;
-  readonly specRef: string | null;
-  readonly sandboxRef: string;
-  /** The sample Provision took into the sandbox, or `null` when none was taken. */
-  readonly sampleRef: string | null;
-  /** The data this reproducer asked for before, or `null` when it has not asked. */
-  readonly sampleRequest: string | null;
-  /** The reproduction captured before, for the reproducer to revise; `null` on the first capture. */
-  readonly previousReproductionRef: string | null;
-}
+export const CaptureTaskSchema = Schema.Struct({
+  ...RunBriefSchema.fields,
+  issueRef: Schema.String,
+  specRef: Schema.NullOr(Schema.String),
+  sandboxRef: Schema.String,
+  /** The sample Provision took into the sandbox, or null when none was taken. */
+  sampleRef: Schema.NullOr(Schema.String),
+  /** The data this reproducer asked for before, or null when it has not asked. */
+  sampleRequest: Schema.NullOr(Schema.String),
+  /** The reproduction captured before, for the reproducer to revise; null on the first capture. */
+  previousReproductionRef: Schema.NullOr(Schema.String),
+});
+export type CaptureTask = typeof CaptureTaskSchema.Type;
 
 /**
  * The reproducer's answer: a reference to the reproduction it stored,
@@ -25,11 +27,12 @@ export type Captured =
   | { readonly _tag: "needsSample"; readonly sampleRequest: string }
   | { readonly _tag: "cannotReproduce"; readonly reason: string };
 
-export interface ConfirmTask {
-  readonly workItemId: string;
-  readonly sandboxRef: string;
-  readonly reproductionRef: string;
-}
+export const ConfirmTaskSchema = Schema.Struct({
+  workItemId: Schema.String,
+  sandboxRef: Schema.String,
+  reproductionRef: Schema.String,
+});
+export type ConfirmTask = typeof ConfirmTaskSchema.Type;
 
 /** Whether the reproduction's check failed, showing the bug, or passed, with what it printed. */
 export type Confirmation =

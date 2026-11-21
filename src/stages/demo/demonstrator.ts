@@ -1,12 +1,14 @@
 import type { Effect } from "effect";
-import { Context, Data } from "effect";
+import { Context, Data, Schema } from "effect";
 
-import type { BuiltChange } from "../built-change.ts";
+import { BuiltChangeSchema } from "../built-change.ts";
 
-export interface DemoTask extends BuiltChange {
-  /** The demo made before, for the demonstrator to revise; `null` on the first demo. */
-  readonly previousDemoRef: string | null;
-}
+export const DemoTaskSchema = Schema.Struct({
+  ...BuiltChangeSchema.fields,
+  /** The demo made before, for the demonstrator to revise; null on the first demo. */
+  previousDemoRef: Schema.NullOr(Schema.String),
+});
+export type DemoTask = typeof DemoTaskSchema.Type;
 
 /** The demonstrator's answer: a reference to the demo it stored. */
 export interface Demonstrated {

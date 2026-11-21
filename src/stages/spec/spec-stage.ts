@@ -3,7 +3,7 @@ import { StageFailure } from "../../lifecycle/stage.ts";
 import { briefOf } from "../run-brief.ts";
 import { singleStepStage } from "../single-step-stage.ts";
 import type { WriteTask, Written } from "./spec-writer.ts";
-import { SpecWriter } from "./spec-writer.ts";
+import { SpecWriter, WriteTaskSchema } from "./spec-writer.ts";
 
 const unclassified = () =>
   new StageFailure({
@@ -38,6 +38,7 @@ const written = (answer: Written): OutcomeOf<"spec"> | StageFailure =>
 export const specStage = singleStepStage(SpecWriter, {
   stage: "spec",
   task: writeTask,
+  taskSchema: WriteTaskSchema,
   ask: (specWriter, task: WriteTask) => specWriter.write(task),
   outcome: written,
 });

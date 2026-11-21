@@ -8,7 +8,7 @@ import { portStage } from "../port-stage.ts";
 import { briefOf } from "../run-brief.ts";
 import { sandboxMissing } from "../sandbox-missing.ts";
 import type { BuildTask, FixTask, ReproductionCheckTask } from "./builder.ts";
-import { Builder, ReproductionCheckTaskSchema } from "./builder.ts";
+import { BuildTaskSchema, Builder, FixTaskSchema, ReproductionCheckTaskSchema } from "./builder.ts";
 
 // A Schema, so a Build restored mid-run with a context saved before it changed fails to restore (ADR 0014).
 const BuildContextSchema = Schema.Struct({
@@ -101,10 +101,10 @@ const buildSetup = (step: PortStep<Builder["Service"]>) =>
       output: types<OutcomeOf<"build">>(),
     },
     actors: {
-      implement: step((builder, task: BuildTask) => builder.implement(task)),
-      test: step((builder, task: BuildTask) => builder.test(task)),
-      fix: step((builder, task: FixTask) => builder.fix(task)),
-      checkReproduction: step((builder, task: ReproductionCheckTask) =>
+      implement: step(BuildTaskSchema, (builder, task) => builder.implement(task)),
+      test: step(BuildTaskSchema, (builder, task) => builder.test(task)),
+      fix: step(FixTaskSchema, (builder, task) => builder.fix(task)),
+      checkReproduction: step(ReproductionCheckTaskSchema, (builder, task) =>
         builder.checkReproduction(task),
       ),
     },

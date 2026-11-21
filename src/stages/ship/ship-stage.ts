@@ -4,7 +4,7 @@ import type { OutcomeOf } from "../../lifecycle/stage.ts";
 import { builtChangeTask } from "../built-change.ts";
 import { singleStepStage } from "../single-step-stage.ts";
 import type { Shipment, ShipTask } from "./shipper.ts";
-import { Shipper } from "./shipper.ts";
+import { ShipTaskSchema, Shipper } from "./shipper.ts";
 
 /**
  * The Ship stage machine: asks the `Shipper` in context to deliver the change
@@ -15,6 +15,7 @@ import { Shipper } from "./shipper.ts";
 export const shipStage = singleStepStage(Shipper, {
   stage: "ship",
   task: (input) => builtChangeTask("Ship", input, { demoRef: input.demoRef }),
+  taskSchema: ShipTaskSchema,
   ask: (shipper, task: ShipTask) => shipper.ship(task),
   outcome: (shipment: Shipment): OutcomeOf<"ship"> =>
     Match.valueTags(shipment, {

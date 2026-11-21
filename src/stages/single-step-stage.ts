@@ -3,6 +3,7 @@ import { setup, types } from "xstate";
 
 import type { OutcomeOf, StageInput, StageName } from "../lifecycle/stage.ts";
 import { StageFailure, stageInputContext } from "../lifecycle/stage.ts";
+import type { TaskSchema } from "../lifecycle/step-task.ts";
 import type { PortGaveUp, PortStep } from "./port-stage.ts";
 import { portStage } from "./port-stage.ts";
 
@@ -11,6 +12,8 @@ export interface SingleStep<Stage extends StageName, Port, Task, Answer> {
   readonly stage: Stage;
   /** The port's task for this run, or the `StageFailure` that stops the stage before it asks. */
   readonly task: (input: StageInput) => Task | StageFailure;
+  /** What the port's task holds, so a work item restored while asking checks the task it was saved with (ADR 0016). */
+  readonly taskSchema: TaskSchema<Task>;
   readonly ask: (port: Port, task: Task) => Effect.Effect<Answer, PortGaveUp>;
   /** The stage's outcome for the port's answer, or the `StageFailure` the answer means. */
   readonly outcome: (answer: Answer) => OutcomeOf<Stage> | StageFailure;
@@ -33,7 +36,7 @@ const singleStepSetup = <Stage extends StageName, Port, Task, Answer>(
       context: stageInputContext,
       output: types<OutcomeOf<Stage>>(),
     },
-    actors: { ask: step(spec.ask) },
+    actors: { ask: step(spec.taskSchema, spec.ask) },
     states: {
       preparing: { type: "choice" },
       asking: { schemas: { input: types<{ readonly task: Task }>() } },

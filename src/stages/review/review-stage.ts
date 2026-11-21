@@ -4,7 +4,7 @@ import type { OutcomeOf } from "../../lifecycle/stage.ts";
 import { builtChangeTask } from "../built-change.ts";
 import { singleStepStage } from "../single-step-stage.ts";
 import type { ReviewTask, Verdict } from "./reviewer.ts";
-import { Reviewer } from "./reviewer.ts";
+import { ReviewTaskSchema, Reviewer } from "./reviewer.ts";
 
 /**
  * The Review stage machine: asks the `Reviewer` in context to judge the built
@@ -20,6 +20,7 @@ export const reviewStage = singleStepStage(Reviewer, {
       demoRef: input.demoRef,
       changeRequest: input.changeRequest,
     }),
+  taskSchema: ReviewTaskSchema,
   ask: (reviewer, task: ReviewTask) => reviewer.review(task),
   outcome: (verdict: Verdict): OutcomeOf<"review"> =>
     Match.valueTags(verdict, {

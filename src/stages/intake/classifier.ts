@@ -1,12 +1,14 @@
 import type { Effect } from "effect";
-import { Context, Data } from "effect";
+import { Context, Data, Schema } from "effect";
 
 import type { Kind } from "../../lifecycle/kind.ts";
-import type { RunBrief } from "../run-brief.ts";
+import { RunBriefSchema } from "../run-brief.ts";
 
-export interface ClassifyTask extends RunBrief {
-  readonly issueRef: string;
-}
+export const ClassifyTaskSchema = Schema.Struct({
+  ...RunBriefSchema.fields,
+  issueRef: Schema.String,
+});
+export type ClassifyTask = typeof ClassifyTaskSchema.Type;
 
 /** The classifier's verdict on an issue; `unclear` when it cannot tell a bug from a feature. */
 export type Classification =

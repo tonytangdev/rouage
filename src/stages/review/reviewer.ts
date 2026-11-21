@@ -1,13 +1,15 @@
 import type { Effect } from "effect";
-import { Context, Data } from "effect";
+import { Context, Data, Schema } from "effect";
 
-import type { ChangeRequest } from "../../lifecycle/change-request.ts";
-import type { DemonstratedChange } from "../built-change.ts";
+import { ChangeRequestSchema } from "../../lifecycle/change-request.ts";
+import { DemonstratedChangeSchema } from "../built-change.ts";
 
-export interface ReviewTask extends DemonstratedChange {
-  /** What the change was last sent back to Build to address, for the reviewer to check it was; `null` until the change is first sent back, and again after a return to Spec (ADR 0012). */
-  readonly changeRequest: ChangeRequest | null;
-}
+export const ReviewTaskSchema = Schema.Struct({
+  ...DemonstratedChangeSchema.fields,
+  /** What the change was last sent back to Build to address, for the reviewer to check it was; null until the change is first sent back, and again after a return to Spec (ADR 0012). */
+  changeRequest: Schema.NullOr(ChangeRequestSchema),
+});
+export type ReviewTask = typeof ReviewTaskSchema.Type;
 
 /**
  * The reviewer's verdict: approve the change, or request changes with

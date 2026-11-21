@@ -1,21 +1,23 @@
 import type { Effect } from "effect";
-import { Context, Data } from "effect";
+import { Context, Data, Schema } from "effect";
 
-import type { Kind } from "../../lifecycle/kind.ts";
-import type { RunBrief } from "../run-brief.ts";
+import { KindSchema } from "../../lifecycle/kind.ts";
+import { RunBriefSchema } from "../run-brief.ts";
 
-export interface PlanTask extends RunBrief {
-  readonly issueRef: string;
-  readonly kind: Kind | null;
-  readonly specRef: string | null;
-  readonly sandboxRef: string | null;
-  /** The sample Provision took into the sandbox, or `null` when none was taken. */
-  readonly sampleRef: string | null;
-  /** The bug's reproduction, or `null` for a feature. */
-  readonly reproductionRef: string | null;
-  /** The plan written before, for the planner to revise; `null` on the first plan. */
-  readonly previousPlanRef: string | null;
-}
+export const PlanTaskSchema = Schema.Struct({
+  ...RunBriefSchema.fields,
+  issueRef: Schema.String,
+  kind: Schema.NullOr(KindSchema),
+  specRef: Schema.NullOr(Schema.String),
+  sandboxRef: Schema.NullOr(Schema.String),
+  /** The sample Provision took into the sandbox, or null when none was taken. */
+  sampleRef: Schema.NullOr(Schema.String),
+  /** The bug's reproduction, or null for a feature. */
+  reproductionRef: Schema.NullOr(Schema.String),
+  /** The plan written before, for the planner to revise; null on the first plan. */
+  previousPlanRef: Schema.NullOr(Schema.String),
+});
+export type PlanTask = typeof PlanTaskSchema.Type;
 
 /** The planner's answer: a reference to the plan it stored, and whether the change is worth a demo. */
 export interface Planned {

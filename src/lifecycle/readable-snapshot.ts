@@ -5,6 +5,7 @@ import { snapshotSchema } from "xstate/persist";
 
 import type { LifecycleSources } from "./lifecycle-logic.ts";
 import { defaultLifecycle } from "./lifecycle.ts";
+import { taskSchemaOf } from "./step-task.ts";
 
 export class UnreadableSnapshot extends Data.TaggedError("UnreadableSnapshot")<{
   readonly message: string;
@@ -27,7 +28,7 @@ const validated = Effect.fnUntraced(function* <Output>(
   return result.value;
 });
 
-const SavedStages = Schema.Struct({
+const SavedChildren = Schema.Struct({
   children: Schema.Record(
     Schema.String,
     Schema.Struct({
@@ -35,6 +36,48 @@ const SavedStages = Schema.Struct({
       snapshot: Schema.optional(Schema.Unknown),
     }),
   ),
+});
+
+const SavedStep = Schema.Struct({
+  status: Schema.optional(Schema.String),
+  input: Schema.optional(Schema.Unknown),
+});
+
+const savedChildren = Effect.fnUntraced(function* (parent: LifecycleSources, persisted: unknown) {
+  const { children } = yield* Schema.decodeUnknownEffect(SavedChildren)(persisted).pipe(
+    Effect.mapError((error) => unreadable(error.message)),
+  );
+  return Object.entries(children).flatMap(([id, { src, snapshot }]) => {
+    const source = src === undefined ? undefined : parent.sources.actors[src];
+    return source === undefined || snapshot === undefined ? [] : [{ id, source, snapshot }];
+  });
+});
+
+// A step that finished or failed drops its input, so only a running one is checked.
+const checkSavedStep = Effect.fnUntraced(function* (
+  task: StandardSchemaV1<unknown, unknown>,
+  snapshot: unknown,
+  what: string,
+) {
+  const { status, input } = yield* Schema.decodeUnknownEffect(SavedStep)(snapshot).pipe(
+    Effect.mapError((error) => unreadable(error.message)),
+  );
+  if (status === "active") {
+    yield* validated(task, input, what);
+  }
+});
+
+const checkSavedSteps = Effect.fnUntraced(function* (
+  stage: string,
+  parent: LifecycleSources,
+  persisted: unknown,
+) {
+  for (const { id, source, snapshot } of yield* savedChildren(parent, persisted)) {
+    const task = taskSchemaOf(source);
+    if (task !== undefined) {
+      yield* checkSavedStep(task, snapshot, `The task of the saved ${stage} stage's ${id} step`);
+    }
+  }
 });
 
 // XState checks neither a child's context against its machine's context
@@ -46,21 +89,19 @@ const checkSavedStages = Effect.fnUntraced(function* (
   lifecycle: LifecycleSources,
   persisted: unknown,
 ) {
-  const { children } = yield* Schema.decodeUnknownEffect(SavedStages)(persisted).pipe(
-    Effect.mapError((error) => unreadable(error.message)),
-  );
-  for (const [stage, { src, snapshot }] of Object.entries(children)) {
-    const logic = src === undefined ? undefined : lifecycle.sources.actors[src];
-    if (logic instanceof StateMachine && snapshot !== undefined) {
-      yield* validated(snapshotSchema(logic), snapshot, `The saved ${stage} stage`);
+  for (const { id, source, snapshot } of yield* savedChildren(lifecycle, persisted)) {
+    if (source instanceof StateMachine) {
+      yield* validated(snapshotSchema(source), snapshot, `The saved ${id} stage`);
+      yield* checkSavedSteps(id, source, snapshot);
     }
   }
 });
 
 /**
- * The saved work item `persisted`, once its lifecycle context, its states and
- * the saved context of each running stage machine fit what `lifecycle` runs
- * now; fails with `UnreadableSnapshot` naming what does not (ADR 0002, ADR 0014).
+ * The saved work item `persisted`, once its lifecycle context, its states,
+ * the saved snapshot of each running stage machine and the task of each step
+ * running in one fit what `lifecycle` runs now; fails with `UnreadableSnapshot`
+ * naming what does not (ADR 0002, ADR 0014, ADR 0016).
  */
 export const readableSnapshot = Effect.fnUntraced(function* (
   lifecycle: LifecycleSources,

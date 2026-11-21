@@ -1,7 +1,12 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { restoredWorkItem, startWorkItem, throughJson } from "../../lifecycle/lifecycle-harness.ts";
+import {
+  restoredWorkItem,
+  startWorkItem,
+  throughJson,
+  withStepTask,
+} from "../../lifecycle/lifecycle-harness.ts";
 import { describePortStageInLifecycle } from "../port-stage-lifecycle-contract.ts";
 import {
   buildUnderTest,
@@ -37,6 +42,26 @@ describe("a work item in the Build stage", () => {
       });
       yield* workItem.reaches("review");
       expect(after.fake.steps()).toStrictEqual(["test", "fix", "test"]);
+    }),
+  );
+
+  it.effect("refuses a Build saved mid-test whose task no longer fits", () =>
+    Effect.gen(function* () {
+      const before = yield* buildUnderTest.scripted({
+        testReports: [],
+        misbehaving: { step: "test", as: "hanging" },
+      });
+      const original = yield* startWorkItem({ stages: { build: before.stage } });
+      original.advanceTo("build");
+      yield* before.fake.started("test");
+      const after = yield* buildUnderTest.scripted({ testReports: [testsPassed] });
+      const { planRef: _, ...withoutPlan } = firstImplement;
+      const persisted = withStepTask(throughJson(original.save()), "build", withoutPlan);
+      const error = yield* Effect.flip(
+        restoredWorkItem(persisted, { stages: { build: after.stage } }),
+      );
+      expect(error.message).toContain("The task of the saved build stage's test step");
+      expect(after.fake.steps()).toStrictEqual([]);
     }),
   );
 
