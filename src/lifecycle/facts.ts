@@ -61,3 +61,21 @@ export const stageFinished = <Stage extends StageName>(
   const teach: FactsTaught[Stage] = factsTaught[stage];
   return learned(context, { feedback: null, ...teach(outcome) });
 };
+
+type IsUnion<T, Whole = T> = T extends unknown ? ([Whole] extends [T] ? false : true) : never;
+
+/** The stages whose stage machine has exactly one outcome. */
+export type SoleOutcomeStage = {
+  readonly [Stage in StageName]: true extends IsUnion<OutcomeOf<Stage>> ? never : Stage;
+}[StageName];
+
+/**
+ * `stageFinished` for a stage with exactly one outcome, whose transition need
+ * not match on the outcome's tag. Giving such a stage a second outcome fails
+ * to compile at each call, so its transition is made to route by tag.
+ */
+export const soleOutcomeFinished = <Stage extends SoleOutcomeStage>(
+  context: WorkItemContext,
+  stage: Stage,
+  outcome: OutcomeOf<Stage>,
+) => stageFinished(context, stage, outcome);

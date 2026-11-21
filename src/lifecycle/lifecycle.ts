@@ -1,7 +1,7 @@
 import { absurd } from "effect/Function";
 
 import { blockedOn, stageErrored } from "./blocked.ts";
-import { learned, stageFinished } from "./facts.ts";
+import { learned, soleOutcomeFinished, stageFinished } from "./facts.ts";
 import { lifecycleSetup } from "./lifecycle-setup.ts";
 import { loopExhausted, loopLimitReached, noLoopsYet, wentAround } from "./loops.ts";
 import { noFactsYet, stageInput } from "./stage.ts";
@@ -52,7 +52,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             input: stageInput,
             onDone: ({ context, event: { output } }) => ({
               target: "spec",
-              context: stageFinished(context, "intake", output),
+              context: soleOutcomeFinished(context, "intake", output),
             }),
           },
         },
@@ -63,7 +63,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             input: stageInput,
             onDone: ({ context, event: { output } }) => ({
               target: "specGate",
-              context: stageFinished(context, "spec", output),
+              context: soleOutcomeFinished(context, "spec", output),
             }),
           },
         },
@@ -85,13 +85,23 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             src: "provision",
             input: stageInput,
             onDone: ({ context, event: { output } }) => {
-              const prepared = stageFinished(context, "provision", output);
-              if (output._tag === "awaitingRun") {
-                return { target: "sampleGate", context: prepared };
+              switch (output._tag) {
+                case "provisioned": {
+                  const prepared = stageFinished(context, "provision", output);
+                  return context.facts.kind === "bug"
+                    ? { target: "reproduce", context: prepared }
+                    : { target: "plan", context: prepared };
+                }
+                case "awaitingRun": {
+                  return {
+                    target: "sampleGate",
+                    context: stageFinished(context, "provision", output),
+                  };
+                }
+                default: {
+                  return absurd(output);
+                }
               }
-              return context.facts.kind === "bug"
-                ? { target: "reproduce", context: prepared }
-                : { target: "plan", context: prepared };
             },
           },
         },
@@ -149,7 +159,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             input: stageInput,
             onDone: ({ context, event: { output } }) => ({
               target: "build",
-              context: stageFinished(context, "plan", output),
+              context: soleOutcomeFinished(context, "plan", output),
             }),
           },
         },
@@ -159,7 +169,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             src: "build",
             input: stageInput,
             onDone: ({ context, event: { output } }) => {
-              const built = stageFinished(context, "build", output);
+              const built = soleOutcomeFinished(context, "build", output);
               return context.facts.demoPlanned === true
                 ? { target: "demo", context: built }
                 : { target: "review", context: built };
@@ -173,7 +183,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             input: stageInput,
             onDone: ({ context, event: { output } }) => ({
               target: "review",
-              context: stageFinished(context, "demo", output),
+              context: soleOutcomeFinished(context, "demo", output),
             }),
           },
         },
@@ -219,7 +229,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             input: stageInput,
             onDone: ({ context, event: { output } }) => ({
               target: "#shipped",
-              context: stageFinished(context, "ship", output),
+              context: soleOutcomeFinished(context, "ship", output),
             }),
           },
         },
