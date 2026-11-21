@@ -2,6 +2,7 @@ import { Match, Schema, Struct } from "effect";
 
 import type { StandingFact } from "./facts.ts";
 import type { Teaching } from "./outcome-teaching.ts";
+import type { StageName } from "./stage.ts";
 import type { Transition } from "./transition.ts";
 import { returnsToSpec } from "./transition.ts";
 
@@ -38,7 +39,7 @@ export const demoShown = (facts: DemoFacts): string | null =>
 export const demoToRevise = (facts: DemoFacts): string | null => facts.demoRef;
 
 /** Whether a retry from a block at `blockedFrom` goes on to Review, because re-entering Demo would make a demo the work item no longer calls for. */
-export const retrySkipsDemo = (blockedFrom: string, facts: DemoFacts): boolean =>
+export const retrySkipsDemo = (blockedFrom: StageName, facts: DemoFacts): boolean =>
   blockedFrom === "demo" && !demoCalledFor(facts);
 
 // A human's override stands over any later plan and is dropped only on return
