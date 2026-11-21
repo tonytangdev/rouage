@@ -13,6 +13,9 @@ export const stateNodesOf = (root: StateTree): readonly StateTree[] => [
   ...Object.values(root.states).flatMap(stateNodesOf),
 ];
 
+/** The id of `root` and of every state below it. */
+export const stateIdsOf = (root: StateTree) => stateNodesOf(root).map(({ id }) => id);
+
 /**
  * Every state below `root` that declares the input it is entered with, by its
  * state id, with its path from `root` and that input's Schema. A machine's

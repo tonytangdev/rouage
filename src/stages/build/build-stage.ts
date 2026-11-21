@@ -19,7 +19,7 @@ const BuildContextSchema = Schema.Struct({
 });
 type BuildContext = typeof BuildContextSchema.Type;
 
-// A Schema for the same reason as the context, for a Build restored mid-fix (ADR 0017).
+// A Schema, so a Build restored mid-fix with failures saved before their shape changed fails to restore (ADR 0017).
 const FailuresSchema = Schema.Struct({ failures: Schema.String });
 
 export interface BuildOptions {

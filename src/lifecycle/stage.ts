@@ -93,11 +93,6 @@ export const stageInputs: Readonly<Record<StageName, (argument: InputArgument) =
   ship: shownInput,
 };
 
-const tagged = <Tag extends string, Fields extends Schema.Struct.Fields>(
-  tag: Tag,
-  fields: Fields,
-) => Schema.Struct({ _tag: Schema.Literal(tag), ...fields });
-
 /**
  * Each stage of the default lifecycle and the outcome its stage machine
  * finishes with. A stage implementation fits a slot when it accepts
@@ -106,28 +101,31 @@ const tagged = <Tag extends string, Fields extends Schema.Struct.Fields>(
  * (ADR 0017).
  */
 export const StageOutcomeSchemas = {
-  intake: tagged("classified", { kind: KindSchema }),
-  spec: tagged("written", { specRef: Schema.String }),
+  intake: Schema.TaggedStruct("classified", { kind: KindSchema }),
+  spec: Schema.TaggedStruct("written", { specRef: Schema.String }),
   provision: Schema.Union([
-    tagged("provisioned", { sandboxRef: Schema.String, sampleRef: Schema.NullOr(Schema.String) }),
-    tagged("awaitingRun", { sandboxRef: Schema.String, scriptRef: Schema.String }),
+    Schema.TaggedStruct("provisioned", {
+      sandboxRef: Schema.String,
+      sampleRef: Schema.NullOr(Schema.String),
+    }),
+    Schema.TaggedStruct("awaitingRun", { sandboxRef: Schema.String, scriptRef: Schema.String }),
   ]),
   reproduce: Schema.Union([
-    tagged("reproduced", { reproductionRef: Schema.String }),
-    tagged("needsSample", { sampleRequest: Schema.String }),
-    tagged("cannotReproduce", { reason: Schema.String }),
-    tagged("checkPassed", { reproductionRef: Schema.String, output: Schema.String }),
+    Schema.TaggedStruct("reproduced", { reproductionRef: Schema.String }),
+    Schema.TaggedStruct("needsSample", { sampleRequest: Schema.String }),
+    Schema.TaggedStruct("cannotReproduce", { reason: Schema.String }),
+    Schema.TaggedStruct("checkPassed", { reproductionRef: Schema.String, output: Schema.String }),
   ]),
-  plan: tagged("planned", { planRef: Schema.String, demo: Schema.Boolean }),
-  build: tagged("built", {}),
-  demo: tagged("demonstrated", { demoRef: Schema.String }),
+  plan: Schema.TaggedStruct("planned", { planRef: Schema.String, demo: Schema.Boolean }),
+  build: Schema.TaggedStruct("built", {}),
+  demo: Schema.TaggedStruct("demonstrated", { demoRef: Schema.String }),
   review: Schema.Union([
-    tagged("approved", {}),
-    tagged("changesRequested", { feedback: Schema.String }),
+    Schema.TaggedStruct("approved", {}),
+    Schema.TaggedStruct("changesRequested", { feedback: Schema.String }),
   ]),
   ship: Schema.Union([
-    tagged("shipped", { deliveryRef: Schema.String }),
-    tagged("needsRebuild", { feedback: Schema.String }),
+    Schema.TaggedStruct("shipped", { deliveryRef: Schema.String }),
+    Schema.TaggedStruct("needsRebuild", { feedback: Schema.String }),
   ]),
 } as const satisfies Readonly<Record<StageName, Schema.Codec<unknown, unknown>>>;
 

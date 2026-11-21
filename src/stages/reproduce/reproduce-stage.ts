@@ -13,7 +13,6 @@ import { CaptureTaskSchema, ConfirmTaskSchema, Reproducer } from "./reproducer.t
 // Schemas, so a Reproduce restored mid-run with a state input saved before it changed fails to restore (ADR 0017).
 const SandboxedSchema = Schema.Struct({ sandboxRef: Schema.String });
 type Sandboxed = typeof SandboxedSchema.Type;
-const outcome = Schema.toStandardSchemaV1(StageOutcomeSchemas.reproduce);
 
 const captureTask = ({
   context,
@@ -55,7 +54,10 @@ const reproduceSetup = (step: PortStep<Reproducer["Service"]>) =>
       checkingSandbox: { type: "choice" },
       capturing: { schemas: { input: Schema.toStandardSchemaV1(SandboxedSchema) } },
       confirming: { schemas: { input: Schema.toStandardSchemaV1(ConfirmTaskSchema) } },
-      finished: { type: "final", schemas: { input: outcome } },
+      finished: {
+        type: "final",
+        schemas: { input: Schema.toStandardSchemaV1(StageOutcomeSchemas.reproduce) },
+      },
     },
   });
 

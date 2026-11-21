@@ -2,12 +2,9 @@ import { Schema } from "effect";
 import type { AnyStateMachine, StandardSchemaV1 } from "xstate";
 
 import { defaultLifecycle } from "./lifecycle.ts";
-import { stateInputSchemasOf, stateNodesOf } from "./state-nodes.ts";
+import { stateIdsOf, stateInputSchemasOf } from "./state-nodes.ts";
 import { taskSchemaOf } from "./step-task.ts";
 import { WorkItemContextSchema } from "./work-item.ts";
-
-const stateIdsOf = (root: Parameters<typeof stateNodesOf>[0]) =>
-  stateNodesOf(root).map(({ id }) => id);
 
 // A Standard Schema made by `Schema.toStandardSchemaV1` is the Effect Schema
 // too, which alone gives a JSON Schema; any other is pinned as `null`.

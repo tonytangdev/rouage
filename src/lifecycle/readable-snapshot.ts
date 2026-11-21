@@ -87,7 +87,8 @@ const SavedStateInputs = Schema.Struct({
 
 // XState's snapshotSchema checks a machine's context but not its state
 // inputs, so each saved input is checked against its state's input schema.
-// A state left since keeps no input, so only active states are checked.
+// XState saves inputs of active states only, and drops on restore the input
+// of a state the machine no longer has, so such an input goes unchecked.
 const checkSavedStateInputs = Effect.fnUntraced(function* (
   stage: string,
   machine: AnyStateMachine,
@@ -128,10 +129,10 @@ const checkSavedStages = Effect.fnUntraced(function* (
 });
 
 /**
- * The saved work item `persisted`, once its lifecycle context, its states,
- * the saved snapshot of each running stage machine, the input of each of its
- * active states and the task of each step running in one fit what
- * `lifecycle` runs now; fails with `UnreadableSnapshot`
+ * The saved work item `persisted`, once each of these fits what `lifecycle`
+ * runs now: its lifecycle context and states, the saved snapshot of each
+ * running stage machine, the input of each of that machine's active states,
+ * and the task of each step running in it. Fails with `UnreadableSnapshot`
  * naming what does not (ADR 0002, ADR 0014, ADR 0016, ADR 0017).
  */
 export const readableSnapshot = Effect.fnUntraced(function* (
