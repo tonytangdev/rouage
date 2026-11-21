@@ -5,21 +5,13 @@ import type { OutcomeOf, StageInput } from "../../lifecycle/stage.ts";
 import { StageFailure } from "../../lifecycle/stage.ts";
 import type { PortStep } from "../port-stage.ts";
 import { portStage } from "../port-stage.ts";
+import { sandboxMissing } from "../sandbox-missing.ts";
 import type { CaptureTask, ConfirmTask } from "./reproducer.ts";
 import { Reproducer } from "./reproducer.ts";
 
 interface Sandboxed {
   readonly sandboxRef: string;
 }
-
-const sandboxMissing = () =>
-  new StageFailure({
-    reason: {
-      tag: "SandboxMissing",
-      message:
-        "Reproduce started without a sandbox; send the work item back to Spec so Provision prepares one",
-    },
-  });
 
 const captureTask = ({
   context,
@@ -81,10 +73,9 @@ const reproduceMachine = (step: PortStep<Reproducer["Service"]>) =>
     states: {
       checkingSandbox: {
         type: "choice",
-        // The lifecycle runs Provision before Reproduce, so a null sandbox means a lifecycle that skips Provision.
         choice: ({ context }) => {
           if (context.sandboxRef === null) {
-            throw sandboxMissing();
+            throw sandboxMissing("Reproduce");
           }
           return { target: "capturing", input: { sandboxRef: context.sandboxRef } };
         },

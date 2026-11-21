@@ -47,6 +47,8 @@ export interface StageFacts {
   readonly planRef: string | null;
   /** Whether the latest plan calls for a demo, or `null` before Plan has run. */
   readonly demoPlanned: boolean | null;
+  /** The reference to the latest demo, opaque to Rouage; only the next demo replaces it (ADR 0004), so it shows the current change only while the latest plan calls for a demo. */
+  readonly demoRef: string | null;
 }
 
 /** The facts of a work item no stage has worked on yet; only `issueRef` is known from the start. */
@@ -60,6 +62,7 @@ export const noFactsYet: Omit<StageFacts, "issueRef"> = {
   reproductionRef: null,
   planRef: null,
   demoPlanned: null,
+  demoRef: null,
 };
 
 /** What the lifecycle passes to every stage machine it starts. */
@@ -93,7 +96,7 @@ export interface StageOutcomes {
     | { readonly _tag: "cannotReproduce"; readonly reason: string };
   readonly plan: { readonly _tag: "planned"; readonly planRef: string; readonly demo: boolean };
   readonly build: { readonly _tag: "built" };
-  readonly demo: { readonly _tag: "demonstrated" };
+  readonly demo: { readonly _tag: "demonstrated"; readonly demoRef: string };
   readonly review:
     | { readonly _tag: "approved" }
     | { readonly _tag: "changesRequested"; readonly feedback: string };

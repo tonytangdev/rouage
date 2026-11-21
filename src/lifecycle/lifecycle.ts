@@ -149,7 +149,15 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           },
         },
         demo: {
-          invoke: { id: "demo", src: "demo", input: stageInput, onDone: { target: "review" } },
+          invoke: {
+            id: "demo",
+            src: "demo",
+            input: stageInput,
+            onDone: ({ context, event: { output } }) => ({
+              target: "review",
+              context: learned(context, { demoRef: output.demoRef }),
+            }),
+          },
         },
         review: {
           invoke: {

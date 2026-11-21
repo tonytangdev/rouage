@@ -67,7 +67,8 @@ Evidence, captured before any change, that a bug exists: a check that can be run
 _Avoid_: Repro case, failing example
 
 **Demo**:
-Evidence, captured after a change, that it works. Optional, decided during Plan.
+Evidence, captured after a change, that it works, for whoever reviews the change to see. Its form, such as a screenshot or a recording, is the plugin's choice. Optional, decided during Plan; once planned, a demo that cannot be made blocks the work item.
+_Avoid_: Showcase, proof
 
 ### Plugins
 

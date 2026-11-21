@@ -198,8 +198,25 @@ describe("lifecycle", () => {
       expect(workItem.stage()).toStrictEqual("build");
       workItem.finish("build", { _tag: "built" });
       expect(workItem.stage()).toStrictEqual("demo");
-      workItem.finish("demo", { _tag: "demonstrated" });
+      workItem.finish("demo", { _tag: "demonstrated", demoRef: "demo-1" });
       expect(workItem.stage()).toStrictEqual("review");
+    }),
+  );
+
+  it.effect("passes the demo on to Review", () =>
+    Effect.gen(function* () {
+      const workItem = yield* startAt("demo", { demo: true });
+      workItem.finish("demo", { _tag: "demonstrated", demoRef: "demo-1" });
+      expect(workItem.stageInput("review")).toStrictEqual(
+        stageInputWith({
+          kind: "feature",
+          specRef: "spec-1",
+          sandboxRef: "box-1",
+          planRef: "plan-1",
+          demoPlanned: true,
+          demoRef: "demo-1",
+        }),
+      );
     }),
   );
 

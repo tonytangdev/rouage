@@ -82,7 +82,7 @@ const passingOutcomes = (route: Route): { readonly [Stage in StageName]: Outcome
   reproduce: { _tag: "reproduced", reproductionRef: "repro-1" },
   plan: { _tag: "planned", planRef: "plan-1", demo: route.demo ?? false },
   build: { _tag: "built" },
-  demo: { _tag: "demonstrated" },
+  demo: { _tag: "demonstrated", demoRef: "demo-1" },
   review: { _tag: "approved" },
   ship: { _tag: "shipped" },
 });
@@ -98,7 +98,7 @@ const factsTaught = (route: Route): Readonly<Record<StageName, Partial<StageFact
   reproduce: { reproductionRef: "repro-1" },
   plan: { planRef: "plan-1", demoPlanned: route.demo ?? false },
   build: {},
-  demo: {},
+  demo: { demoRef: "demo-1" },
   review: {},
   ship: {},
 });
