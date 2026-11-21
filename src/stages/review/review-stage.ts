@@ -1,3 +1,6 @@
+import { Match } from "effect";
+
+import type { OutcomeOf } from "../../lifecycle/stage.ts";
 import { builtChangeTask } from "../built-change.ts";
 import { singleStepStage } from "../single-step-stage.ts";
 import type { ReviewTask, Verdict } from "./reviewer.ts";
@@ -18,5 +21,12 @@ export const reviewStage = singleStepStage(Reviewer, {
       changeRequest: input.changeRequest,
     }),
   ask: (reviewer, task: ReviewTask) => reviewer.review(task),
-  outcome: (verdict: Verdict) => verdict,
+  outcome: (verdict: Verdict): OutcomeOf<"review"> =>
+    Match.valueTags(verdict, {
+      approved: (): OutcomeOf<"review"> => ({ _tag: "approved" }),
+      changesRequested: ({ feedback }): OutcomeOf<"review"> => ({
+        _tag: "changesRequested",
+        feedback,
+      }),
+    }),
 });
