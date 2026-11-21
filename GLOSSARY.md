@@ -43,6 +43,10 @@ _Avoid_: Requirements, PRD
 How a work item's change will be made, including whether a demo is worth it, written down for Build to follow. Written in the Plan stage, after the spec is approved and, for a bug, after it is reproduced.
 _Avoid_: Design, approach, task list
 
+**Review**:
+The stage where a plugin judges the built change against its spec, plan and evidence, and either approves it or requests changes, which send it back to Build. A human's judgement comes after, at the ship gate.
+_Avoid_: Code review, QA
+
 **Provision**:
 The stage that prepares the sandbox a work item runs in, before any reproduction or build.
 _Avoid_: Setup, bootstrap
