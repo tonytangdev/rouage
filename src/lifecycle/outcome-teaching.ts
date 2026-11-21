@@ -45,7 +45,7 @@ export type BlockingOutcome = Extract<AnyOutcome, { readonly _tag: BlockingTag }
 export type LoopingOutcome = Extract<AnyOutcome, { readonly _tag: LoopingTag }>;
 
 /** The outcomes that send the work item on without blocking it. */
-export type SteadyOutcome = Exclude<AnyOutcome, BlockingOutcome | LoopingOutcome>;
+export type OnwardOutcome = Exclude<AnyOutcome, BlockingOutcome | LoopingOutcome>;
 
 /** The teaching of an outcome that blocks, whose reason is always there. */
 export interface BlockingTeaching extends Teaching {
@@ -60,7 +60,7 @@ export interface LoopingTeaching extends Teaching {
 }
 
 /** The teaching of an outcome that neither loops nor blocks. */
-export interface SteadyTeaching extends Teaching {
+export interface OnwardTeaching extends Teaching {
   readonly loop: null;
   readonly blocks: null;
 }
@@ -69,7 +69,7 @@ type TeachingOf<Tag extends OutcomeTag> = Tag extends BlockingTag
   ? BlockingTeaching
   : Tag extends LoopingTag
     ? LoopingTeaching
-    : SteadyTeaching;
+    : OnwardTeaching;
 
 // A tag two stages share would be taught as one outcome, so the table below
 // fails to compile until the tags are unique again.
@@ -85,7 +85,7 @@ type Teachings = {
 };
 
 /** What a transition that is not a stage finishing teaches: nothing. */
-export const nothingTaught: SteadyTeaching = {
+export const nothingTaught: OnwardTeaching = {
   references: {},
   feedback: null,
   changeRequest: null,
@@ -96,7 +96,7 @@ export const nothingTaught: SteadyTeaching = {
 
 type Taught = Partial<Omit<Teaching, "loop" | "blocks">>;
 
-const teaches = (taught: Taught): SteadyTeaching => ({ ...nothingTaught, ...taught });
+const teaches = (taught: Taught): OnwardTeaching => ({ ...nothingTaught, ...taught });
 
 const loops = (loop: LoopTrip, taught: Taught = {}): LoopingTeaching => ({
   ...nothingTaught,
@@ -106,7 +106,10 @@ const loops = (loop: LoopTrip, taught: Taught = {}): LoopingTeaching => ({
 
 const nothing = () => nothingTaught;
 
-const blocking = (blocked: FailureReason, references: Partial<References> = {}) => ({
+const blocking = (
+  blocked: FailureReason,
+  references: Partial<References> = {},
+): BlockingTeaching => ({
   ...nothingTaught,
   references,
   blocks: blocked,
@@ -116,7 +119,8 @@ const sentBackToBuild = (from: "review" | "ship", feedback: string, loop: LoopTr
   loops(loop, { feedback, changeRequest: { from, text: feedback } });
 
 // Keyed by tag, so an outcome added to a stage fails to compile here until it
-// says what it teaches, including whether it loops or blocks.
+// says what it teaches; it may loop or block only once its tag is named a
+// looping or blocking tag above.
 const teachings: [SharedOutcomeTag] extends [never] ? Teachings : never = {
   classified: ({ kind }) => teaches({ references: { kind } }),
   written: ({ specRef }) => teaches({ references: { specRef } }),
@@ -161,9 +165,11 @@ const teachings: [SharedOutcomeTag] extends [never] ? Teachings : never = {
 /** What `outcome` means for the work item when its stage finishes with it. */
 export const taughtBy = (outcome: AnyOutcome): Teaching => Match.valueTags(outcome, teachings);
 
+/** Whether `teaching` blocks the work item. */
 export const isBlocking = (teaching: Teaching): teaching is BlockingTeaching =>
   teaching.blocks !== null;
 
+/** Whether `teaching` sends the work item around a loop. */
 export const isLooping = (teaching: Teaching): teaching is LoopingTeaching =>
   teaching.loop !== null;
 

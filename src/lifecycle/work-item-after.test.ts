@@ -3,8 +3,8 @@ import { Effect } from "effect";
 
 import { noFactsYet } from "./facts.ts";
 import { StageFailure } from "./stage.ts";
-import type { BlockingTransition, LoopingTransition, SteadyTransition } from "./transition.ts";
-import { finished } from "./transition.ts";
+import type { BlockingTransition, LoopingTransition, OnwardTransition } from "./transition.ts";
+import { errored, finished } from "./transition.ts";
 import type { AroundLoop, BlockedContext } from "./work-item-after.ts";
 import { workItemAfter } from "./work-item-after.ts";
 import type { WorkItemContext } from "./work-item.ts";
@@ -42,7 +42,7 @@ interface Case<Kind, After> {
   readonly to: After;
 }
 
-const steadyCases: ReadonlyArray<readonly [string, Case<SteadyTransition, WorkItemContext>]> = [
+const onwardCases: ReadonlyArray<readonly [string, Case<OnwardTransition, WorkItemContext>]> = [
   [
     "a plan records whether it calls for a demo",
     {
@@ -208,7 +208,7 @@ const loopingCases: ReadonlyArray<readonly [string, Case<LoopingTransition, Arou
       transition: finished("review", { _tag: "changesRequested", feedback: "rename totals" }),
       to: {
         _tag: "sentAround",
-        context: {
+        around: {
           ...fresh,
           facts: {
             ...fresh.facts,
@@ -227,7 +227,7 @@ const loopingCases: ReadonlyArray<readonly [string, Case<LoopingTransition, Arou
       transition: finished("ship", { _tag: "needsRebuild", feedback: "conflicts" }),
       to: {
         _tag: "sentAround",
-        context: {
+        around: {
           ...fresh,
           facts: {
             ...fresh.facts,
@@ -246,7 +246,7 @@ const loopingCases: ReadonlyArray<readonly [string, Case<LoopingTransition, Arou
       transition: finished("review", { _tag: "changesRequested", feedback: "again" }),
       to: {
         _tag: "blocked",
-        context: {
+        blocked: {
           ...standing,
           facts: { ...standing.facts, feedback: null },
           counters: { ...fresh.counters, review: 2 },
@@ -268,7 +268,7 @@ const loopingCases: ReadonlyArray<readonly [string, Case<LoopingTransition, Arou
       transition: finished("reproduce", { _tag: "needsSample", sampleRequest: "orders over 100" }),
       to: {
         _tag: "blocked",
-        context: {
+        blocked: {
           ...fresh,
           facts: { ...fresh.facts, sampleRequest: "orders over 100" },
           counters: { ...fresh.counters, reproduce: 2 },
@@ -286,6 +286,20 @@ const loopingCases: ReadonlyArray<readonly [string, Case<LoopingTransition, Arou
 ];
 
 const blockingCases: ReadonlyArray<readonly [string, Case<BlockingTransition, BlockedContext>]> = [
+  [
+    "a stage error blocks on the stage with its failure reason",
+    {
+      from: standing,
+      transition: errored(
+        "spec",
+        new StageFailure({ reason: { tag: "AgentTimedOut", message: "no answer" } }),
+      ),
+      to: {
+        ...standing,
+        blocked: { from: "spec", reason: { tag: "AgentTimedOut", message: "no answer" } },
+      },
+    },
+  ],
   [
     "a reproduction whose check passed blocks and is kept",
     {
@@ -311,7 +325,7 @@ const blockingCases: ReadonlyArray<readonly [string, Case<BlockingTransition, Bl
 ];
 
 describe("work item after a transition", () => {
-  for (const [title, { from, transition, to }] of steadyCases) {
+  for (const [title, { from, transition, to }] of onwardCases) {
     it.effect(title, () =>
       Effect.sync(() => {
         expect(workItemAfter(from, transition)).toStrictEqual(to);
@@ -334,16 +348,4 @@ describe("work item after a transition", () => {
       }),
     );
   }
-
-  it.effect("a stage error blocks on the stage with its failure reason", () =>
-    Effect.sync(() => {
-      const error = new StageFailure({ reason: { tag: "AgentTimedOut", message: "no answer" } });
-      expect(workItemAfter(standing, { _tag: "stageErrored", stage: "spec", error })).toStrictEqual(
-        {
-          ...standing,
-          blocked: { from: "spec", reason: { tag: "AgentTimedOut", message: "no answer" } },
-        },
-      );
-    }),
-  );
 });

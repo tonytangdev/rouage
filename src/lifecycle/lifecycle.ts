@@ -156,8 +156,8 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
                 case "needsSample": {
                   const after = workItemAfter(context, finished("reproduce", output));
                   return after._tag === "sentAround"
-                    ? { target: "provision", context: after.context }
-                    : { target: "#blocked", context: after.context };
+                    ? { target: "provision", context: after.around }
+                    : { target: "#blocked", context: after.blocked };
                 }
                 default: {
                   return absurd(output);
@@ -223,8 +223,8 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
                 case "changesRequested": {
                   const after = workItemAfter(context, finished("review", output));
                   return after._tag === "sentAround"
-                    ? { target: "build", context: after.context }
-                    : { target: "#blocked", context: after.context };
+                    ? { target: "build", context: after.around }
+                    : { target: "#blocked", context: after.blocked };
                 }
                 default: {
                   return absurd(output);
@@ -261,8 +261,8 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
                 case "needsRebuild": {
                   const after = workItemAfter(context, finished("ship", output));
                   return after._tag === "sentAround"
-                    ? { target: "build", context: after.context }
-                    : { target: "#blocked", context: after.context };
+                    ? { target: "build", context: after.around }
+                    : { target: "#blocked", context: after.blocked };
                 }
                 default: {
                   return absurd(output);

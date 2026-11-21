@@ -18,7 +18,7 @@ import type {
   LoopingTransition,
   StageErrored,
   StageFinished,
-  SteadyTransition,
+  OnwardTransition,
   Transition,
 } from "./transition.ts";
 import type { DecisionAction, HumanDecision, WorkItemContext } from "./work-item.ts";
@@ -59,10 +59,17 @@ const blockedOnOutcome = (
     reason: teaching.blocks,
   });
 
-/** Where a looping outcome leaves the work item: sent around its loop, or blocked once the loop reached its limit. */
+/**
+ * Where a looping outcome leaves the work item: sent around its loop, with
+ * the context it goes `around` with, or `blocked` once the loop reached its
+ * limit, with the context typed for the Blocked state.
+ */
+// Each case names its context differently, because a blocked context is a
+// work item context too: under one name, routing it to a working state
+// without narrowing would compile.
 export type AroundLoop =
-  | { readonly _tag: "sentAround"; readonly context: WorkItemContext }
-  | { readonly _tag: "blocked"; readonly context: BlockedContext };
+  | { readonly _tag: "sentAround"; readonly around: WorkItemContext }
+  | { readonly _tag: "blocked"; readonly blocked: BlockedContext };
 
 // At the limit the work item is blocked on the looping stage rather than sent
 // around again, and still learns what the outcome teaches beyond the trip, as
@@ -77,7 +84,7 @@ const aroundLoop = (
   if (context.counters[loop] >= limit) {
     return {
       _tag: "blocked",
-      context: blockedWith(withFacts(context, transition, exhaustedTeaching(teaching)), {
+      blocked: blockedWith(withFacts(context, transition, exhaustedTeaching(teaching)), {
         from: loop,
         reason: { tag: "LoopLimitReached", message: describe(limit) },
       }),
@@ -86,14 +93,14 @@ const aroundLoop = (
   const next = withFacts(context, transition, teaching);
   return {
     _tag: "sentAround",
-    context: { ...next, counters: { ...next.counters, [loop]: next.counters[loop] + 1 } },
+    around: { ...next, counters: { ...next.counters, [loop]: next.counters[loop] + 1 } },
   };
 };
 
 const finishedAfter = (
   context: WorkItemContext,
   transition: StageFinished,
-): WorkItemContext | AroundLoop | BlockedContext => {
+): WorkItemContext | AroundLoop => {
   const teaching = taughtBy(transition.outcome);
   if (isBlocking(teaching)) {
     return blockedOnOutcome(context, transition, teaching);
@@ -130,17 +137,17 @@ const decidedAfter = (context: WorkItemContext, transition: HumanTransition): Wo
  * The work item's context after `transition`: the facts it teaches, the loop
  * trip it counts, the block it causes and the human decision it records; the
  * only way the context changes. Its type says whether the work item can be
- * blocked, so the lifecycle routes every block: a transition that never
- * blocks gives the context, one that always blocks gives it typed for the
- * Blocked state, and an outcome that loops gives whether it was sent around
- * or blocked at its loop's limit.
+ * blocked: a transition that never blocks gives the context, one that always
+ * blocks gives it typed for the Blocked state, and an outcome that loops gives
+ * `AroundLoop`, whose context is reached only by telling whether the loop
+ * sent the work item around or blocked it at its limit.
  */
 // TypeScript does not hold the implementation to these overloads; the
 // teaching table does, because it types each outcome's tag as blocking,
 // looping or neither, and the implementation branches on that teaching.
 export function workItemAfter(
   context: WorkItemContext,
-  transition: SteadyTransition,
+  transition: OnwardTransition,
 ): WorkItemContext;
 export function workItemAfter(context: WorkItemContext, transition: LoopingTransition): AroundLoop;
 export function workItemAfter(
@@ -150,7 +157,7 @@ export function workItemAfter(
 export function workItemAfter(
   context: WorkItemContext,
   transition: Transition,
-): WorkItemContext | AroundLoop | BlockedContext {
+): WorkItemContext | AroundLoop {
   if (transition._tag === "stageFinished") {
     return finishedAfter(context, transition);
   }

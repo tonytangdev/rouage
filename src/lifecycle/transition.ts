@@ -1,4 +1,4 @@
-import type { BlockingOutcome, LoopingOutcome, SteadyOutcome } from "./outcome-teaching.ts";
+import type { BlockingOutcome, LoopingOutcome, OnwardOutcome } from "./outcome-teaching.ts";
 import type { Gate } from "./place.ts";
 import type { OutcomeOf, StageName } from "./stage.ts";
 import type { HumanDecision } from "./work-item.ts";
@@ -51,7 +51,7 @@ export type LoopingTransition = StageFinished<LoopingOutcome>;
 export type HumanTransition = Exclude<Transition, StageFinished | StageErrored>;
 
 /** A transition that never blocks the work item. */
-export type SteadyTransition = HumanTransition | StageFinished<SteadyOutcome>;
+export type OnwardTransition = HumanTransition | StageFinished<OnwardOutcome>;
 
 type IsUnion<T, Whole = T> = T extends unknown ? ([Whole] extends [T] ? false : true) : never;
 
