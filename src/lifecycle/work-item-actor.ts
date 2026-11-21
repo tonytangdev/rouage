@@ -13,7 +13,9 @@ import { restoreActor, snapshotSchema } from "xstate/persist";
 import { defaultLifecycle } from "./lifecycle.ts";
 import type { LoopLimits } from "./loops.ts";
 import { resolveLoopLimits } from "./loops.ts";
+import type { TeardownGaveUp } from "./sandbox-teardown.ts";
 import { innermostState } from "./state-value.ts";
+import { teardownWhenFinal } from "./teardown-when-final.ts";
 import type { WorkItemContext, WorkItemInput } from "./work-item.ts";
 
 type DefaultLifecycle = typeof defaultLifecycle;
@@ -51,6 +53,8 @@ export interface WorkItem {
   readonly save: () => ReturnType<WorkItemActor["getPersistedSnapshot"]>;
   /** Completes once the innermost active state is `state`; fails with `StateNotReached` if the work item stops first. */
   readonly reaches: (state: string) => Effect.Effect<void, StateNotReached>;
+  /** Completes once the sandbox of the work item, shipped or cancelled, is torn down. */
+  readonly tornDown: Effect.Effect<void, TeardownGaveUp>;
 }
 
 export class StateNotReached extends Data.TaggedError("StateNotReached")<{
@@ -58,7 +62,10 @@ export class StateNotReached extends Data.TaggedError("StateNotReached")<{
   readonly message: string;
 }> {}
 
-const workItemOf = (actor: WorkItemActor): WorkItem => ({
+const workItemOf = (
+  actor: WorkItemActor,
+  tornDown: Effect.Effect<void, TeardownGaveUp>,
+): WorkItem => ({
   state: () => innermostState(actor.getSnapshot().value),
   status: () => actor.getSnapshot().status,
   context: () => actor.getSnapshot().context,
@@ -71,6 +78,7 @@ const workItemOf = (actor: WorkItemActor): WorkItem => ({
       try: () => waitFor(actor, (snapshot) => innermostState(snapshot.value) === state),
       catch: (error) => new StateNotReached({ state, message: String(error) }),
     }).pipe(Effect.asVoid),
+  tornDown,
 });
 
 const PersistedEnvelope = Schema.Struct({
@@ -92,8 +100,22 @@ export interface NewWorkItem {
   readonly limits?: Partial<LoopLimits>;
 }
 
+const isDone = (snapshot: SnapshotFrom<DefaultLifecycle>) => snapshot.status === "done";
+
+// A defect, not a failure, when the actor stops first, because the scope that
+// stops it interrupts this wait before it does.
+const final = (actor: WorkItemActor) =>
+  Effect.promise(() => waitFor(actor, isDone)).pipe(Effect.asVoid);
+
 const runScoped = (start: () => WorkItemActor) =>
   Effect.acquireRelease(Effect.sync(start), (actor) => Effect.sync(() => actor.stop()));
+
+const withTeardown = Effect.fnUntraced(function* (actor: WorkItemActor) {
+  const { tornDown } = yield* teardownWhenFinal(actor.getSnapshot().context.id, final(actor), () =>
+    isDone(actor.getSnapshot()),
+  );
+  return workItemOf(actor, tornDown);
+});
 
 /**
  * Starts a work item on `lifecycle`, resolving its loop limits once now. The
@@ -107,7 +129,7 @@ export const createWorkItem = Effect.fnUntraced(function* (
   const actor = yield* runScoped(() =>
     createActor(lifecycle, { input: { id: item.id, issueRef: item.issueRef, limits } }).start(),
   );
-  return workItemOf(actor);
+  return yield* withTeardown(actor);
 });
 
 const unreadable = (message: string) => new UnreadableSnapshot({ message });
@@ -147,5 +169,5 @@ export const restoreWorkItem = Effect.fnUntraced(function* (
   if (restored.status === "error") {
     return yield* unreadable(String(restored.error));
   }
-  return workItemOf(actor);
+  return yield* withTeardown(actor);
 });

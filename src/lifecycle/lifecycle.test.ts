@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
+import { fakeSandboxTeardown } from "./fake-sandbox-teardown.ts";
 import type { Route, Waypoint } from "./lifecycle-harness.ts";
 import {
   goldenRefs,
@@ -24,7 +25,7 @@ describe("lifecycle", () => {
       const workItem = yield* createWorkItem(defaultLifecycle, {
         id: goldenRefs.workItemId,
         issueRef: goldenRefs.issueRef,
-      });
+      }).pipe(Effect.provide(fakeSandboxTeardown().layer));
       yield* workItem.reaches("blocked");
       expect(workItem.context().blocked).toStrictEqual({
         from: "intake",

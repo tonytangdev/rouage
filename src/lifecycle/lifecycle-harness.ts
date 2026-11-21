@@ -2,8 +2,11 @@ import { Data, Effect, Schema } from "effect";
 import type { AnyActorRef, AnyStateMachine, EventFrom } from "xstate";
 import { createActor } from "xstate";
 
+import type { FakeSandboxTeardown } from "./fake-sandbox-teardown.ts";
+import { fakeSandboxTeardown } from "./fake-sandbox-teardown.ts";
 import { defaultLifecycle } from "./lifecycle.ts";
 import { perLoop } from "./loops.ts";
+import type { TeardownTask } from "./sandbox-teardown.ts";
 import type { FailureReason, Kind, OutcomeOf, StageFacts, StageInput, StageName } from "./stage.ts";
 import { StageNameSchema, noFactsYet } from "./stage.ts";
 import { innermostState } from "./state-value.ts";
@@ -211,7 +214,7 @@ const inputFrom = (
   return stageInputWith({ ...learnt, ...changes });
 };
 
-const drive = (workItem: WorkItem, running: Running) => {
+const drive = (workItem: WorkItem, running: Running, teardowns: () => readonly TeardownTask[]) => {
   const stub = (stage: StageName) => {
     const found = running.get(stage);
     if (found === undefined) {
@@ -225,6 +228,9 @@ const drive = (workItem: WorkItem, running: Running) => {
     context: workItem.context,
     save: workItem.save,
     reaches: workItem.reaches,
+    tornDown: workItem.tornDown,
+    /** Every sandbox teardown the work item asked for, in order. */
+    teardowns,
     send: workItem.send,
     stageInput: (stage: StageName) => running.get(stage)?.input,
     finish: <Stage extends StageName>(stage: Stage, outcome: OutcomeOf<Stage>) => {
@@ -246,11 +252,16 @@ const drive = (workItem: WorkItem, running: Running) => {
 /** Round-trips a saved work item through JSON, as a store that keeps it as text would. */
 export const throughJson = (persisted: unknown): unknown => JSON.parse(JSON.stringify(persisted));
 
-/** Starts the test work item on the default lifecycle, with a stub for every stage not in `real`, for the length of the test. */
-export const startWorkItem = Effect.fnUntraced(function* (real: RealStages = {}) {
+/** Starts the test work item on the default lifecycle, with a stub for every stage not in `real` and `sandbox` to tear it down, for the length of the test. */
+export const startWorkItem = Effect.fnUntraced(function* (
+  real: RealStages = {},
+  sandbox: FakeSandboxTeardown = fakeSandboxTeardown(),
+) {
   const { running, lifecycle } = stubController(real);
-  const workItem = yield* createWorkItem(lifecycle, newWorkItem);
-  return drive(workItem, running);
+  const workItem = yield* createWorkItem(lifecycle, newWorkItem).pipe(
+    Effect.provide(sandbox.layer),
+  );
+  return drive(workItem, running, sandbox.tasks);
 });
 
 /** Resumes a saved work item on the default lifecycle, with a stub for every stage not in `real`, for the length of the test. */
@@ -259,5 +270,7 @@ export const restoredWorkItem = Effect.fnUntraced(function* (
   real: RealStages = {},
 ) {
   const { running, lifecycle } = stubController(real);
-  return drive(yield* restoreWorkItem(lifecycle, persisted), running);
+  const sandbox = fakeSandboxTeardown();
+  const workItem = yield* restoreWorkItem(lifecycle, persisted).pipe(Effect.provide(sandbox.layer));
+  return drive(workItem, running, sandbox.tasks);
 });
