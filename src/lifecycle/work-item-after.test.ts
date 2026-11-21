@@ -3,9 +3,10 @@ import { Effect } from "effect";
 
 import { noFactsYet } from "./facts.ts";
 import { StageFailure } from "./stage.ts";
-import type { Transition } from "./transition.ts";
+import type { BlockingTransition, LoopingTransition, SteadyTransition } from "./transition.ts";
 import { finished } from "./transition.ts";
-import { blockedAfter, workItemAfter } from "./work-item-after.ts";
+import type { AroundLoop, BlockedContext } from "./work-item-after.ts";
+import { workItemAfter } from "./work-item-after.ts";
 import type { WorkItemContext } from "./work-item.ts";
 
 const by = { by: "ana", at: "2026-01-01T00:00:00.000Z" };
@@ -35,102 +36,13 @@ const blockedOnSpec: WorkItemContext = {
   blocked: { from: "spec", reason: { tag: "AgentTimedOut", message: "no answer" } },
 };
 
-interface Case {
+interface Case<Kind, After> {
   readonly from: WorkItemContext;
-  readonly transition: Transition;
-  readonly to: WorkItemContext;
+  readonly transition: Kind;
+  readonly to: After;
 }
 
-const cases: ReadonlyArray<readonly [string, Case]> = [
-  [
-    "a review asking for changes counts a trip and sends them to Build",
-    {
-      from: fresh,
-      transition: finished("review", { _tag: "changesRequested", feedback: "rename totals" }),
-      to: {
-        ...fresh,
-        facts: {
-          ...fresh.facts,
-          feedback: "rename totals",
-          changeRequest: { from: "review", text: "rename totals" },
-        },
-        counters: { ...fresh.counters, review: 1 },
-      },
-    },
-  ],
-  [
-    "Ship failing to land the change sends what kept it back to Build",
-    {
-      from: fresh,
-      transition: finished("ship", { _tag: "needsRebuild", feedback: "conflicts" }),
-      to: {
-        ...fresh,
-        facts: {
-          ...fresh.facts,
-          feedback: "conflicts",
-          changeRequest: { from: "ship", text: "conflicts" },
-        },
-        counters: { ...fresh.counters, ship: 1 },
-      },
-    },
-  ],
-  [
-    "a loop at its limit blocks, clears the feedback and keeps the change request",
-    {
-      from: { ...standing, counters: { ...fresh.counters, review: 2 } },
-      transition: finished("review", { _tag: "changesRequested", feedback: "again" }),
-      to: {
-        ...standing,
-        facts: { ...standing.facts, feedback: null },
-        counters: { ...fresh.counters, review: 2 },
-        blocked: {
-          from: "review",
-          reason: {
-            tag: "LoopLimitReached",
-            message: "Review sent the change back to Build 2 times, and last asked: again",
-          },
-        },
-      },
-    },
-  ],
-  [
-    "a reproduction whose check passed blocks and is kept",
-    {
-      from: fresh,
-      transition: finished("reproduce", {
-        _tag: "checkPassed",
-        reproductionRef: "repro-1",
-        output: "1 passed",
-      }),
-      to: {
-        ...fresh,
-        facts: { ...fresh.facts, reproductionRef: "repro-1" },
-        blocked: {
-          from: "reproduce",
-          reason: {
-            tag: "ReproductionDidNotFail",
-            message: "The reproduction repro-1 passed, so it does not show the bug: 1 passed",
-          },
-        },
-      },
-    },
-  ],
-  [
-    "Reproduce asking for a sample at its limit blocks and keeps the sample request",
-    {
-      from: { ...fresh, counters: { ...fresh.counters, reproduce: 2 } },
-      transition: finished("reproduce", { _tag: "needsSample", sampleRequest: "orders over 100" }),
-      to: {
-        ...fresh,
-        facts: { ...fresh.facts, sampleRequest: "orders over 100" },
-        counters: { ...fresh.counters, reproduce: 2 },
-        blocked: {
-          from: "reproduce",
-          reason: { tag: "LoopLimitReached", message: "Reproduce went back to Provision 2 times" },
-        },
-      },
-    },
-  ],
+const steadyCases: ReadonlyArray<readonly [string, Case<SteadyTransition, WorkItemContext>]> = [
   [
     "a plan records whether it calls for a demo",
     {
@@ -288,8 +200,134 @@ const cases: ReadonlyArray<readonly [string, Case]> = [
   ],
 ];
 
+const loopingCases: ReadonlyArray<readonly [string, Case<LoopingTransition, AroundLoop>]> = [
+  [
+    "a review asking for changes counts a trip and sends them to Build",
+    {
+      from: fresh,
+      transition: finished("review", { _tag: "changesRequested", feedback: "rename totals" }),
+      to: {
+        _tag: "sentAround",
+        context: {
+          ...fresh,
+          facts: {
+            ...fresh.facts,
+            feedback: "rename totals",
+            changeRequest: { from: "review", text: "rename totals" },
+          },
+          counters: { ...fresh.counters, review: 1 },
+        },
+      },
+    },
+  ],
+  [
+    "Ship failing to land the change sends what kept it back to Build",
+    {
+      from: fresh,
+      transition: finished("ship", { _tag: "needsRebuild", feedback: "conflicts" }),
+      to: {
+        _tag: "sentAround",
+        context: {
+          ...fresh,
+          facts: {
+            ...fresh.facts,
+            feedback: "conflicts",
+            changeRequest: { from: "ship", text: "conflicts" },
+          },
+          counters: { ...fresh.counters, ship: 1 },
+        },
+      },
+    },
+  ],
+  [
+    "a loop at its limit blocks, clears the feedback and keeps the change request",
+    {
+      from: { ...standing, counters: { ...fresh.counters, review: 2 } },
+      transition: finished("review", { _tag: "changesRequested", feedback: "again" }),
+      to: {
+        _tag: "blocked",
+        context: {
+          ...standing,
+          facts: { ...standing.facts, feedback: null },
+          counters: { ...fresh.counters, review: 2 },
+          blocked: {
+            from: "review",
+            reason: {
+              tag: "LoopLimitReached",
+              message: "Review sent the change back to Build 2 times, and last asked: again",
+            },
+          },
+        },
+      },
+    },
+  ],
+  [
+    "Reproduce asking for a sample at its limit blocks and keeps the sample request",
+    {
+      from: { ...fresh, counters: { ...fresh.counters, reproduce: 2 } },
+      transition: finished("reproduce", { _tag: "needsSample", sampleRequest: "orders over 100" }),
+      to: {
+        _tag: "blocked",
+        context: {
+          ...fresh,
+          facts: { ...fresh.facts, sampleRequest: "orders over 100" },
+          counters: { ...fresh.counters, reproduce: 2 },
+          blocked: {
+            from: "reproduce",
+            reason: {
+              tag: "LoopLimitReached",
+              message: "Reproduce went back to Provision 2 times",
+            },
+          },
+        },
+      },
+    },
+  ],
+];
+
+const blockingCases: ReadonlyArray<readonly [string, Case<BlockingTransition, BlockedContext>]> = [
+  [
+    "a reproduction whose check passed blocks and is kept",
+    {
+      from: fresh,
+      transition: finished("reproduce", {
+        _tag: "checkPassed",
+        reproductionRef: "repro-1",
+        output: "1 passed",
+      }),
+      to: {
+        ...fresh,
+        facts: { ...fresh.facts, reproductionRef: "repro-1" },
+        blocked: {
+          from: "reproduce",
+          reason: {
+            tag: "ReproductionDidNotFail",
+            message: "The reproduction repro-1 passed, so it does not show the bug: 1 passed",
+          },
+        },
+      },
+    },
+  ],
+];
+
 describe("work item after a transition", () => {
-  for (const [title, { from, transition, to }] of cases) {
+  for (const [title, { from, transition, to }] of steadyCases) {
+    it.effect(title, () =>
+      Effect.sync(() => {
+        expect(workItemAfter(from, transition)).toStrictEqual(to);
+      }),
+    );
+  }
+
+  for (const [title, { from, transition, to }] of loopingCases) {
+    it.effect(title, () =>
+      Effect.sync(() => {
+        expect(workItemAfter(from, transition)).toStrictEqual(to);
+      }),
+    );
+  }
+
+  for (const [title, { from, transition, to }] of blockingCases) {
     it.effect(title, () =>
       Effect.sync(() => {
         expect(workItemAfter(from, transition)).toStrictEqual(to);
@@ -300,10 +338,12 @@ describe("work item after a transition", () => {
   it.effect("a stage error blocks on the stage with its failure reason", () =>
     Effect.sync(() => {
       const error = new StageFailure({ reason: { tag: "AgentTimedOut", message: "no answer" } });
-      expect(blockedAfter(standing, { _tag: "stageErrored", stage: "spec", error })).toStrictEqual({
-        ...standing,
-        blocked: { from: "spec", reason: { tag: "AgentTimedOut", message: "no answer" } },
-      });
+      expect(workItemAfter(standing, { _tag: "stageErrored", stage: "spec", error })).toStrictEqual(
+        {
+          ...standing,
+          blocked: { from: "spec", reason: { tag: "AgentTimedOut", message: "no answer" } },
+        },
+      );
     }),
   );
 });

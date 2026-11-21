@@ -3,16 +3,24 @@ import { Match } from "effect";
 import type { Blocked } from "./blocked.ts";
 import { factsAfter } from "./facts.ts";
 import { noLoopsYet } from "./loops.ts";
-import type { BlockingTeaching, LoopTrip, Teaching } from "./outcome-teaching.ts";
+import type { BlockingTeaching, LoopingTeaching, Teaching } from "./outcome-teaching.ts";
 import {
-  blockingTaughtBy,
   exhaustedTeaching,
   isBlocking,
+  isLooping,
   nothingTaught,
   taughtBy,
 } from "./outcome-teaching.ts";
 import { failureReasonOf } from "./stage.ts";
-import type { BlockingTransition, StageFinished, Transition } from "./transition.ts";
+import type {
+  BlockingTransition,
+  HumanTransition,
+  LoopingTransition,
+  StageErrored,
+  StageFinished,
+  SteadyTransition,
+  Transition,
+} from "./transition.ts";
 import type { DecisionAction, HumanDecision, WorkItemContext } from "./work-item.ts";
 
 /** A work item's context while it is blocked, when the reason is always there. */
@@ -51,35 +59,52 @@ const blockedOnOutcome = (
     reason: teaching.blocks,
   });
 
+/** Where a looping outcome leaves the work item: sent around its loop, or blocked once the loop reached its limit. */
+export type AroundLoop =
+  | { readonly _tag: "sentAround"; readonly context: WorkItemContext }
+  | { readonly _tag: "blocked"; readonly context: BlockedContext };
+
 // At the limit the work item is blocked on the looping stage rather than sent
 // around again, and still learns what the outcome teaches beyond the trip, as
 // a block keeps a reproduction (ADR 0009).
 const aroundLoop = (
   context: WorkItemContext,
   transition: StageFinished,
-  teaching: Teaching,
-  { loop, describe }: LoopTrip,
-): WorkItemContext => {
+  teaching: LoopingTeaching,
+): AroundLoop => {
+  const { loop, describe } = teaching.loop;
   const limit = context.limits[loop];
   if (context.counters[loop] >= limit) {
-    return blockedWith(withFacts(context, transition, exhaustedTeaching(teaching)), {
-      from: loop,
-      reason: { tag: "LoopLimitReached", message: describe(limit) },
-    });
+    return {
+      _tag: "blocked",
+      context: blockedWith(withFacts(context, transition, exhaustedTeaching(teaching)), {
+        from: loop,
+        reason: { tag: "LoopLimitReached", message: describe(limit) },
+      }),
+    };
   }
   const next = withFacts(context, transition, teaching);
-  return { ...next, counters: { ...next.counters, [loop]: next.counters[loop] + 1 } };
+  return {
+    _tag: "sentAround",
+    context: { ...next, counters: { ...next.counters, [loop]: next.counters[loop] + 1 } },
+  };
 };
 
-const finishedAfter = (context: WorkItemContext, transition: StageFinished): WorkItemContext => {
+const finishedAfter = (
+  context: WorkItemContext,
+  transition: StageFinished,
+): WorkItemContext | AroundLoop | BlockedContext => {
   const teaching = taughtBy(transition.outcome);
   if (isBlocking(teaching)) {
     return blockedOnOutcome(context, transition, teaching);
   }
-  return teaching.loop === null
-    ? withFacts(context, transition, teaching)
-    : aroundLoop(context, transition, teaching, teaching.loop);
+  return isLooping(teaching)
+    ? aroundLoop(context, transition, teaching)
+    : withFacts(context, transition, teaching);
 };
+
+const erroredAfter = (context: WorkItemContext, { stage, error }: StageErrored): BlockedContext =>
+  blockedWith(context, { from: stage, reason: failureReasonOf(error) });
 
 const unblocked = (context: WorkItemContext): WorkItemContext => ({
   ...context,
@@ -87,17 +112,8 @@ const unblocked = (context: WorkItemContext): WorkItemContext => ({
   counters: noLoopsYet,
 });
 
-/**
- * The work item's context after `transition`: the facts it teaches, the loop
- * trip it counts, the block it causes and the human decision it records. It
- * and `blockedAfter` are the only ways the context changes. A transition that
- * blocks the work item leaves `blocked` set, which `blockedIn` narrows so the
- * lifecycle can pick its target.
- */
-export const workItemAfter = (context: WorkItemContext, transition: Transition): WorkItemContext =>
+const decidedAfter = (context: WorkItemContext, transition: HumanTransition): WorkItemContext =>
   Match.valueTags(transition, {
-    stageFinished: (finished) => finishedAfter(context, finished),
-    stageErrored: (errored) => blockedAfter(context, errored),
     gateApproved: ({ gate, decision }) => decided(context, "approve", gate, decision),
     gateRejected: ({ gate, decision }) =>
       decided(withFacts(context, transition), "reject", gate, decision),
@@ -110,20 +126,35 @@ export const workItemAfter = (context: WorkItemContext, transition: Transition):
     cancelled: ({ state, decision }) => decided(context, "cancel", state, decision),
   });
 
-/** `workItemAfter` for a transition that always blocks the work item, typed for the Blocked state. */
-export const blockedAfter = (
+/**
+ * The work item's context after `transition`: the facts it teaches, the loop
+ * trip it counts, the block it causes and the human decision it records; the
+ * only way the context changes. Its type says whether the work item can be
+ * blocked, so the lifecycle routes every block: a transition that never
+ * blocks gives the context, one that always blocks gives it typed for the
+ * Blocked state, and an outcome that loops gives whether it was sent around
+ * or blocked at its loop's limit.
+ */
+// TypeScript does not hold the implementation to these overloads; the
+// teaching table does, because it types each outcome's tag as blocking,
+// looping or neither, and the implementation branches on that teaching.
+export function workItemAfter(
+  context: WorkItemContext,
+  transition: SteadyTransition,
+): WorkItemContext;
+export function workItemAfter(context: WorkItemContext, transition: LoopingTransition): AroundLoop;
+export function workItemAfter(
   context: WorkItemContext,
   transition: BlockingTransition,
-): BlockedContext => {
-  if (transition._tag === "stageErrored") {
-    return blockedWith(context, {
-      from: transition.stage,
-      reason: failureReasonOf(transition.error),
-    });
+): BlockedContext;
+export function workItemAfter(
+  context: WorkItemContext,
+  transition: Transition,
+): WorkItemContext | AroundLoop | BlockedContext {
+  if (transition._tag === "stageFinished") {
+    return finishedAfter(context, transition);
   }
-  return blockedOnOutcome(context, transition, blockingTaughtBy(transition.outcome));
-};
-
-/** `context` typed for the Blocked state when it is blocked, or `null` when it is not. */
-export const blockedIn = (context: WorkItemContext): BlockedContext | null =>
-  context.blocked === null ? null : blockedWith(context, context.blocked);
+  return transition._tag === "stageErrored"
+    ? erroredAfter(context, transition)
+    : decidedAfter(context, transition);
+}

@@ -1,4 +1,4 @@
-import type { BlockingOutcome } from "./outcome-teaching.ts";
+import type { BlockingOutcome, LoopingOutcome, SteadyOutcome } from "./outcome-teaching.ts";
 import type { Gate } from "./place.ts";
 import type { OutcomeOf, StageName } from "./stage.ts";
 import type { HumanDecision } from "./work-item.ts";
@@ -44,6 +44,15 @@ export type Transition =
 /** A transition that always blocks the work item. */
 export type BlockingTransition = StageErrored | StageFinished<BlockingOutcome>;
 
+/** A transition that sends the work item around a loop, or blocks it once the loop reaches its limit. */
+export type LoopingTransition = StageFinished<LoopingOutcome>;
+
+/** A transition a human's decision makes, which never blocks the work item. */
+export type HumanTransition = Exclude<Transition, StageFinished | StageErrored>;
+
+/** A transition that never blocks the work item. */
+export type SteadyTransition = HumanTransition | StageFinished<SteadyOutcome>;
+
 type IsUnion<T, Whole = T> = T extends unknown ? ([Whole] extends [T] ? false : true) : never;
 
 /** The stages whose stage machine has exactly one outcome. */
@@ -65,7 +74,7 @@ export const finished = <Stage extends StageName, Outcome extends OutcomeOf<Stag
 export const soleOutcome = <Stage extends SoleOutcomeStage>(
   stage: Stage,
   outcome: OutcomeOf<Stage>,
-): StageFinished => finished(stage, outcome);
+): StageFinished<OutcomeOf<Stage>> => finished(stage, outcome);
 
 /** `stage` failing or crashing with `error` instead of finishing. */
 export const errored = (stage: StageName, error: unknown): StageErrored => ({
@@ -80,24 +89,27 @@ export const returnsToSpec = (transition: Transition): boolean =>
   (transition._tag === "gateRejected" && transition.gate === "specGate");
 
 /** A human approving at `gate`. */
-export const gateApproved = (gate: Gate, decision: HumanDecision): Transition => ({
+export const gateApproved = (gate: Gate, decision: HumanDecision): HumanTransition => ({
   _tag: "gateApproved",
   gate,
   decision,
 });
 
 /** A human rejecting at `gate`. */
-export const gateRejected = (gate: Gate, decision: HumanDecision): Transition => ({
+export const gateRejected = (gate: Gate, decision: HumanDecision): HumanTransition => ({
   _tag: "gateRejected",
   gate,
   decision,
 });
 
 /** A human retrying the stage a blocked work item came from. */
-export const retried = (decision: HumanDecision): Transition => ({ _tag: "retried", decision });
+export const retried = (decision: HumanDecision): HumanTransition => ({
+  _tag: "retried",
+  decision,
+});
 
 /** A human sending a blocked work item back to Spec. */
-export const sentBackToSpec = (decision: HumanDecision): Transition => ({
+export const sentBackToSpec = (decision: HumanDecision): HumanTransition => ({
   _tag: "sentBackToSpec",
   decision,
 });
@@ -107,10 +119,10 @@ export const demoOverridden = (
   demo: boolean,
   state: string,
   decision: HumanDecision,
-): Transition => ({ _tag: "demoOverridden", demo, state, decision });
+): HumanTransition => ({ _tag: "demoOverridden", demo, state, decision });
 
 /** A human cancelling the work item while it is in `state`. */
-export const cancelled = (state: string, decision: HumanDecision): Transition => ({
+export const cancelled = (state: string, decision: HumanDecision): HumanTransition => ({
   _tag: "cancelled",
   state,
   decision,

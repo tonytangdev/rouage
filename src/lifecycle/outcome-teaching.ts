@@ -31,21 +31,45 @@ export interface Teaching {
 
 type OutcomeTag = AnyOutcome["_tag"];
 
-// Named here, apart from the table, so the compiler holds each entry to it:
-// these entries must give a reason, and every other entry must give none.
+// Named here, apart from the table, so the compiler holds each entry to them:
+// a blocking entry must give a reason, a looping entry a loop, and every other
+// entry neither, which lets the lifecycle's types say where an outcome can
+// block the work item.
 type BlockingTag = "cannotReproduce" | "checkPassed";
+type LoopingTag = "needsSample" | "changesRequested" | "needsRebuild";
 
 /** The outcomes that finish their stage but block the work item. */
 export type BlockingOutcome = Extract<AnyOutcome, { readonly _tag: BlockingTag }>;
 
+/** The outcomes that send the work item around a loop, and block it once the loop reaches its limit. */
+export type LoopingOutcome = Extract<AnyOutcome, { readonly _tag: LoopingTag }>;
+
+/** The outcomes that send the work item on without blocking it. */
+export type SteadyOutcome = Exclude<AnyOutcome, BlockingOutcome | LoopingOutcome>;
+
 /** The teaching of an outcome that blocks, whose reason is always there. */
 export interface BlockingTeaching extends Teaching {
+  readonly loop: null;
   readonly blocks: FailureReason;
+}
+
+/** The teaching of an outcome that loops, whose loop is always there. */
+export interface LoopingTeaching extends Teaching {
+  readonly loop: LoopTrip;
+  readonly blocks: null;
+}
+
+/** The teaching of an outcome that neither loops nor blocks. */
+export interface SteadyTeaching extends Teaching {
+  readonly loop: null;
+  readonly blocks: null;
 }
 
 type TeachingOf<Tag extends OutcomeTag> = Tag extends BlockingTag
   ? BlockingTeaching
-  : Teaching & { readonly blocks: null };
+  : Tag extends LoopingTag
+    ? LoopingTeaching
+    : SteadyTeaching;
 
 // A tag two stages share would be taught as one outcome, so the table below
 // fails to compile until the tags are unique again.
@@ -61,7 +85,7 @@ type Teachings = {
 };
 
 /** What a transition that is not a stage finishing teaches: nothing. */
-export const nothingTaught: Teaching & { readonly blocks: null } = {
+export const nothingTaught: SteadyTeaching = {
   references: {},
   feedback: null,
   changeRequest: null,
@@ -70,7 +94,15 @@ export const nothingTaught: Teaching & { readonly blocks: null } = {
   blocks: null,
 };
 
-const teaches = (taught: Partial<Omit<Teaching, "blocks">>) => ({ ...nothingTaught, ...taught });
+type Taught = Partial<Omit<Teaching, "loop" | "blocks">>;
+
+const teaches = (taught: Taught): SteadyTeaching => ({ ...nothingTaught, ...taught });
+
+const loops = (loop: LoopTrip, taught: Taught = {}): LoopingTeaching => ({
+  ...nothingTaught,
+  ...taught,
+  loop,
+});
 
 const nothing = () => nothingTaught;
 
@@ -81,7 +113,7 @@ const blocking = (blocked: FailureReason, references: Partial<References> = {}) 
 });
 
 const sentBackToBuild = (from: "review" | "ship", feedback: string, loop: LoopTrip) =>
-  teaches({ feedback, changeRequest: { from, text: feedback }, loop });
+  loops(loop, { feedback, changeRequest: { from, text: feedback } });
 
 // Keyed by tag, so an outcome added to a stage fails to compile here until it
 // says what it teaches, including whether it loops or blocks.
@@ -92,13 +124,10 @@ const teachings: [SharedOutcomeTag] extends [never] ? Teachings : never = {
   awaitingRun: ({ sandboxRef, scriptRef }) => teaches({ references: { sandboxRef, scriptRef } }),
   reproduced: ({ reproductionRef }) => teaches({ references: { reproductionRef } }),
   needsSample: ({ sampleRequest }) =>
-    teaches({
-      references: { sampleRequest },
-      loop: {
-        loop: "reproduce",
-        describe: (limit) => `Reproduce went back to Provision ${limit} times`,
-      },
-    }),
+    loops(
+      { loop: "reproduce", describe: (limit) => `Reproduce went back to Provision ${limit} times` },
+      { references: { sampleRequest } },
+    ),
   cannotReproduce: ({ reason }) => blocking({ tag: "CannotReproduce", message: reason }),
   // The reproduction is kept, so a retry revises it rather than starting over (ADR 0009).
   checkPassed: ({ reproductionRef, output }) =>
@@ -135,12 +164,8 @@ export const taughtBy = (outcome: AnyOutcome): Teaching => Match.valueTags(outco
 export const isBlocking = (teaching: Teaching): teaching is BlockingTeaching =>
   teaching.blocks !== null;
 
-/** `taughtBy` for an outcome that blocks, whose reason is always there. */
-export const blockingTaughtBy = (outcome: BlockingOutcome): BlockingTeaching =>
-  Match.valueTags(outcome, {
-    cannotReproduce: teachings.cannotReproduce,
-    checkPassed: teachings.checkPassed,
-  });
+export const isLooping = (teaching: Teaching): teaching is LoopingTeaching =>
+  teaching.loop !== null;
 
 /** What the work item still learns from an outcome whose loop reached its limit: not its feedback or change request, because the change is not sent back, and what it asked for goes to the human in the block's message instead. */
 export const exhaustedTeaching = (teaching: Teaching): Teaching => ({

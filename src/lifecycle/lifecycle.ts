@@ -17,7 +17,7 @@ import {
   sentBackToSpec,
   soleOutcome,
 } from "./transition.ts";
-import { blockedAfter, blockedIn, workItemAfter } from "./work-item-after.ts";
+import { workItemAfter } from "./work-item-after.ts";
 
 // Every transition names its target as a literal, even where a helper could
 // compute it, so Stately's editor can draw every arrow (ADR 0002).
@@ -57,7 +57,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
       on: {
         "xstate.error.actor": ({ context, event }) => ({
           target: "#blocked",
-          context: blockedAfter(context, errored(event.actorId, event.error)),
+          context: workItemAfter(context, errored(event.actorId, event.error)),
         }),
       },
       states: {
@@ -150,15 +150,14 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
                 case "checkPassed": {
                   return {
                     target: "#blocked",
-                    context: blockedAfter(context, finished("reproduce", output)),
+                    context: workItemAfter(context, finished("reproduce", output)),
                   };
                 }
                 case "needsSample": {
-                  const next = workItemAfter(context, finished("reproduce", output));
-                  const blocked = blockedIn(next);
-                  return blocked === null
-                    ? { target: "provision", context: next }
-                    : { target: "#blocked", context: blocked };
+                  const after = workItemAfter(context, finished("reproduce", output));
+                  return after._tag === "sentAround"
+                    ? { target: "provision", context: after.context }
+                    : { target: "#blocked", context: after.context };
                 }
                 default: {
                   return absurd(output);
@@ -222,11 +221,10 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
                   };
                 }
                 case "changesRequested": {
-                  const next = workItemAfter(context, finished("review", output));
-                  const blocked = blockedIn(next);
-                  return blocked === null
-                    ? { target: "build", context: next }
-                    : { target: "#blocked", context: blocked };
+                  const after = workItemAfter(context, finished("review", output));
+                  return after._tag === "sentAround"
+                    ? { target: "build", context: after.context }
+                    : { target: "#blocked", context: after.context };
                 }
                 default: {
                   return absurd(output);
@@ -261,11 +259,10 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
                   };
                 }
                 case "needsRebuild": {
-                  const next = workItemAfter(context, finished("ship", output));
-                  const blocked = blockedIn(next);
-                  return blocked === null
-                    ? { target: "build", context: next }
-                    : { target: "#blocked", context: blocked };
+                  const after = workItemAfter(context, finished("ship", output));
+                  return after._tag === "sentAround"
+                    ? { target: "build", context: after.context }
+                    : { target: "#blocked", context: after.context };
                 }
                 default: {
                   return absurd(output);
