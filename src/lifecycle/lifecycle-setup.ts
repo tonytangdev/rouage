@@ -26,6 +26,38 @@ const stages = {
 
 type StageRef<Name extends StageName> = ActorRefFrom<(typeof stages)[Name]>;
 
+// Declared apart from `setup` so the lifecycle's places are named from these
+// keys. Naming them from the machine's type instead makes the types cycle,
+// because the machine's transitions call helpers typed by those names.
+const workingStates = {
+  intake: {},
+  spec: {},
+  specGate: {},
+  provision: {},
+  sampleGate: {},
+  reproduce: {},
+  plan: {},
+  build: {},
+  demo: {},
+  review: {},
+  shipGate: {},
+  ship: {},
+  lastStage: { type: "history", target: "intake" },
+} as const;
+
+const lifecycleStates = {
+  working: { initial: "intake", states: workingStates },
+  blocked: { id: "blocked", schemas: { context: types<{ blocked: Blocked }>() } },
+  shipped: { id: "shipped", type: "final" },
+  cancelled: { type: "final" },
+} as const;
+
+/** The places inside the working state: every stage and gate. */
+export type WorkingPlace = Exclude<keyof typeof workingStates, "lastStage">;
+
+/** The places outside the working state: Blocked and the final states. */
+export type OuterPlace = Exclude<keyof typeof lifecycleStates, "working">;
+
 export const lifecycleSetup = setup({
   schemas: {
     input: types<WorkItemInput>(),
@@ -51,27 +83,5 @@ export const lifecycleSetup = setup({
     } satisfies Record<StageName, unknown>,
   },
   actors: stages,
-  states: {
-    working: {
-      initial: "intake",
-      states: {
-        intake: {},
-        spec: {},
-        specGate: {},
-        provision: {},
-        sampleGate: {},
-        reproduce: {},
-        plan: {},
-        build: {},
-        demo: {},
-        review: {},
-        shipGate: {},
-        ship: {},
-        lastStage: { type: "history", target: "intake" },
-      },
-    },
-    blocked: { id: "blocked", schemas: { context: types<{ blocked: Blocked }>() } },
-    shipped: { id: "shipped", type: "final" },
-    cancelled: { type: "final" },
-  },
+  states: lifecycleStates,
 });

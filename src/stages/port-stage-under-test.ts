@@ -5,6 +5,7 @@ import { createActor, toPromise } from "xstate";
 
 import type { Route } from "../lifecycle/golden-route.ts";
 import { inputOnReaching, nextAfter } from "../lifecycle/golden-route.ts";
+import type { Place } from "../lifecycle/place.ts";
 import type { Settled } from "../lifecycle/stage-contract.ts";
 import type { FailureReason, StageInput, StageName } from "../lifecycle/stage.ts";
 import type { Fake, FakePort, Misbehaving } from "./fake-script.ts";
@@ -45,7 +46,7 @@ export interface PortStageUnderTest<
   /** The input the stage receives when the work item first reaches it along `route`. */
   readonly input: StageInput;
   /** Where the lifecycle sends the work item once the stage finishes on `route`. */
-  readonly next: string;
+  readonly next: Place;
   /** The step the stage asks its port first, which the contract suites make misbehave. */
   readonly firstStep: Step;
   /** The reason the stage fails with when its port gives up during `firstStep`. */

@@ -4,6 +4,7 @@ import { BlockedSchema } from "./blocked.ts";
 import { learned } from "./facts.ts";
 import type { LoopLimits } from "./loops.ts";
 import { PerLoopCount } from "./loops.ts";
+import type { Gate } from "./place.ts";
 import { StageFactsSchema } from "./stage.ts";
 
 export interface WorkItemInput {
@@ -60,12 +61,12 @@ export const recordDecision = (
 ];
 
 /** The context change for a gate approval. */
-export const approved = (context: WorkItemContext, gate: string, decision: HumanDecision) => ({
+export const approved = (context: WorkItemContext, gate: Gate, decision: HumanDecision) => ({
   decisions: recordDecision(context, "approve", gate, decision),
 });
 
 /** The context change for a gate rejection: the comment becomes the feedback for the stage it returns to. */
-export const rejected = (context: WorkItemContext, gate: string, decision: HumanDecision) => ({
+export const rejected = (context: WorkItemContext, gate: Gate, decision: HumanDecision) => ({
   ...learned(context, { feedback: decision.comment ?? null }),
   decisions: recordDecision(context, "reject", gate, decision),
 });
