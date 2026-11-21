@@ -11,6 +11,7 @@ import type { FailureReason, StageInput, StageName } from "../lifecycle/stage.ts
 import type { Fake, FakePort, Misbehaviour, Misbehaving } from "./fake-script.ts";
 import { crashMessage, gaveUpMessage } from "./fake-script.ts";
 import type { PortGaveUp } from "./port-stage.ts";
+import type { RunBrief } from "./run-brief.ts";
 
 /** A port stage built with a fresh fake for the port the stage runs first, plus any other fakes it needs. */
 export interface ScriptedPortStage<Step extends string> {
@@ -97,7 +98,7 @@ export interface PortStageDeclaration<
   /** The route the work item takes to reach the stage; a feature with no demo unless set. */
   readonly route?: Route;
   /** What the stage's first step is asked when it is reached along `route`. */
-  readonly firstTask: unknown;
+  readonly firstTask: RunBrief;
 }
 
 /** A declared port stage, ready to run outside any lifecycle. */

@@ -4,6 +4,7 @@ import { setup, types } from "xstate";
 import type { OutcomeOf, StageInput } from "../../lifecycle/stage.ts";
 import type { PortStep } from "../port-stage.ts";
 import { portStage } from "../port-stage.ts";
+import { briefOf } from "../run-brief.ts";
 import { sandboxMissing } from "../sandbox-missing.ts";
 import type { CaptureTask, ConfirmTask } from "./reproducer.ts";
 import { Reproducer } from "./reproducer.ts";
@@ -19,14 +20,13 @@ const captureTask = ({
   readonly context: StageInput;
   readonly input: Sandboxed;
 }): CaptureTask => ({
-  workItemId: context.workItemId,
+  ...briefOf(context),
   issueRef: context.issueRef,
   specRef: context.specRef,
   sandboxRef: input.sandboxRef,
   sampleRef: context.sampleRef,
   sampleRequest: context.sampleRequest,
   previousReproductionRef: context.reproductionRef,
-  feedback: context.feedback,
 });
 
 const capture = (reproducer: Reproducer["Service"], task: CaptureTask) =>

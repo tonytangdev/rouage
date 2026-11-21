@@ -1,12 +1,11 @@
 import type { Effect } from "effect";
 import { Context, Data } from "effect";
 
-export interface BuildTask {
-  readonly workItemId: string;
+import type { RunBrief } from "../run-brief.ts";
+
+export interface BuildTask extends RunBrief {
   /** The plan to follow, or `null` when the lifecycle runs no Plan before Build. */
   readonly planRef: string | null;
-  /** The feedback for this run, such as a retry's comment, or `null` when there is none. */
-  readonly feedback: string | null;
 }
 
 export interface FixTask {

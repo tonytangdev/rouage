@@ -1,8 +1,9 @@
 import type { Effect } from "effect";
 import { Context, Data } from "effect";
 
-export interface SampleTask {
-  readonly workItemId: string;
+import type { RunBrief } from "../run-brief.ts";
+
+export interface SampleTask extends RunBrief {
   readonly sandboxRef: string;
   /** Reproduce's description of the data the bug needs, passed on as written. */
   readonly sampleRequest: string;
@@ -10,8 +11,6 @@ export interface SampleTask {
   readonly previousSampleRef: string | null;
   /** The extraction script the user was last asked to run; they ran it unless the feedback says they rejected it. `null` before any. */
   readonly previousScriptRef: string | null;
-  /** The feedback for this run, such as why the user rejected the previous extraction script, for the next one to address, or `null` when there is none. */
-  readonly feedback: string | null;
 }
 
 /**

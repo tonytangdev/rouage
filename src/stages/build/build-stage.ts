@@ -5,6 +5,7 @@ import type { OutcomeOf, StageInput } from "../../lifecycle/stage.ts";
 import { StageFailure } from "../../lifecycle/stage.ts";
 import type { PortStep } from "../port-stage.ts";
 import { portStage } from "../port-stage.ts";
+import { briefOf } from "../run-brief.ts";
 import type { BuildTask, FixTask } from "./builder.ts";
 import { Builder } from "./builder.ts";
 
@@ -20,9 +21,8 @@ export interface BuildOptions {
 }
 
 const buildTask = ({ context }: { readonly context: BuildContext }): BuildTask => ({
-  workItemId: context.input.workItemId,
+  ...briefOf(context.input),
   planRef: context.input.planRef,
-  feedback: context.input.feedback,
 });
 
 const DEFAULT_FIX_ATTEMPTS = 3;

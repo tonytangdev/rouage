@@ -31,9 +31,9 @@ const itGivesARetrysCommentToItsFirstStep = <
       yield* workItem.reaches("blocked");
       workItem.send({ type: "retry", ...reviewer, comment: "the CI runner is back" });
       yield* workItem.reaches("blocked");
-      expect(fake.calls().at(-1)).toMatchObject({
+      expect(fake.calls().at(-1)).toStrictEqual({
         step: stage.firstStep,
-        task: { feedback: "the CI runner is back" },
+        task: { ...stage.firstTask, feedback: "the CI runner is back" },
       });
     }),
   );

@@ -1,8 +1,9 @@
 import type { Effect } from "effect";
 import { Context, Data } from "effect";
 
-export interface CaptureTask {
-  readonly workItemId: string;
+import type { RunBrief } from "../run-brief.ts";
+
+export interface CaptureTask extends RunBrief {
   readonly issueRef: string;
   readonly specRef: string | null;
   readonly sandboxRef: string;
@@ -12,8 +13,6 @@ export interface CaptureTask {
   readonly sampleRequest: string | null;
   /** The reproduction captured before, for the reproducer to revise; `null` on the first capture. */
   readonly previousReproductionRef: string | null;
-  /** The feedback for this run, such as a retry's comment, or `null` when there is none. */
-  readonly feedback: string | null;
 }
 
 /**

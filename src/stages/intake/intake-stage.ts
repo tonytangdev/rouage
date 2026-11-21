@@ -1,13 +1,13 @@
 import type { OutcomeOf, StageInput } from "../../lifecycle/stage.ts";
 import { StageFailure } from "../../lifecycle/stage.ts";
+import { briefOf } from "../run-brief.ts";
 import { singleStepStage } from "../single-step-stage.ts";
 import type { Classification, ClassifyTask } from "./classifier.ts";
 import { Classifier } from "./classifier.ts";
 
 const classifyTask = (input: StageInput): ClassifyTask => ({
-  workItemId: input.workItemId,
+  ...briefOf(input),
   issueRef: input.issueRef,
-  feedback: input.feedback,
 });
 
 const classified = (classification: Classification): OutcomeOf<"intake"> | StageFailure =>

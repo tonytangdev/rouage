@@ -2,9 +2,9 @@ import type { Effect } from "effect";
 import { Context, Data } from "effect";
 
 import type { Kind } from "../../lifecycle/stage.ts";
+import type { RunBrief } from "../run-brief.ts";
 
-export interface PlanTask {
-  readonly workItemId: string;
+export interface PlanTask extends RunBrief {
   readonly issueRef: string;
   readonly kind: Kind | null;
   readonly specRef: string | null;
@@ -15,8 +15,6 @@ export interface PlanTask {
   readonly reproductionRef: string | null;
   /** The plan written before, for the planner to revise; `null` on the first plan. */
   readonly previousPlanRef: string | null;
-  /** The feedback for this run, such as a retry's comment, or `null` when there is none. */
-  readonly feedback: string | null;
 }
 
 /** The planner's answer: a reference to the plan it stored, and whether the change is worth a demo. */
