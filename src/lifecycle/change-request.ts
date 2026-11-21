@@ -1,7 +1,7 @@
 import { Match, Schema } from "effect";
 
 import type { FactEvent } from "./fact-event.ts";
-import { changesRequestedIn } from "./fact-event.ts";
+import { taughtBy } from "./outcome-teaching.ts";
 
 /**
  * What the change was last sent back to Build to address, and where that came
@@ -24,10 +24,7 @@ export const changeRequestAfter = (
   event: FactEvent,
 ): ChangeRequest | null =>
   Match.valueTags(event, {
-    stageFinished: (finished): ChangeRequest | null => {
-      const text = changesRequestedIn(finished);
-      return text === null ? request : { from: "review", text };
-    },
+    stageFinished: ({ outcome }) => taughtBy(outcome).changeRequest ?? request,
     // The change is not sent back to Build, and a retry re-runs Review on the
     // change Build last made, so the request Build last addressed stands.
     loopExhausted: () => request,
