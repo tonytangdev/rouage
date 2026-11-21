@@ -5,8 +5,7 @@ import type { AnyStateMachine } from "xstate";
 import type { RealStages } from "../lifecycle/lifecycle-harness.ts";
 import { restoredWorkItem, startWorkItem, throughJson } from "../lifecycle/lifecycle-harness.ts";
 import type { StageName } from "../lifecycle/stage.ts";
-import { gaveUpMessage } from "./fake-script.ts";
-import type { PortStageDeclaration, ScriptedPortStage } from "./port-stage-under-test.ts";
+import type { PortStageUnderTest, ScriptedPortStage } from "./port-stage-under-test.ts";
 
 const lifecycleWith = (name: StageName, stage: AnyStateMachine): RealStages => ({ [name]: stage });
 
@@ -21,10 +20,9 @@ export const describePortStageInLifecycle = <
   Script,
   Scripted extends ScriptedPortStage<Step>,
 >(
-  stage: PortStageDeclaration<Step, Script, Scripted>,
+  stage: PortStageUnderTest<Step, Script, Scripted>,
 ) => {
-  const [firstStep] = stage.port.steps;
-  const gaveUp = stage.port.gaveUp(gaveUpMessage(stage.port.port, firstStep));
+  const { firstStep } = stage;
 
   describe(`port stage contract in the lifecycle, ${stage.name}`, () => {
     it.effect("blocks the work item on the stage when its port gives up", () =>
@@ -37,7 +35,7 @@ export const describePortStageInLifecycle = <
         yield* workItem.reaches("blocked");
         expect(workItem.context().blocked).toStrictEqual({
           from: stage.name,
-          reason: { tag: gaveUp._tag, message: gaveUp.message },
+          reason: stage.gaveUp,
         });
       }),
     );
