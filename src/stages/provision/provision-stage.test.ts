@@ -8,7 +8,6 @@ import {
   firstSample,
   provisionUnderTest,
   sample,
-  sampleRequestedInput,
   sandbox,
 } from "./provision-harness.ts";
 
@@ -32,7 +31,7 @@ describe("provision stage", () => {
     Effect.gen(function* () {
       const { settled, fake, sampler } = yield* provisionUnderTest.run(
         { provisioner: { results: [sandbox] }, sampler: { results: [sample] } },
-        sampleRequestedInput,
+        yield* provisionUnderTest.inputAt("sample"),
       );
       expect(settled.output).toStrictEqual({
         _tag: "provisioned",
@@ -50,7 +49,7 @@ describe("provision stage", () => {
     Effect.gen(function* () {
       const { settled } = yield* provisionUnderTest.run(
         { provisioner: { results: [sandbox] }, sampler: { results: [awaitingRun] } },
-        sampleRequestedInput,
+        yield* provisionUnderTest.inputAt("sample"),
       );
       expect(settled.output).toStrictEqual({
         _tag: "awaitingRun",

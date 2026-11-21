@@ -74,14 +74,14 @@ export const describePortStage = <
     for (const step of stage.steps.slice(1)) {
       it.effect(`fails with the ${step.port}'s reason when it gives up during ${step.step}`, () =>
         Effect.gen(function* () {
-          const { settled } = yield* stage.run(step.misbehaving("failing"), step.input);
+          const { settled } = yield* stage.run(step.misbehaving("failing"), yield* step.input);
           expect(failureReasonOf(settled.error)).toStrictEqual(step.gaveUp);
         }),
       );
 
       it.effect(`counts the ${step.port} dying during ${step.step} as a crash`, () =>
         Effect.gen(function* () {
-          const { settled } = yield* stage.run(step.misbehaving("crashing"), step.input);
+          const { settled } = yield* stage.run(step.misbehaving("crashing"), yield* step.input);
           expect(failureReasonOf(settled.error)).toStrictEqual({
             tag: "StageCrashed",
             message: step.crashMessage,

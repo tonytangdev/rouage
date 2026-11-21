@@ -1,4 +1,4 @@
-import { Effect, Function } from "effect";
+import { Data, Effect, Function } from "effect";
 import type { Scope } from "effect";
 import type { Actor, AnyActorLogic, AnyStateMachine, OutputFrom } from "xstate";
 import { createActor, toPromise } from "xstate";
@@ -6,13 +6,21 @@ import { createActor, toPromise } from "xstate";
 import type { Route } from "../lifecycle/golden-route.ts";
 import { inputOnReaching, nextAfter } from "../lifecycle/golden-route.ts";
 import type { TestWorkItem } from "../lifecycle/lifecycle-harness.ts";
+import { startWorkItem } from "../lifecycle/lifecycle-harness.ts";
 import type { Place } from "../lifecycle/place.ts";
 import type { Settled } from "../lifecycle/stage-contract.ts";
 import type { FailureReason, StageInput, StageName } from "../lifecycle/stage.ts";
+import { demoStageInput, stageInput } from "../lifecycle/stage.ts";
+import type { WorkItemContext } from "../lifecycle/work-item.ts";
 import type { Fake, FakePort, Misbehaviour, Misbehaving } from "./fake-script.ts";
 import { crashMessage, gaveUpMessage } from "./fake-script.ts";
 import type { PortGaveUp } from "./port-stage.ts";
 import type { RunBrief } from "./run-brief.ts";
+
+/** Thrown when a test asks for the input of a step its stage does not declare. */
+export class StepNotDeclared extends Data.TaggedError("StepNotDeclared")<{
+  readonly step: string;
+}> {}
 
 /** A port stage built with a fresh fake for the port the stage runs first, plus any other fakes it needs. */
 export interface ScriptedPortStage<Step extends string> {
@@ -21,21 +29,28 @@ export interface ScriptedPortStage<Step extends string> {
 }
 
 /**
- * A step the stage's `passing` script does not reach, declared with how to
- * reach it so the contract suites make it misbehave like any other step.
+ * A step of the stage's own port that its `passing` script does not reach,
+ * declared with how to reach it so the contract suites make it misbehave like
+ * any other step. The stage, run alone, is given the input it receives once
+ * `reach` has driven a work item there.
  */
-export interface UnreachedStep<Step extends string, Script, Scripted> {
-  /** The port the step belongs to, the stage's own or another it calls. */
+export interface UnreachedOwnStep<Step extends string, Script> {
+  readonly step: Step;
+  /** A script whose run reaches `step`, which misbehaves `as` given. */
+  readonly misbehaving: (as: Misbehaviour) => Script;
+  /** Drives a new work item to where the stage runs `step`. */
+  readonly reach: (workItem: TestWorkItem) => Effect.Effect<void, unknown>;
+}
+
+/** An unreached step of another port the stage calls, with the fake standing in for that port. */
+export interface UnreachedStep<Step extends string, Script, Scripted> extends Omit<
+  UnreachedOwnStep<Step, Script>,
+  "step"
+> {
   readonly port: FakePort<Step, PortGaveUp>;
   readonly step: NoInfer<Step>;
   /** The fake standing in for `port` in a scripted stage. */
   readonly fake: (scripted: Scripted) => Pick<Fake<unknown, Step>, "started" | "interrupted">;
-  /** A script whose run reaches `step`, which misbehaves `as` given. */
-  readonly misbehaving: (as: Misbehaviour) => Script;
-  /** An input under which the stage, run alone, reaches `step`. */
-  readonly input: StageInput;
-  /** Drives a new work item to where the stage runs `step`. */
-  readonly reach: (workItem: TestWorkItem) => Effect.Effect<void, unknown>;
 }
 
 /** One step of a port stage as the contract suites exercise it, whatever its port. */
@@ -47,7 +62,8 @@ export interface ReachableStep<Script, Scripted> {
   readonly misbehaving: (as: Misbehaviour) => Script;
   readonly started: (scripted: Scripted) => Effect.Effect<void>;
   readonly interrupted: (scripted: Scripted) => Effect.Effect<void>;
-  readonly input: StageInput;
+  /** The input under which the stage, run alone, reaches this step. */
+  readonly input: Effect.Effect<StageInput, unknown, Scope.Scope>;
   readonly reach: (workItem: TestWorkItem) => Effect.Effect<void, unknown>;
   /** The reason the stage fails with when the port gives up during this step. */
   readonly gaveUp: FailureReason;
@@ -55,10 +71,13 @@ export interface ReachableStep<Script, Scripted> {
   readonly crashMessage: string;
 }
 
-/** Declares an unreached step for a stage whose scripts are `Script`, keeping each port's own step type. */
-export type DeclareUnreached<Script, Scripted> = <Step extends string>(
-  declared: UnreachedStep<Step, Script, Scripted>,
-) => ReachableStep<Script, Scripted>;
+/** Declares an unreached step for a stage whose scripts are `Script`: one of its own port's, or of another port, keeping that port's step type. */
+export interface DeclareUnreached<OwnStep extends string, Script, Scripted> {
+  (declared: UnreachedOwnStep<OwnStep, Script>): ReachableStep<Script, Scripted>;
+  <Step extends string>(
+    declared: UnreachedStep<Step, Script, Scripted>,
+  ): ReachableStep<Script, Scripted>;
+}
 
 const reachableStep = <Script, Scripted>(
   port: FakePort<string, PortGaveUp>,
@@ -79,15 +98,22 @@ const reachableStep = <Script, Scripted>(
   };
 };
 
-const unreachedStep = <Step extends string, Script, Scripted>(
-  declared: UnreachedStep<Step, Script, Scripted>,
-): ReachableStep<Script, Scripted> =>
-  reachableStep(declared.port, declared.step, {
-    misbehaving: declared.misbehaving,
-    started: (scripted) => declared.fake(scripted).started(declared.step),
-    interrupted: (scripted) => declared.fake(scripted).interrupted(declared.step),
-    input: declared.input,
-    reach: declared.reach,
+// Read from the work item's context because a real stage, unlike a stub,
+// does not report its input; Demo is given the demo to revise (ADR 0011).
+const inputIn = (stage: StageName, context: WorkItemContext): StageInput =>
+  stage === "demo" ? demoStageInput({ context }) : stageInput({ context });
+
+/** The input `stage` receives once `reach` drives a work item there, with the stage `scripted` running. */
+const inputOnReach = <Scripted extends { readonly stage: AnyStateMachine }>(
+  stage: StageName,
+  scripted: Effect.Effect<Scripted, unknown, Scope.Scope>,
+  reach: (workItem: TestWorkItem) => Effect.Effect<void, unknown>,
+) =>
+  Effect.gen(function* () {
+    const { stage: machine } = yield* scripted;
+    const workItem = yield* startWorkItem({ stages: { [stage]: machine } });
+    yield* reach(workItem);
+    return inputIn(stage, workItem.context());
   });
 
 /** A port's name and every step it has, for the check that each step is declared. */
@@ -139,6 +165,8 @@ export interface PortStageUnderTest<
   readonly steps: ReadonlyArray<ReachableStep<Script, Scripted>>;
   /** Every port the stage's steps belong to, `port` first. */
   readonly ports: readonly DeclaredPort[];
+  /** The input under which the stage, run alone, reaches `step`. */
+  readonly inputAt: (step: string) => Effect.Effect<StageInput, unknown, Scope.Scope>;
   /** Runs the stage outside any lifecycle until it finishes or fails, starting from `input` unless given another. */
   readonly run: (
     script: Script,
@@ -181,6 +209,43 @@ const portsOf = (
     ([port, all]) => ({ port, steps: all }),
   );
 
+/** The `declare` a stage folder declares its unreached steps through, its own port's steps defaulting to the stage's fake. */
+const declarer = <Step extends string, Script, Scripted extends ScriptedPortStage<Step>>(
+  declaration: PortStageDeclaration<Step, Script, Scripted>,
+): DeclareUnreached<Step, Script, Scripted> => {
+  const reachedBy = (declared: UnreachedOwnStep<string, Script>) =>
+    inputOnReach(
+      declaration.name,
+      declaration.scripted(declared.misbehaving("hanging")),
+      declared.reach,
+    );
+  function declare(declared: UnreachedOwnStep<Step, Script>): ReachableStep<Script, Scripted>;
+  function declare<Other extends string>(
+    declared: UnreachedStep<Other, Script, Scripted>,
+  ): ReachableStep<Script, Scripted>;
+  function declare<Other extends string>(
+    declared: UnreachedOwnStep<Step, Script> | UnreachedStep<Other, Script, Scripted>,
+  ): ReachableStep<Script, Scripted> {
+    if ("port" in declared) {
+      return reachableStep(declared.port, declared.step, {
+        misbehaving: declared.misbehaving,
+        started: (scripted) => declared.fake(scripted).started(declared.step),
+        interrupted: (scripted) => declared.fake(scripted).interrupted(declared.step),
+        input: reachedBy(declared),
+        reach: declared.reach,
+      });
+    }
+    return reachableStep(declaration.port, declared.step, {
+      misbehaving: declared.misbehaving,
+      started: (scripted) => scripted.fake.started(declared.step),
+      interrupted: (scripted) => scripted.fake.interrupted(declared.step),
+      input: reachedBy(declared),
+      reach: declared.reach,
+    });
+  }
+  return declare;
+};
+
 /**
  * Completes a stage folder's declaration with the input its stage is reached
  * with, a runner from that input, and every step the contract suites make
@@ -194,7 +259,7 @@ export const portStageUnderTest = <
 >(
   declaration: PortStageDeclaration<Step, Script, Scripted>,
   unreached: (
-    declare: DeclareUnreached<NoInfer<Script>, NoInfer<Scripted>>,
+    declare: DeclareUnreached<NoInfer<Step>, NoInfer<Script>, NoInfer<Scripted>>,
   ) => ReadonlyArray<ReachableStep<NoInfer<Script>, NoInfer<Scripted>>> = () => [],
 ): PortStageUnderTest<Step, Script, Scripted> => {
   const input = inputOnReaching(declaration.name, declaration.route);
@@ -205,7 +270,7 @@ export const portStageUnderTest = <
       misbehaving: (as) => declaration.passing({ step, as }),
       started: (scripted) => scripted.fake.started(step),
       interrupted: (scripted) => scripted.fake.interrupted(step),
-      input,
+      input: Effect.succeed(input),
       reach: (workItem) =>
         Effect.sync(() => {
           workItem.advanceTo(declaration.name, route);
@@ -214,7 +279,7 @@ export const portStageUnderTest = <
   const first = ownStep(firstStep);
   const passingReaches = declaration.reached ?? [firstStep];
   const [, ...laterReached] = passingReaches;
-  const steps = [first, ...laterReached.map(ownStep), ...unreached(unreachedStep)];
+  const steps = [first, ...laterReached.map(ownStep), ...unreached(declarer(declaration))];
   return {
     ...declaration,
     input,
@@ -225,6 +290,11 @@ export const portStageUnderTest = <
     passingReaches,
     steps,
     ports: portsOf(steps),
+    inputAt: (step) =>
+      Effect.suspend(() => {
+        const found = steps.find((declared) => declared.step === step);
+        return found === undefined ? Effect.die(new StepNotDeclared({ step })) : found.input;
+      }),
     run: Effect.fnUntraced(function* (script: Script, from: StageInput = input) {
       const scripted = yield* declaration.scripted(script);
       const settled = yield* runAlone(createActor(scripted.stage, { input: from }));
