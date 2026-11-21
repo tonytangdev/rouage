@@ -6,24 +6,6 @@ import { describePortStage } from "../port-stage-contract.ts";
 import { approval, changesRequested, firstReview, reviewUnderTest } from "./review-harness.ts";
 
 describe("review stage", () => {
-  it.effect("shows the reviewer the bug's reproduction and the planned demo", () =>
-    Effect.gen(function* () {
-      const { fake } = yield* reviewUnderTest.run(
-        { verdicts: [approval] },
-        {
-          ...reviewUnderTest.input,
-          kind: "bug",
-          reproductionRef: "repro-1",
-          demoPlanned: true,
-          demoRef: "demo-1",
-        },
-      );
-      expect(fake.tasks()).toStrictEqual([
-        { ...firstReview, kind: "bug", reproductionRef: "repro-1", demoRef: "demo-1" },
-      ]);
-    }),
-  );
-
   it.effect("hides a demo the latest plan no longer calls for", () =>
     Effect.gen(function* () {
       const { fake } = yield* reviewUnderTest.run(

@@ -3,11 +3,11 @@ import { Effect } from "effect";
 
 import { reviewer, startWorkItem } from "../lifecycle/lifecycle-harness.ts";
 import { buildUnderTest } from "./build/build-harness.ts";
-import { demoUnderTest } from "./demo/demo-harness.ts";
+import { demoUnderTest, firstDemoMade } from "./demo/demo-harness.ts";
 import { intakeUnderTest } from "./intake/intake-harness.ts";
 import { planUnderTest } from "./plan/plan-harness.ts";
 import { provisionUnderTest } from "./provision/provision-harness.ts";
-import { reproduceUnderTest } from "./reproduce/reproduce-harness.ts";
+import { captured, reproduceUnderTest } from "./reproduce/reproduce-harness.ts";
 import { firstReview, reviewUnderTest } from "./review/review-harness.ts";
 import { specUnderTest } from "./spec/spec-harness.ts";
 
@@ -40,8 +40,8 @@ describe("the default lifecycle with every real stage", () => {
         {
           ...firstReview,
           kind: "bug",
-          reproductionRef: "repro-1",
-          demoRef: "demo-1",
+          reproductionRef: captured.reproductionRef,
+          demoRef: firstDemoMade.demoRef,
         },
       ]);
     }),

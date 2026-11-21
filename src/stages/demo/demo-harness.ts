@@ -28,7 +28,7 @@ export const demoUnderTest = portStageUnderTest({
     return { fake, stage: yield* demoStage.pipe(Effect.provide(fake.layer)) };
   }),
   passing: (misbehaving) => ({ demos: [firstDemoMade], misbehaving }),
-  outcome: { _tag: "demonstrated", demoRef: "demo-1" },
+  outcome: { _tag: "demonstrated", ...firstDemoMade },
   route: { demo: true },
   next: "review",
   firstTask: firstDemo,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { startWorkItem } from "../../lifecycle/lifecycle-harness.ts";
+import { goldenRefs, startWorkItem } from "../../lifecycle/lifecycle-harness.ts";
 import { describePortStageInLifecycle } from "../port-stage-lifecycle-contract.ts";
 import { approval, changesRequested, firstReview, reviewUnderTest } from "./review-harness.ts";
 
@@ -23,7 +23,12 @@ describe("a work item in the Review stage", () => {
       workItem.advanceTo("review", { kind: "bug", demo: true });
       yield* workItem.reaches("shipGate");
       expect(fake.tasks()).toStrictEqual([
-        { ...firstReview, kind: "bug", reproductionRef: "repro-1", demoRef: "demo-1" },
+        {
+          ...firstReview,
+          kind: "bug",
+          reproductionRef: goldenRefs.reproductionRef,
+          demoRef: goldenRefs.demoRef,
+        },
       ]);
     }),
   );

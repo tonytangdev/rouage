@@ -28,7 +28,7 @@ export const planUnderTest = portStageUnderTest({
     return { fake, stage: yield* planStage.pipe(Effect.provide(fake.layer)) };
   }),
   passing: (misbehaving) => ({ plans: [plannedWithDemo], misbehaving }),
-  outcome: { _tag: "planned", planRef: "plan-1", demo: true },
+  outcome: { _tag: "planned", ...plannedWithDemo },
   next: "build",
   firstTask: firstPlan,
 });

@@ -46,7 +46,7 @@ export const provisionUnderTest = portStageUnderTest({
     return { fake, sampler, stage };
   }),
   passing: (misbehaving) => ({ provisioner: { results: [sandbox], misbehaving } }),
-  outcome: { _tag: "provisioned", sandboxRef: "box-1", sampleRef: null },
+  outcome: { _tag: "provisioned", ...sandbox, sampleRef: null },
   next: "plan",
   firstTask: firstProvision,
 });

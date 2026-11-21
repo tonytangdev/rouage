@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { reviewer, startWorkItem } from "../../lifecycle/lifecycle-harness.ts";
+import { goldenRefs, reviewer, startWorkItem } from "../../lifecycle/lifecycle-harness.ts";
 import { describePortStageInLifecycle } from "../port-stage-lifecycle-contract.ts";
 import { firstWrite, specUnderTest, unclearIssue, writtenSpec } from "./spec-harness.ts";
 
@@ -66,7 +66,11 @@ describe("a work item in the Spec stage", () => {
       workItem.advanceTo("spec", { kind: "bug" });
       yield* workItem.reaches("specGate");
       workItem.send({ type: "approve", ...reviewer });
-      workItem.finish("provision", { _tag: "provisioned", sandboxRef: "box-1", sampleRef: null });
+      workItem.finish("provision", {
+        _tag: "provisioned",
+        sandboxRef: goldenRefs.sandboxRef,
+        sampleRef: null,
+      });
       workItem.finish("reproduce", { _tag: "cannotReproduce", reason: "works on staging" });
       workItem.send({ type: "backToSpec", ...reviewer, comment: "Name the browser" });
       yield* workItem.reaches("specGate");

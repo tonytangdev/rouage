@@ -25,7 +25,7 @@ export const firstCapture = {
 export const firstConfirm = {
   workItemId: goldenRefs.workItemId,
   sandboxRef: goldenRefs.sandboxRef,
-  reproductionRef: "repro-1",
+  reproductionRef: captured.reproductionRef,
 } as const;
 
 export const reproduceUnderTest = portStageUnderTest({
@@ -36,7 +36,7 @@ export const reproduceUnderTest = portStageUnderTest({
     return { fake, stage: yield* reproduceStage.pipe(Effect.provide(fake.layer)) };
   }),
   passing: (misbehaving) => ({ captures: [captured], confirmations: [checkFailed], misbehaving }),
-  outcome: { _tag: "reproduced", reproductionRef: "repro-1" },
+  outcome: { _tag: "reproduced", reproductionRef: captured.reproductionRef },
   route: { kind: "bug" },
   next: "plan",
   firstTask: firstCapture,

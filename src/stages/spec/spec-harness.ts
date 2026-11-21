@@ -29,7 +29,7 @@ export const specUnderTest = portStageUnderTest({
     return { fake, stage: yield* specStage.pipe(Effect.provide(fake.layer)) };
   }),
   passing: (misbehaving) => ({ results: [writtenSpec], misbehaving }),
-  outcome: { _tag: "written", specRef: "spec-1" },
+  outcome: writtenSpec,
   route: { kind: "bug" },
   next: "specGate",
   firstTask: firstWrite,

@@ -140,10 +140,12 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             id: "build",
             src: "build",
             input: stageInput,
-            onDone: ({ context, event: { output } }) =>
-              context.facts.demoPlanned === true
-                ? { target: "demo", context: stageFinished(context, "build", output) }
-                : { target: "review", context: stageFinished(context, "build", output) },
+            onDone: ({ context, event: { output } }) => {
+              const built = stageFinished(context, "build", output);
+              return context.facts.demoPlanned === true
+                ? { target: "demo", context: built }
+                : { target: "review", context: built };
+            },
           },
         },
         demo: {

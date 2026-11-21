@@ -75,7 +75,7 @@ const defaultPath = ({ kind = "feature", demo = false }: Route): readonly Waypoi
   "ship",
 ];
 
-/** The references the default path's stages produce, named so fixtures need not retype them. */
+/** The test work item's ID and issue, and the references its stages produce along the default path, named so fixtures need not retype them. */
 export const goldenRefs = {
   workItemId: "wi-1",
   issueRef: "#1",
