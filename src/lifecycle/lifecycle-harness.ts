@@ -79,7 +79,7 @@ const passingOutcomes = (route: Route): { readonly [Stage in StageName]: Outcome
   intake: { _tag: "classified", kind: route.kind ?? "feature" },
   spec: { _tag: "written", specRef: "spec-1" },
   provision: { _tag: "provisioned", sandboxRef: "box-1", sampleRef: null },
-  reproduce: { _tag: "reproduced" },
+  reproduce: { _tag: "reproduced", reproductionRef: "repro-1" },
   plan: { _tag: "planned", demo: route.demo ?? false },
   build: { _tag: "built" },
   demo: { _tag: "demonstrated" },

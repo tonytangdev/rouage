@@ -41,6 +41,8 @@ export interface StageFacts {
   readonly sampleRequest: string | null;
   /** The reference to the sample Provision took into the sandbox, opaque to Rouage (ADR 0004). */
   readonly sampleRef: string | null;
+  /** The reference to the bug's reproduction, opaque to Rouage; only the next reproduction replaces it (ADR 0004, ADR 0006). */
+  readonly reproductionRef: string | null;
 }
 
 /** The facts of a work item no stage has worked on yet; only `issueRef` is known from the start. */
@@ -51,6 +53,7 @@ export const noFactsYet: Omit<StageFacts, "issueRef"> = {
   sandboxRef: null,
   sampleRequest: null,
   sampleRef: null,
+  reproductionRef: null,
 };
 
 /** What the lifecycle passes to every stage machine it starts. */
@@ -60,7 +63,17 @@ export interface StageInput extends StageFacts {
 
 /** Builds a stage's input from the work item; takes XState's input-function argument so it can be passed as is. */
 export const stageInput = ({
-  context: { id, issueRef, kind, feedback, specRef, sandboxRef, sampleRequest, sampleRef },
+  context: {
+    id,
+    issueRef,
+    kind,
+    feedback,
+    specRef,
+    sandboxRef,
+    sampleRequest,
+    sampleRef,
+    reproductionRef,
+  },
 }: {
   readonly context: StageFacts & { readonly id: string };
 }): StageInput => ({
@@ -72,6 +85,7 @@ export const stageInput = ({
   sandboxRef,
   sampleRequest,
   sampleRef,
+  reproductionRef,
 });
 
 /**
@@ -88,7 +102,7 @@ export interface StageOutcomes {
     readonly sampleRef: string | null;
   };
   readonly reproduce:
-    | { readonly _tag: "reproduced" }
+    | { readonly _tag: "reproduced"; readonly reproductionRef: string }
     | { readonly _tag: "needsSample"; readonly sampleRequest: string }
     | { readonly _tag: "cannotReproduce"; readonly reason: string };
   readonly plan: { readonly _tag: "planned"; readonly demo: boolean };

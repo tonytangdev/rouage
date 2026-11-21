@@ -95,7 +95,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             input: stageInput,
             onDone: ({ context, event: { output } }) => {
               if (output._tag === "reproduced") {
-                return { target: "plan" };
+                return { target: "plan", context: { reproductionRef: output.reproductionRef } };
               }
               if (output._tag === "cannotReproduce") {
                 return {

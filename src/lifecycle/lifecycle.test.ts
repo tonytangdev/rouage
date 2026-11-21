@@ -58,13 +58,14 @@ describe("lifecycle", () => {
     }),
   );
 
-  it.effect("sends a bug from Provision to Reproduce, then to Plan once reproduced", () =>
+  it.effect("sends a bug from Provision to Reproduce, then to Plan with its reproduction", () =>
     Effect.gen(function* () {
       const workItem = yield* startAt("provision", { kind: "bug" });
       workItem.finish("provision", { _tag: "provisioned", sandboxRef: "box-1", sampleRef: null });
       expect(workItem.stage()).toStrictEqual("reproduce");
-      workItem.finish("reproduce", { _tag: "reproduced" });
+      workItem.finish("reproduce", { _tag: "reproduced", reproductionRef: "repro-1" });
       expect(workItem.stage()).toStrictEqual("plan");
+      expect(workItem.stageInput("plan")).toMatchObject({ reproductionRef: "repro-1" });
     }),
   );
 
