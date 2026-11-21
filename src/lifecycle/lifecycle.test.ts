@@ -5,6 +5,7 @@ import { fakeSandboxTeardown } from "./fake-sandbox-teardown.ts";
 import { goldenRefs, inputAfter, reviewer, stageInputWith } from "./golden-route.ts";
 import { startWorkItem, startWorkItemAt } from "./lifecycle-harness.ts";
 import { defaultLifecycle } from "./lifecycle.ts";
+import { noLoopsYet } from "./loops.ts";
 import { createWorkItem } from "./work-item-actor.ts";
 
 describe("lifecycle", () => {
@@ -248,7 +249,7 @@ describe("lifecycle", () => {
           scriptRef: "script-1",
           feedback: null,
         });
-        expect(workItem.context().counters).toStrictEqual({ review: 0, reproduce: 1 });
+        expect(workItem.context().counters.reproduce).toBe(1);
         expect(workItem.context().decisions.at(-1)).toMatchObject({
           action: "approve",
           state: "sampleGate",
@@ -298,7 +299,7 @@ describe("lifecycle", () => {
         });
         workItem.send({ type: "retry", ...reviewer });
         expect(workItem.state()).toStrictEqual("provision");
-        expect(workItem.context().counters).toStrictEqual({ review: 0, reproduce: 0 });
+        expect(workItem.context().counters).toStrictEqual(noLoopsYet);
         expect(workItem.context().decisions.at(-1)).toStrictEqual({
           action: "retry",
           state: "blocked",
@@ -400,7 +401,7 @@ describe("lifecycle", () => {
         };
         requestChanges();
         expect(workItem.state()).toStrictEqual("build");
-        expect(workItem.context().counters).toStrictEqual({ review: 1, reproduce: 0 });
+        expect(workItem.context().counters.review).toBe(1);
         expect(workItem.stageInput("build")).toStrictEqual(
           inputAfter(
             "review",

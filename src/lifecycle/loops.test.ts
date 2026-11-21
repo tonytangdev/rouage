@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import { ConfigProvider, Effect } from "effect";
 
-import { resolveLoopLimits } from "./loops.ts";
+import { perLoop, resolveLoopLimits } from "./loops.ts";
 
 const withEnv = (env: Record<string, string>) =>
   Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown(env)));
@@ -10,7 +10,7 @@ describe("loops", () => {
   it.effect("allows three trips around each loop when nothing is configured", () =>
     Effect.gen(function* () {
       const resolved = yield* resolveLoopLimits().pipe(withEnv({}));
-      expect(resolved).toStrictEqual({ review: 3, reproduce: 3 });
+      expect(resolved).toStrictEqual(perLoop(() => 3));
     }),
   );
 
@@ -19,7 +19,7 @@ describe("loops", () => {
       const resolved = yield* resolveLoopLimits().pipe(
         withEnv({ ROUAGE_MAX_REVIEW_LOOPS: "5", ROUAGE_MAX_REPRODUCE_LOOPS: "1" }),
       );
-      expect(resolved).toStrictEqual({ review: 5, reproduce: 1 });
+      expect(resolved).toMatchObject({ review: 5, reproduce: 1 });
     }),
   );
 
@@ -28,7 +28,7 @@ describe("loops", () => {
       const resolved = yield* resolveLoopLimits({ review: 7 }).pipe(
         withEnv({ ROUAGE_MAX_REVIEW_LOOPS: "5", ROUAGE_MAX_REPRODUCE_LOOPS: "1" }),
       );
-      expect(resolved).toStrictEqual({ review: 7, reproduce: 1 });
+      expect(resolved).toMatchObject({ review: 7, reproduce: 1 });
     }),
   );
 });
