@@ -9,7 +9,7 @@ describe("a work item in the Plan stage", () => {
   it.effect("goes on to Build holding the plan and its demo decision", () =>
     Effect.gen(function* () {
       const { stage } = yield* planUnderTest.scripted({ plans: [plannedWithDemo] });
-      const workItem = yield* startWorkItem({ plan: stage });
+      const workItem = yield* startWorkItem({ stages: { plan: stage } });
       workItem.advanceTo("plan");
       yield* workItem.reaches("build");
       expect(workItem.context().facts).toMatchObject({ planRef: "plan-1", demoPlanned: true });

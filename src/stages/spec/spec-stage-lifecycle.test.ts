@@ -1,7 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { goldenRefs, reviewer, startWorkItem } from "../../lifecycle/lifecycle-harness.ts";
+import { goldenRefs, reviewer } from "../../lifecycle/golden-route.ts";
+import { startWorkItem } from "../../lifecycle/lifecycle-harness.ts";
 import { describePortStageInLifecycle } from "../port-stage-lifecycle-contract.ts";
 import { firstWrite, specUnderTest, unclearIssue, writtenSpec } from "./spec-harness.ts";
 
@@ -11,7 +12,7 @@ describe("a work item in the Spec stage", () => {
   it.effect("waits at the spec gate holding the reference to the written spec", () =>
     Effect.gen(function* () {
       const { stage } = yield* specUnderTest.scripted({ results: [writtenSpec] });
-      const workItem = yield* startWorkItem({ spec: stage });
+      const workItem = yield* startWorkItem({ stages: { spec: stage } });
       workItem.advanceTo("spec", { kind: "bug" });
       yield* workItem.reaches("specGate");
       expect(workItem.context().facts.specRef).toStrictEqual("spec-1");
@@ -23,7 +24,7 @@ describe("a work item in the Spec stage", () => {
       const { fake, stage } = yield* specUnderTest.scripted({
         results: [writtenSpec, revisedSpec],
       });
-      const workItem = yield* startWorkItem({ spec: stage });
+      const workItem = yield* startWorkItem({ stages: { spec: stage } });
       workItem.advanceTo("spec", { kind: "bug" });
       yield* workItem.reaches("specGate");
       workItem.send({ type: "reject", ...reviewer, comment: "Cover the empty cart" });
@@ -41,7 +42,7 @@ describe("a work item in the Spec stage", () => {
       const { fake, stage } = yield* specUnderTest.scripted({
         results: [unclearIssue, writtenSpec],
       });
-      const workItem = yield* startWorkItem({ spec: stage });
+      const workItem = yield* startWorkItem({ stages: { spec: stage } });
       workItem.advanceTo("spec", { kind: "bug" });
       yield* workItem.reaches("blocked");
       expect(workItem.context().blocked).toStrictEqual({
@@ -62,7 +63,7 @@ describe("a work item in the Spec stage", () => {
       const { fake, stage } = yield* specUnderTest.scripted({
         results: [writtenSpec, revisedSpec],
       });
-      const workItem = yield* startWorkItem({ spec: stage });
+      const workItem = yield* startWorkItem({ stages: { spec: stage } });
       workItem.advanceTo("spec", { kind: "bug" });
       yield* workItem.reaches("specGate");
       workItem.send({ type: "approve", ...reviewer });

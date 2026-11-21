@@ -9,7 +9,7 @@ describe("a work item in the Build stage", () => {
   it.effect("moves on to Review once Build's tests pass", () =>
     Effect.gen(function* () {
       const { stage } = yield* buildUnderTest.scripted({ testReports: [testsFailed, testsPassed] });
-      const workItem = yield* startWorkItem({ build: stage });
+      const workItem = yield* startWorkItem({ stages: { build: stage } });
       workItem.advanceTo("build");
       yield* workItem.reaches("review");
       expect(workItem.context().blocked).toBeNull();
@@ -22,12 +22,12 @@ describe("a work item in the Build stage", () => {
         testReports: [],
         misbehaving: { step: "test", as: "hanging" },
       });
-      const original = yield* startWorkItem({ build: before.stage });
+      const original = yield* startWorkItem({ stages: { build: before.stage } });
       original.advanceTo("build");
       yield* before.fake.started("test");
       const after = yield* buildUnderTest.scripted({ testReports: [testsFailed, testsPassed] });
       const workItem = yield* restoredWorkItem(throughJson(original.save()), {
-        build: after.stage,
+        stages: { build: after.stage },
       });
       yield* workItem.reaches("review");
       expect(after.fake.steps()).toStrictEqual(["test", "fix", "test"]);
@@ -41,12 +41,12 @@ describe("a work item in the Build stage", () => {
         misbehaving: { step: "fix", as: "hanging" },
         fixAttempts: 1,
       });
-      const original = yield* startWorkItem({ build: before.stage });
+      const original = yield* startWorkItem({ stages: { build: before.stage } });
       original.advanceTo("build");
       yield* before.fake.started("fix");
       const after = yield* buildUnderTest.scripted({ testReports: [testsFailed], fixAttempts: 3 });
       const workItem = yield* restoredWorkItem(throughJson(original.save()), {
-        build: after.stage,
+        stages: { build: after.stage },
       });
       yield* workItem.reaches("blocked");
       expect(workItem.context().blocked?.reason.tag).toStrictEqual("FixAttemptsExhausted");
@@ -61,7 +61,7 @@ describe("a work item in the Build stage", () => {
         const { fake, stage } = yield* buildUnderTest.scripted({
           testReports: [testsPassed, testsPassed],
         });
-        const workItem = yield* startWorkItem({ build: stage });
+        const workItem = yield* startWorkItem({ stages: { build: stage } });
         workItem.advanceTo("build");
         yield* workItem.reaches("review");
         workItem.finish("review", { _tag: "changesRequested", feedback: "rename totals" });

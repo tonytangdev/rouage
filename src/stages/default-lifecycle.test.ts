@@ -1,7 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { reviewer, startWorkItem } from "../lifecycle/lifecycle-harness.ts";
+import { reviewer } from "../lifecycle/golden-route.ts";
+import { startWorkItem } from "../lifecycle/lifecycle-harness.ts";
 import { buildUnderTest } from "./build/build-harness.ts";
 import { demoUnderTest, firstDemoMade } from "./demo/demo-harness.ts";
 import { intakeUnderTest } from "./intake/intake-harness.ts";
@@ -34,7 +35,7 @@ describe("the default lifecycle with every real stage", () => {
   it.effect("carries a bug with a demo from Intake to shipped", () =>
     Effect.gen(function* () {
       const { review, stages } = yield* realStages();
-      const workItem = yield* startWorkItem(stages);
+      const workItem = yield* startWorkItem({ stages });
       yield* workItem.reaches("specGate");
       workItem.send({ type: "approve", ...reviewer });
       yield* workItem.reaches("shipGate");

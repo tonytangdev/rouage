@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 
-import { goldenRefs } from "../../lifecycle/lifecycle-harness.ts";
+import { goldenRefs } from "../../lifecycle/golden-route.ts";
 import { portStageUnderTest } from "../port-stage-under-test.ts";
 import type { FakeClassifierScript } from "./fake-classifier.ts";
 import { classifierPort, fakeClassifier } from "./fake-classifier.ts";

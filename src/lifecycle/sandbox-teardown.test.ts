@@ -3,13 +3,8 @@ import { ConfigProvider, Effect, Fiber } from "effect";
 import { TestClock } from "effect/testing";
 
 import { fakeSandboxTeardown } from "./fake-sandbox-teardown.ts";
-import {
-  goldenRefs,
-  restoredWorkItem,
-  reviewer,
-  startWorkItem,
-  throughJson,
-} from "./lifecycle-harness.ts";
+import { goldenRefs, reviewer } from "./golden-route.ts";
+import { restoredWorkItem, startWorkItem, throughJson } from "./lifecycle-harness.ts";
 
 const tornDownOnce = [{ workItemId: goldenRefs.workItemId }];
 
@@ -73,7 +68,7 @@ describe("sandbox teardown", () => {
     "gives up after ROUAGE_TEARDOWN_ATTEMPTS attempts at a teardown that keeps failing",
     () =>
       Effect.gen(function* () {
-        const workItem = yield* startWorkItem({}, fakeSandboxTeardown({ givesUp: true }));
+        const workItem = yield* startWorkItem({ sandbox: fakeSandboxTeardown({ givesUp: true }) });
         workItem.send({ type: "cancel", ...reviewer });
         const outcome = yield* Effect.forkChild(Effect.flip(workItem.tornDown));
         yield* TestClock.adjust("1 minute");
@@ -87,13 +82,27 @@ describe("sandbox teardown", () => {
       ),
   );
 
+  it.effect("reports a restored cancelled work item whose teardown keeps giving up", () =>
+    Effect.gen(function* () {
+      const original = yield* startWorkItem();
+      original.send({ type: "cancel", ...reviewer });
+      const workItem = yield* restoredWorkItem(throughJson(original.save()), {
+        sandbox: fakeSandboxTeardown({ givesUp: true }),
+      });
+      const outcome = yield* Effect.forkChild(Effect.flip(workItem.tornDown));
+      yield* TestClock.adjust("1 minute");
+      const error = yield* Fiber.join(outcome);
+      expect(error._tag).toStrictEqual("TeardownGaveUp");
+    }),
+  );
+
   it.effect("waits for a teardown in flight when the work item's scope closes", () =>
     Effect.gen(function* () {
       const sandbox = fakeSandboxTeardown({ takes: "10 seconds" });
       const closing = yield* Effect.forkChild(
         Effect.scoped(
           Effect.gen(function* () {
-            const workItem = yield* startWorkItem({}, sandbox);
+            const workItem = yield* startWorkItem({ sandbox });
             workItem.send({ type: "cancel", ...reviewer });
             yield* Effect.yieldNow;
           }),

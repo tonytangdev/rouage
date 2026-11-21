@@ -9,7 +9,7 @@ describe("a work item in the Demo stage", () => {
   it.effect("goes on to Review holding the demo", () =>
     Effect.gen(function* () {
       const { stage } = yield* demoUnderTest.scripted({ demos: [firstDemoMade] });
-      const workItem = yield* startWorkItem({ demo: stage });
+      const workItem = yield* startWorkItem({ stages: { demo: stage } });
       workItem.advanceTo("demo", { demo: true });
       yield* workItem.reaches("review");
       expect(workItem.context().facts).toMatchObject({ demoRef: "demo-1" });

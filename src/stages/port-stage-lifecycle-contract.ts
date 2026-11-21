@@ -2,13 +2,9 @@ import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 import type { AnyStateMachine } from "xstate";
 
-import type { RealStages } from "../lifecycle/lifecycle-harness.ts";
-import {
-  restoredWorkItem,
-  reviewer,
-  startWorkItem,
-  throughJson,
-} from "../lifecycle/lifecycle-harness.ts";
+import type { RealStages } from "../lifecycle/golden-route.ts";
+import { reviewer } from "../lifecycle/golden-route.ts";
+import { restoredWorkItem, startWorkItem, throughJson } from "../lifecycle/lifecycle-harness.ts";
 import type { StageName } from "../lifecycle/stage.ts";
 import type { PortStageUnderTest, ScriptedPortStage } from "./port-stage-under-test.ts";
 
@@ -36,7 +32,7 @@ export const describePortStageInLifecycle = <
         const { stage: machine } = yield* stage.scripted(
           stage.passing({ step: firstStep, as: "failing" }),
         );
-        const workItem = yield* startWorkItem(lifecycleWith(stage.name, machine));
+        const workItem = yield* startWorkItem({ stages: lifecycleWith(stage.name, machine) });
         workItem.advanceTo(stage.name, stage.route);
         yield* workItem.reaches("blocked");
         expect(workItem.context().blocked).toStrictEqual({
@@ -49,14 +45,13 @@ export const describePortStageInLifecycle = <
     it.effect("runs its first step again with the same task when restored mid-step", () =>
       Effect.gen(function* () {
         const before = yield* stage.scripted(stage.passing({ step: firstStep, as: "hanging" }));
-        const original = yield* startWorkItem(lifecycleWith(stage.name, before.stage));
+        const original = yield* startWorkItem({ stages: lifecycleWith(stage.name, before.stage) });
         original.advanceTo(stage.name, stage.route);
         yield* before.fake.started(firstStep);
         const after = yield* stage.scripted(stage.passing());
-        const workItem = yield* restoredWorkItem(
-          throughJson(original.save()),
-          lifecycleWith(stage.name, after.stage),
-        );
+        const workItem = yield* restoredWorkItem(throughJson(original.save()), {
+          stages: lifecycleWith(stage.name, after.stage),
+        });
         yield* workItem.reaches(stage.next);
         expect(after.fake.calls()[0]).toStrictEqual({ step: firstStep, task: stage.firstTask });
       }),
@@ -67,12 +62,12 @@ export const describePortStageInLifecycle = <
         const { fake, stage: machine } = yield* stage.scripted(
           stage.passing({ step: firstStep, as: "hanging" }),
         );
-        const workItem = yield* startWorkItem(lifecycleWith(stage.name, machine));
+        const workItem = yield* startWorkItem({ stages: lifecycleWith(stage.name, machine) });
         workItem.advanceTo(stage.name, stage.route);
         yield* fake.started(firstStep);
         workItem.send({ type: "cancel", ...reviewer });
         yield* fake.interrupted(firstStep);
-        expect(workItem.stage()).toStrictEqual("cancelled");
+        expect(workItem.state()).toStrictEqual("cancelled");
       }),
     );
   });
