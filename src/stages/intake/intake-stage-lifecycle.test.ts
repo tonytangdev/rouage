@@ -1,12 +1,9 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import {
-  restoredWorkItem,
-  reviewer,
-  startWorkItem,
-  throughJson,
-} from "../../lifecycle/lifecycle-harness.ts";
+import { reviewer, startWorkItem } from "../../lifecycle/lifecycle-harness.ts";
+import { describePortStageInLifecycle } from "../port-stage-lifecycle-contract.ts";
+import { classifierPort } from "./fake-classifier.ts";
 import { isBug, isUnclear, scriptedIntake } from "./intake-harness.ts";
 
 describe("a work item in the Intake stage", () => {
@@ -36,23 +33,16 @@ describe("a work item in the Intake stage", () => {
       ]);
     }),
   );
+});
 
-  it.effect("classifies again when restored mid-classification", () =>
-    Effect.gen(function* () {
-      const before = yield* scriptedIntake({
-        results: [],
-        misbehaving: { step: "classify", as: "hanging" },
-      });
-      const original = yield* startWorkItem({ intake: before.intake });
-      yield* before.classifier.started("classify");
-      const after = yield* scriptedIntake({ results: [isBug] });
-      const workItem = yield* restoredWorkItem(throughJson(original.save()), {
-        intake: after.intake,
-      });
-      yield* workItem.reaches("spec");
-      expect(after.classifier.tasks()).toStrictEqual([
-        { workItemId: "wi-1", issueRef: "#1", feedback: null },
-      ]);
-    }),
-  );
+describePortStageInLifecycle({
+  name: "intake",
+  port: classifierPort,
+  scripted: (misbehaving) =>
+    Effect.map(scriptedIntake({ results: [isBug], misbehaving }), ({ classifier, intake }) => ({
+      fake: classifier,
+      stage: intake,
+    })),
+  next: "spec",
+  firstTask: { workItemId: "wi-1", issueRef: "#1", feedback: null },
 });

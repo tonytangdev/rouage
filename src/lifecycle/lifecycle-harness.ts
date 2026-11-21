@@ -80,7 +80,7 @@ const passingOutcomes = (route: Route): { readonly [Stage in StageName]: Outcome
   spec: { _tag: "written", specRef: "spec-1" },
   provision: { _tag: "provisioned", sandboxRef: "box-1", sampleRef: null },
   reproduce: { _tag: "reproduced", reproductionRef: "repro-1" },
-  plan: { _tag: "planned", demo: route.demo ?? false },
+  plan: { _tag: "planned", planRef: "plan-1", demo: route.demo ?? false },
   build: { _tag: "built" },
   demo: { _tag: "demonstrated" },
   review: { _tag: "approved" },
@@ -88,6 +88,39 @@ const passingOutcomes = (route: Route): { readonly [Stage in StageName]: Outcome
 });
 
 const isStage = (waypoint: Waypoint): waypoint is StageName => !gates.has(waypoint);
+
+// Written out as facts rather than derived from `passingOutcomes`, because a
+// derivation would repeat the lifecycle's own mapping and agree with it by construction.
+const factsTaught = (route: Route): Readonly<Record<StageName, Partial<StageFacts>>> => ({
+  intake: { kind: route.kind ?? "feature" },
+  spec: { specRef: "spec-1" },
+  provision: { sandboxRef: "box-1", sampleRef: null },
+  reproduce: { reproductionRef: "repro-1" },
+  plan: { planRef: "plan-1", demoPlanned: route.demo ?? false },
+  build: {},
+  demo: {},
+  review: {},
+  ship: {},
+});
+
+/**
+ * The input a stage receives once the work item has passed every stage on
+ * `route` up to and including `lastPassed`, with `changes` on top, so a test
+ * states only the facts its own transition sets.
+ */
+export const inputAfter = (
+  lastPassed: StageName,
+  route: Route = {},
+  changes: Partial<StageFacts> = {},
+): StageInput => {
+  const stages = defaultPath(route).filter(isStage);
+  const taught = factsTaught(route);
+  const learnt: Partial<StageFacts> = {};
+  for (const stage of stages.slice(0, stages.indexOf(lastPassed) + 1)) {
+    Object.assign(learnt, taught[stage]);
+  }
+  return stageInputWith({ ...learnt, ...changes });
+};
 
 const drive = (workItem: WorkItem, running: ReadonlyMap<StageName, RunningStub>) => {
   const stub = (stage: StageName) => {

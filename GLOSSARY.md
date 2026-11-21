@@ -39,6 +39,10 @@ _Avoid_: Result, status
 The written expected behaviour of a work item, approved by a human at the spec gate before any work on it starts.
 _Avoid_: Requirements, PRD
 
+**Plan**:
+How a work item's change will be made, including whether a demo is worth it, written down for Build to follow. Written in the Plan stage, after the spec is approved and, for a bug, after it is reproduced.
+_Avoid_: Design, approach, task list
+
 **Provision**:
 The stage that prepares the sandbox a work item runs in, before any reproduction or build.
 _Avoid_: Setup, bootstrap

@@ -19,8 +19,7 @@ describe("lifecycle harness", () => {
       workItem.advanceTo("shipGate", { kind: "bug", demo: true });
       expect(workItem.stage()).toStrictEqual("shipGate");
       expect(workItem.context()).toMatchObject({
-        facts: { kind: "bug", specRef: "spec-1" },
-        demoPlanned: true,
+        facts: { kind: "bug", specRef: "spec-1", demoPlanned: true },
       });
       expect(workItem.context().decisions.map((decision) => decision.state)).toStrictEqual([
         "specGate",

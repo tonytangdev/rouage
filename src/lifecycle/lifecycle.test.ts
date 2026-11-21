@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
 import type { Route, Waypoint } from "./lifecycle-harness.ts";
-import { reviewer, stageInputWith, startWorkItem } from "./lifecycle-harness.ts";
+import { inputAfter, reviewer, stageInputWith, startWorkItem } from "./lifecycle-harness.ts";
 
 const startAt = Effect.fnUntraced(function* (waypoint: Waypoint, route: Route = {}) {
   const workItem = yield* startWorkItem();
@@ -44,7 +44,7 @@ describe("lifecycle", () => {
       workItem.send({ type: "reject", ...reviewer, comment: "missing edge case" });
       expect(workItem.stage()).toStrictEqual("spec");
       expect(workItem.stageInput("spec")).toStrictEqual(
-        stageInputWith({ kind: "bug", feedback: "missing edge case", specRef: "spec-1" }),
+        inputAfter("spec", { kind: "bug" }, { feedback: "missing edge case" }),
       );
     }),
   );
@@ -91,12 +91,7 @@ describe("lifecycle", () => {
       expect(workItem.stage()).toStrictEqual("spec");
       expect(workItem.context().blocked).toBeNull();
       expect(workItem.stageInput("spec")).toStrictEqual(
-        stageInputWith({
-          kind: "bug",
-          feedback: "clarify the steps",
-          specRef: "spec-1",
-          sandboxRef: "box-1",
-        }),
+        inputAfter("provision", { kind: "bug" }, { feedback: "clarify the steps" }),
       );
     }),
   );
@@ -119,13 +114,11 @@ describe("lifecycle", () => {
           sampleRef: "s-1",
         });
         expect(workItem.stageInput("reproduce")).toStrictEqual(
-          stageInputWith({
-            kind: "bug",
-            specRef: "spec-1",
-            sandboxRef: "box-1",
-            sampleRequest: "orders over 100",
-            sampleRef: "s-1",
-          }),
+          inputAfter(
+            "provision",
+            { kind: "bug" },
+            { sampleRequest: "orders over 100", sampleRef: "s-1" },
+          ),
         );
       }),
   );
@@ -183,6 +176,22 @@ describe("lifecycle", () => {
       }),
   );
 
+  it.effect("passes the plan and its demo decision on to Build", () =>
+    Effect.gen(function* () {
+      const workItem = yield* startAt("plan", { kind: "feature" });
+      workItem.finish("plan", { _tag: "planned", planRef: "plan-1", demo: true });
+      expect(workItem.stageInput("build")).toStrictEqual(
+        stageInputWith({
+          kind: "feature",
+          specRef: "spec-1",
+          sandboxRef: "box-1",
+          planRef: "plan-1",
+          demoPlanned: true,
+        }),
+      );
+    }),
+  );
+
   it.effect("runs a planned demo between Build and Review", () =>
     Effect.gen(function* () {
       const workItem = yield* startAt("build", { demo: true });
@@ -214,12 +223,7 @@ describe("lifecycle", () => {
         requestChanges();
         expect(workItem.stage()).toStrictEqual("build");
         expect(workItem.stageInput("build")).toStrictEqual(
-          stageInputWith({
-            kind: "feature",
-            feedback: "rename the flag",
-            specRef: "spec-1",
-            sandboxRef: "box-1",
-          }),
+          inputAfter("review", {}, { feedback: "rename the flag" }),
         );
         requestChanges();
         requestChanges();
@@ -246,6 +250,8 @@ describe("lifecycle", () => {
           specRef: "spec-1",
           sandboxRef: "box-1",
           reproductionRef: "repro-1",
+          planRef: "plan-1",
+          demoPlanned: false,
         }),
       );
     }),
@@ -269,12 +275,7 @@ describe("lifecycle", () => {
       workItem.send({ type: "reject", ...reviewer, comment: "wait for the release freeze" });
       expect(workItem.stage()).toStrictEqual("build");
       expect(workItem.stageInput("build")).toStrictEqual(
-        stageInputWith({
-          kind: "feature",
-          feedback: "wait for the release freeze",
-          specRef: "spec-1",
-          sandboxRef: "box-1",
-        }),
+        inputAfter("review", {}, { feedback: "wait for the release freeze" }),
       );
     }),
   );

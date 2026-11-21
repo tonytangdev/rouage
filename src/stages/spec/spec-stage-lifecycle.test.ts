@@ -1,12 +1,9 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import {
-  restoredWorkItem,
-  reviewer,
-  startWorkItem,
-  throughJson,
-} from "../../lifecycle/lifecycle-harness.ts";
+import { reviewer, startWorkItem } from "../../lifecycle/lifecycle-harness.ts";
+import { describePortStageInLifecycle } from "../port-stage-lifecycle-contract.ts";
+import { specWriterPort } from "./fake-spec-writer.ts";
 import { firstWrite, scriptedSpec, unclearIssue, writtenSpec } from "./spec-harness.ts";
 
 const revisedSpec = { _tag: "written", specRef: "spec-2" } as const;
@@ -75,20 +72,17 @@ describe("a work item in the Spec stage", () => {
       });
     }),
   );
+});
 
-  it.effect("writes again when restored mid-write", () =>
-    Effect.gen(function* () {
-      const before = yield* scriptedSpec({
-        results: [],
-        misbehaving: { step: "write", as: "hanging" },
-      });
-      const original = yield* startWorkItem({ spec: before.spec });
-      original.advanceTo("spec", { kind: "bug" });
-      yield* before.specWriter.started("write");
-      const after = yield* scriptedSpec({ results: [writtenSpec] });
-      const workItem = yield* restoredWorkItem(throughJson(original.save()), { spec: after.spec });
-      yield* workItem.reaches("specGate");
-      expect(after.specWriter.tasks()).toStrictEqual([firstWrite]);
-    }),
-  );
+describePortStageInLifecycle({
+  name: "spec",
+  port: specWriterPort,
+  scripted: (misbehaving) =>
+    Effect.map(scriptedSpec({ results: [writtenSpec], misbehaving }), ({ specWriter, spec }) => ({
+      fake: specWriter,
+      stage: spec,
+    })),
+  route: { kind: "bug" },
+  next: "specGate",
+  firstTask: firstWrite,
 });

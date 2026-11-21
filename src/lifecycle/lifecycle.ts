@@ -15,7 +15,6 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
     facts: { issueRef: input.issueRef, ...noFactsYet },
     limits: input.limits,
     counters: noLoopsYet,
-    demoPlanned: false,
     blocked: null,
     decisions: [],
   }),
@@ -132,9 +131,9 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             id: "plan",
             src: "plan",
             input: stageInput,
-            onDone: ({ event: { output } }) => ({
+            onDone: ({ context, event: { output } }) => ({
               target: "build",
-              context: { demoPlanned: output.demo },
+              context: learned(context, { planRef: output.planRef, demoPlanned: output.demo }),
             }),
           },
         },
@@ -144,7 +143,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             src: "build",
             input: stageInput,
             onDone: ({ context }) =>
-              context.demoPlanned
+              context.facts.demoPlanned === true
                 ? { target: "demo", context: learned(context, { feedback: null }) }
                 : { target: "review", context: learned(context, { feedback: null }) },
           },
