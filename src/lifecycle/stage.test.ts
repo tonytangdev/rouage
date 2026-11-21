@@ -1,9 +1,9 @@
 import { Effect, Function } from "effect";
 import { createActor } from "xstate";
 
+import { noFactsYet } from "./facts.ts";
 import { describeStageContract } from "./stage-contract.ts";
 import type { StageAdapter } from "./stage-contract.ts";
-import { noFactsYet } from "./stage.ts";
 import { stubStage } from "./stub-stage.ts";
 
 const input = { workItemId: "wi-1", issueRef: "#1", ...noFactsYet, kind: "bug" as const };

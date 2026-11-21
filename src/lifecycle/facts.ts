@@ -1,50 +1,80 @@
-import { Match, Struct } from "effect";
+import { Record, Schema } from "effect";
 
-import { changeRequestAfter } from "./change-request.ts";
-import type { DemoFacts } from "./demo-decision.ts";
-import { demoFactNames, demoFactsAfter } from "./demo-decision.ts";
+import { changeRequestFact } from "./change-request.ts";
+import { demoFact } from "./demo-decision.ts";
 import type { FactEvent } from "./fact-event.ts";
+import { feedbackFact } from "./feedback.ts";
 import { taughtBy } from "./outcome-teaching.ts";
-import type { StageFacts } from "./stage.ts";
+import { KindSchema } from "./stage.ts";
+
+/**
+ * A fact with a lifetime of its own, rather than a reference only a newer
+ * outcome replaces: its fields, their value before any stage has worked, and
+ * their value after each event. Adding one means declaring it and listing it
+ * in the work item's facts below.
+ */
+export interface StandingFact<S extends Schema.Struct<Schema.Struct.Fields>> {
+  readonly schema: S;
+  readonly empty: S["Type"];
+  readonly after: (value: S["Type"], event: FactEvent) => S["Type"];
+}
+
+const Reference = Schema.NullOr(Schema.String);
 
 /** The facts only the outcome that teaches them changes, each replaced only by a newer one (ADR 0004). */
-export type References = Omit<
-  StageFacts,
-  "issueRef" | "feedback" | "changeRequest" | keyof DemoFacts
->;
+const ReferencesSchema = Schema.Struct({
+  kind: Schema.NullOr(KindSchema),
+  /** The reference to the latest written spec, opaque to Rouage; only the next written spec replaces it (ADR 0004). */
+  specRef: Reference,
+  /** The reference to the work item's sandbox, opaque to Rouage; set by Provision (ADR 0004). */
+  sandboxRef: Reference,
+  /** Reproduce's description of the data a bug needs, which Provision takes a sample of; never cleared (ADR 0005). */
+  sampleRequest: Reference,
+  /** The reference to the sample Provision took into the sandbox, opaque to Rouage (ADR 0004). */
+  sampleRef: Reference,
+  /** The reference to the latest extraction script the user was asked to run, opaque to Rouage; only the next script replaces it (ADR 0004, ADR 0008). */
+  scriptRef: Reference,
+  /** The reference to the bug's latest captured reproduction, opaque to Rouage; confirmed failing only once Reproduce finishes with a reproduction, and only the next reproduction replaces it (ADR 0004, ADR 0006, ADR 0009). */
+  reproductionRef: Reference,
+  /** The reference to the latest plan, opaque to Rouage; only the next plan replaces it (ADR 0004). */
+  planRef: Reference,
+  /** The reference to where Ship delivered the change, opaque to Rouage (ADR 0004); `null` until shipped. */
+  deliveryRef: Reference,
+});
+export type References = typeof ReferencesSchema.Type;
+
+/** What the work item holds that every stage sees, except the demo facts, which stages see only as the one demo their input shows. */
+export const StageFactsSchema = Schema.Struct({
+  issueRef: Schema.String,
+  ...ReferencesSchema.fields,
+  ...feedbackFact.schema.fields,
+  ...changeRequestFact.schema.fields,
+  ...demoFact.schema.fields,
+});
+export type StageFacts = typeof StageFactsSchema.Type;
+
+/** The facts of a work item no stage has worked on yet; only `issueRef` is known from the start. */
+export const noFactsYet: Omit<StageFacts, "issueRef"> = {
+  ...Record.map(ReferencesSchema.fields, () => null),
+  ...feedbackFact.empty,
+  ...changeRequestFact.empty,
+  ...demoFact.empty,
+};
 
 const referencesAfter = (event: FactEvent): Partial<References> =>
   event._tag === "stageFinished" || event._tag === "loopExhausted"
     ? taughtBy(event.outcome).references
     : {};
 
-// Feedback is for the next stage to finish and no other, so every stage
-// finishing clears it unless the outcome sets new feedback.
-const feedbackAfter = (feedback: string | null, event: FactEvent): string | null =>
-  Match.valueTags(event, {
-    stageFinished: ({ outcome }) => taughtBy(outcome).feedback,
-    // A retry re-runs the looping stage itself, so what it asked for goes to
-    // the human in the block's message instead.
-    loopExhausted: () => null,
-    gateRejected: ({ comment }) => comment,
-    returnedToSpec: ({ comment }) => comment,
-    // Without a comment the feedback stays, because the stage that failed
-    // never acted on it.
-    retried: ({ comment }) => comment ?? feedback,
-    // An override's comment is recorded but is not feedback, so it never
-    // displaces what the next stage must address (ADR 0011).
-    demoOverridden: () => feedback,
-  });
-
 /**
  * The work item's facts after `event`, the only way they change. References
- * are replaced only by the outcome that teaches a newer one; feedback, the
- * change request and the demo facts each follow their own lifetime.
+ * are replaced only by the outcome that teaches a newer one; each standing
+ * fact follows its own lifetime.
  */
 export const factsAfter = (facts: StageFacts, event: FactEvent): StageFacts => ({
   ...facts,
   ...referencesAfter(event),
-  feedback: feedbackAfter(facts.feedback, event),
-  changeRequest: changeRequestAfter(facts.changeRequest, event),
-  ...demoFactsAfter(Struct.pick(facts, demoFactNames), event),
+  ...feedbackFact.after(facts, event),
+  ...changeRequestFact.after(facts, event),
+  ...demoFact.after(facts, event),
 });

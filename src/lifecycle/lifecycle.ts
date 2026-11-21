@@ -3,10 +3,10 @@ import { absurd } from "effect/Function";
 import { reproduceBlocked, stageErrored } from "./blocked.ts";
 import { demoCalledFor, retrySkipsDemo } from "./demo-decision.ts";
 import { finished, soleOutcome } from "./fact-event.ts";
-import { factsAfter } from "./facts.ts";
+import { factsAfter, noFactsYet } from "./facts.ts";
 import { lifecycleSetup } from "./lifecycle-setup.ts";
 import { aroundLoop, noLoopsYet } from "./loops.ts";
-import { demoStageInput, noFactsYet, stageInput } from "./stage.ts";
+import { demoStageInput, stageInput } from "./stage.ts";
 import { innermostState } from "./state-value.ts";
 import {
   approved,
