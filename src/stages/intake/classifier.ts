@@ -6,7 +6,7 @@ import type { Kind } from "../../lifecycle/stage.ts";
 export interface ClassifyTask {
   readonly workItemId: string;
   readonly issueRef: string;
-  /** A human's comment from sending the work item back to Intake, passed on as written. */
+  /** The feedback for this run, such as a human's comment when sending an unclassified work item back, or `null` when there is none. */
   readonly feedback: string | null;
 }
 

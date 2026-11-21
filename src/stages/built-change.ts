@@ -13,6 +13,8 @@ export interface BuiltChange {
   readonly sandboxRef: string;
   /** The bug's reproduction, or `null` for a feature. */
   readonly reproductionRef: string | null;
+  /** The feedback for this run, such as a retry's comment, or `null` when there is none. */
+  readonly feedback: string | null;
 }
 
 /**
@@ -35,6 +37,7 @@ export const builtChangeTask = <Extra extends object>(
         planRef: input.planRef,
         sandboxRef: input.sandboxRef,
         reproductionRef: input.reproductionRef,
+        feedback: input.feedback,
         ...extra,
       };
 

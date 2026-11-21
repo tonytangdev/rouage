@@ -7,7 +7,7 @@ export interface WriteTask {
   readonly workItemId: string;
   readonly issueRef: string;
   readonly kind: Kind;
-  /** A human's comment from rejecting the spec or sending the work item back to Spec, passed on as written. */
+  /** The feedback for this run, such as why a human rejected the spec, or `null` when there is none. */
   readonly feedback: string | null;
   /** The reference to the spec written before, for the writer to revise; `null` on the first write. */
   readonly previousSpecRef: string | null;

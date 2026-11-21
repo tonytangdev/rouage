@@ -46,7 +46,7 @@ const Reference = Schema.NullOr(Schema.String);
 export const StageFactsSchema = Schema.Struct({
   issueRef: Schema.String,
   kind: Schema.NullOr(KindSchema),
-  /** A comment for the next stage to finish, set by a rejection, a return from Blocked or Review's requested changes, and cleared when any stage finishes. */
+  /** A comment for the next stage to finish, set by a rejection, a retry or return to Spec with a comment, or Review's requested changes, and cleared when any stage finishes. */
   feedback: Reference,
   /** The reference to the latest written spec, opaque to Rouage; only the next written spec replaces it (ADR 0004). */
   specRef: Reference,
@@ -58,7 +58,7 @@ export const StageFactsSchema = Schema.Struct({
   sampleRef: Reference,
   /** The reference to the latest extraction script the user was asked to run, opaque to Rouage; only the next script replaces it (ADR 0004, ADR 0008). */
   scriptRef: Reference,
-  /** The reference to the bug's reproduction, opaque to Rouage; only the next reproduction replaces it (ADR 0004, ADR 0006). */
+  /** The reference to the bug's latest captured reproduction, opaque to Rouage; confirmed failing only once Reproduce finishes with `reproduced`, and only the next reproduction replaces it (ADR 0004, ADR 0006, ADR 0009). */
   reproductionRef: Reference,
   /** The reference to the latest plan, opaque to Rouage; only the next plan replaces it (ADR 0004). */
   planRef: Reference,
@@ -123,7 +123,8 @@ export interface StageOutcomes {
   readonly reproduce:
     | { readonly _tag: "reproduced"; readonly reproductionRef: string }
     | { readonly _tag: "needsSample"; readonly sampleRequest: string }
-    | { readonly _tag: "cannotReproduce"; readonly reason: string };
+    | { readonly _tag: "cannotReproduce"; readonly reason: string }
+    | { readonly _tag: "checkPassed"; readonly reproductionRef: string; readonly output: string };
   readonly plan: { readonly _tag: "planned"; readonly planRef: string; readonly demo: boolean };
   readonly build: { readonly _tag: "built" };
   readonly demo: { readonly _tag: "demonstrated"; readonly demoRef: string };

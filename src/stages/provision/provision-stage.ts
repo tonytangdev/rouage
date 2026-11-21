@@ -24,6 +24,7 @@ const prepare = (provisioner: Provisioner["Service"], sampler: Sampler["Service"
       issueRef: input.issueRef,
       specRef: input.specRef,
       previousSandboxRef: input.sandboxRef,
+      feedback: input.feedback,
     });
     if (input.sampleRequest === null) {
       return { sandboxRef, sampled: null } satisfies Prepared;

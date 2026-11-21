@@ -12,6 +12,7 @@ const planTask = (input: StageInput): PlanTask => ({
   sampleRef: input.sampleRef,
   reproductionRef: input.reproductionRef,
   previousPlanRef: input.planRef,
+  feedback: input.feedback,
 });
 
 /**

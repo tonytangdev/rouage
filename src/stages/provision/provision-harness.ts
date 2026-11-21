@@ -19,6 +19,7 @@ export const firstProvision = {
   issueRef: goldenRefs.issueRef,
   specRef: goldenRefs.specRef,
   previousSandboxRef: null,
+  feedback: null,
 } as const;
 
 /** What the sampler is asked on a work item's first sample. */

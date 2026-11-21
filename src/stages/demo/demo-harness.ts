@@ -18,6 +18,7 @@ export const firstDemo = {
   sandboxRef: goldenRefs.sandboxRef,
   reproductionRef: null,
   previousDemoRef: null,
+  feedback: null,
 } as const;
 
 export const demoUnderTest = portStageUnderTest({

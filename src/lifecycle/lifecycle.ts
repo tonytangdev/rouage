@@ -1,6 +1,6 @@
 import { absurd } from "effect/Function";
 
-import { blockedOn, stageErrored } from "./blocked.ts";
+import { blockedOn, reproductionDidNotFail, stageErrored } from "./blocked.ts";
 import { learned, soleOutcomeFinished, stageFinished } from "./facts.ts";
 import { lifecycleSetup } from "./lifecycle-setup.ts";
 import { loopExhausted, loopLimitReached, noLoopsYet, wentAround } from "./loops.ts";
@@ -136,6 +136,15 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
                     }),
                   };
                 }
+                case "checkPassed": {
+                  return {
+                    target: "#blocked",
+                    context: {
+                      ...stageFinished(context, "reproduce", output),
+                      ...blockedOn("reproduce", reproductionDidNotFail(output)),
+                    },
+                  };
+                }
                 case "needsSample": {
                   if (loopExhausted(context, "reproduce")) {
                     return { target: "#blocked", context: loopLimitReached(context, "reproduce") };
@@ -244,6 +253,8 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           context: {
             blocked: null,
             counters: noLoopsYet,
+            // Without a comment the feedback stays, because the stage that failed never acted on it.
+            ...(event.comment === undefined ? {} : learned(context, { feedback: event.comment })),
             decisions: recordDecision(context, "retry", "blocked", event),
           },
         }),

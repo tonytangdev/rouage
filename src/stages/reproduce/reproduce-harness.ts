@@ -19,6 +19,7 @@ export const firstCapture = {
   sampleRef: null,
   sampleRequest: null,
   previousReproductionRef: null,
+  feedback: null,
 } as const;
 
 /** What the reproducer is asked to confirm after the first capture. */

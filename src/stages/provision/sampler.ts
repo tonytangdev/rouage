@@ -8,9 +8,9 @@ export interface SampleTask {
   readonly sampleRequest: string;
   /** The sample taken before, which may still be in the sandbox; `null` on the first sample. */
   readonly previousSampleRef: string | null;
-  /** The extraction script the user was last asked to run; they ran it unless `feedback` says why they rejected it. `null` before any. */
+  /** The extraction script the user was last asked to run; they ran it unless the feedback says they rejected it. `null` before any. */
   readonly previousScriptRef: string | null;
-  /** Why the user rejected the previous extraction script, for the next one to address; `null` when they did not. */
+  /** The feedback for this run, such as why the user rejected the previous extraction script, for the next one to address, or `null` when there is none. */
   readonly feedback: string | null;
 }
 

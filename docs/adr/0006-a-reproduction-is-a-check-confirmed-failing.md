@@ -1,5 +1,7 @@
 # A reproduction is a check confirmed failing before it counts
 
+Its decision that a passing check makes the stage fail is superseded by [ADR 0009](0009-a-passing-reproduction-blocks-as-an-outcome-that-keeps-it.md); the rest stands.
+
 A bug's reproduction must be a check that can be run again, such as a failing test or a script, and Reproduce runs it in a separate step before the work item moves on. The `Reproducer` port first captures the reproduction and stores it behind a `reproductionRef` (ADR 0004). It then confirms the reproduction by running the check in the sandbox. Reproduce finishes with `reproduced` only when the check fails. When it passes, the stage fails with `ReproductionDidNotFail` and the work item becomes **Blocked**, because a check that does not fail usually means the bug was misunderstood, and a human should look before Build starts. A re-runnable check also lets later stages show the same check passing once the bug is fixed.
 
 The port decides between `reproduced`, `needsSample` and `cannotReproduce`. The lifecycle's Reproduce loop limit is what stops a plugin that keeps asking for samples.

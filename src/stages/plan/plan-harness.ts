@@ -18,6 +18,7 @@ export const firstPlan = {
   sampleRef: null,
   reproductionRef: null,
   previousPlanRef: null,
+  feedback: null,
 } as const;
 
 export const planUnderTest = portStageUnderTest({

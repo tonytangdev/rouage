@@ -12,6 +12,8 @@ export interface CaptureTask {
   readonly sampleRequest: string | null;
   /** The reproduction captured before, for the reproducer to revise; `null` on the first capture. */
   readonly previousReproductionRef: string | null;
+  /** The feedback for this run, such as a retry's comment, or `null` when there is none. */
+  readonly feedback: string | null;
 }
 
 /**

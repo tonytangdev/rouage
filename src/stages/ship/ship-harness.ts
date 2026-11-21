@@ -18,6 +18,7 @@ export const firstShipment = {
   sandboxRef: goldenRefs.sandboxRef,
   reproductionRef: null,
   demoRef: null,
+  feedback: null,
 } as const;
 
 export const shipUnderTest = portStageUnderTest({

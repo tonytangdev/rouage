@@ -5,6 +5,7 @@ export interface BuildTask {
   readonly workItemId: string;
   /** The plan to follow, or `null` when the lifecycle runs no Plan before Build. */
   readonly planRef: string | null;
+  /** The feedback for this run, such as a retry's comment, or `null` when there is none. */
   readonly feedback: string | null;
 }
 

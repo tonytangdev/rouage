@@ -14,12 +14,38 @@ import type { PortStageUnderTest, ScriptedPortStage } from "./port-stage-under-t
 
 const lifecycleWith = (name: StageName, stage: AnyStateMachine): RealStages => ({ [name]: stage });
 
+const itGivesARetrysCommentToItsFirstStep = <
+  Step extends string,
+  Script,
+  Scripted extends ScriptedPortStage<Step>,
+>(
+  stage: PortStageUnderTest<Step, Script, Scripted>,
+) => {
+  it.effect("gives a retry's comment to its first step as feedback", () =>
+    Effect.gen(function* () {
+      const { fake, stage: machine } = yield* stage.scripted(
+        stage.passing({ step: stage.firstStep, as: "failing" }),
+      );
+      const workItem = yield* startWorkItem({ stages: lifecycleWith(stage.name, machine) });
+      workItem.advanceTo(stage.name, stage.route);
+      yield* workItem.reaches("blocked");
+      workItem.send({ type: "retry", ...reviewer, comment: "the CI runner is back" });
+      yield* workItem.reaches("blocked");
+      expect(fake.calls().at(-1)).toMatchObject({
+        step: stage.firstStep,
+        task: { feedback: "the CI runner is back" },
+      });
+    }),
+  );
+};
+
 /**
  * Declares the tests every port stage must pass inside the default
  * lifecycle: any of its ports giving up blocks the work item on the stage
  * with that port's reason, cancelling a work item interrupts the step any of
- * its ports is running, and a work item restored mid-first-step runs that
- * step again with the same task and moves on.
+ * its ports is running, a retry's comment reaches its first step as feedback,
+ * and a work item restored mid-first-step runs that step again with the same
+ * task and moves on.
  */
 export const describePortStageInLifecycle = <
   Step extends string,
@@ -59,6 +85,8 @@ export const describePortStageInLifecycle = <
         }),
       );
     }
+
+    itGivesARetrysCommentToItsFirstStep(stage);
 
     it.effect("runs its first step again with the same task when restored mid-step", () =>
       Effect.gen(function* () {
