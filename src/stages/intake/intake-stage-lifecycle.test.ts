@@ -1,7 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { reviewer, startWorkItem } from "../../lifecycle/lifecycle-harness.ts";
+import { reviewer } from "../../lifecycle/golden-route.ts";
+import { startWorkItem } from "../../lifecycle/lifecycle-harness.ts";
 import { describePortStageInLifecycle } from "../port-stage-lifecycle-contract.ts";
 import { firstClassify, intakeUnderTest, isBug, isUnclear } from "./intake-harness.ts";
 

@@ -2,13 +2,11 @@ import type { Effect } from "effect";
 import { Context, Data } from "effect";
 
 import type { Kind } from "../../lifecycle/stage.ts";
+import type { RunBrief } from "../run-brief.ts";
 
-export interface WriteTask {
-  readonly workItemId: string;
+export interface WriteTask extends RunBrief {
   readonly issueRef: string;
   readonly kind: Kind;
-  /** A human's comment from rejecting the spec or sending the work item back to Spec, passed on as written. */
-  readonly feedback: string | null;
   /** The reference to the spec written before, for the writer to revise; `null` on the first write. */
   readonly previousSpecRef: string | null;
 }

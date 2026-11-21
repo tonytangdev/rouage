@@ -33,6 +33,7 @@ const factsTaught: FactsTaught = {
       reproduced: ({ reproductionRef }) => ({ reproductionRef }),
       needsSample: ({ sampleRequest }) => ({ sampleRequest }),
       cannotReproduce: nothing,
+      checkPassed: ({ reproductionRef }) => ({ reproductionRef }),
     }),
   plan: (outcome) =>
     Match.valueTags(outcome, {

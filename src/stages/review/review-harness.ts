@@ -1,8 +1,5 @@
-import { Effect } from "effect";
-
-import { goldenRefs } from "../../lifecycle/lifecycle-harness.ts";
-import { portStageUnderTest } from "../port-stage-under-test.ts";
-import type { FakeReviewerScript } from "./fake-reviewer.ts";
+import { goldenRefs } from "../../lifecycle/golden-route.ts";
+import { portStageUnderTest, scriptedStage } from "../port-stage-under-test.ts";
 import { fakeReviewer, reviewerPort } from "./fake-reviewer.ts";
 import { reviewStage } from "./review-stage.ts";
 
@@ -19,15 +16,13 @@ export const firstReview = {
   sandboxRef: goldenRefs.sandboxRef,
   reproductionRef: null,
   demoRef: null,
+  feedback: null,
 } as const;
 
 export const reviewUnderTest = portStageUnderTest({
   name: "review",
   port: reviewerPort,
-  scripted: Effect.fnUntraced(function* (script: FakeReviewerScript) {
-    const fake = yield* fakeReviewer(script);
-    return { fake, stage: yield* reviewStage.pipe(Effect.provide(fake.layer)) };
-  }),
+  scripted: scriptedStage(fakeReviewer, reviewStage),
   passing: (misbehaving) => ({ verdicts: [approval], misbehaving }),
   outcome: approval,
   firstTask: firstReview,

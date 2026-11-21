@@ -1,9 +1,10 @@
 import type { Kind, StageFailure, StageInput } from "../lifecycle/stage.ts";
+import type { RunBrief } from "./run-brief.ts";
+import { briefOf } from "./run-brief.ts";
 import { sandboxMissing } from "./sandbox-missing.ts";
 
 /** What a stage that looks at the built change is given: where the change is, and what it was built from. */
-export interface BuiltChange {
-  readonly workItemId: string;
+export interface BuiltChange extends RunBrief {
   readonly issueRef: string;
   readonly kind: Kind | null;
   readonly specRef: string | null;
@@ -28,7 +29,7 @@ export const builtChangeTask = <Extra extends object>(
   input.sandboxRef === null
     ? sandboxMissing(stage)
     : {
-        workItemId: input.workItemId,
+        ...briefOf(input),
         issueRef: input.issueRef,
         kind: input.kind,
         specRef: input.specRef,

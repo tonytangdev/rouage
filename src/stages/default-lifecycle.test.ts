@@ -1,7 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { reviewer, startWorkItem } from "../lifecycle/lifecycle-harness.ts";
+import { reviewer } from "../lifecycle/golden-route.ts";
+import { startWorkItem } from "../lifecycle/lifecycle-harness.ts";
 import { buildUnderTest } from "./build/build-harness.ts";
 import { demoUnderTest, firstDemoMade } from "./demo/demo-harness.ts";
 import { intakeUnderTest } from "./intake/intake-harness.ts";

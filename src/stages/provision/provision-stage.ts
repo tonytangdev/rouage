@@ -4,6 +4,7 @@ import { setup, types } from "xstate";
 import type { OutcomeOf, StageInput } from "../../lifecycle/stage.ts";
 import type { PortStep } from "../port-stage.ts";
 import { portStage } from "../port-stage.ts";
+import { briefOf } from "../run-brief.ts";
 import { Provisioner } from "./provisioner.ts";
 import type { Sampled } from "./sampler.ts";
 import { Sampler } from "./sampler.ts";
@@ -20,7 +21,7 @@ interface Prepared {
 const prepare = (provisioner: Provisioner["Service"], sampler: Sampler["Service"]) =>
   Effect.fnUntraced(function* (input: StageInput) {
     const { sandboxRef } = yield* provisioner.provision({
-      workItemId: input.workItemId,
+      ...briefOf(input),
       issueRef: input.issueRef,
       specRef: input.specRef,
       previousSandboxRef: input.sandboxRef,
@@ -29,12 +30,11 @@ const prepare = (provisioner: Provisioner["Service"], sampler: Sampler["Service"
       return { sandboxRef, sampled: null } satisfies Prepared;
     }
     const sampled = yield* sampler.sample({
-      workItemId: input.workItemId,
+      ...briefOf(input),
       sandboxRef,
       sampleRequest: input.sampleRequest,
       previousSampleRef: input.sampleRef,
       previousScriptRef: input.scriptRef,
-      feedback: input.feedback,
     });
     return { sandboxRef, sampled } satisfies Prepared;
   });

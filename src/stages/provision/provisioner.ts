@@ -1,8 +1,9 @@
 import type { Effect } from "effect";
 import { Context, Data } from "effect";
 
-export interface ProvisionTask {
-  readonly workItemId: string;
+import type { RunBrief } from "../run-brief.ts";
+
+export interface ProvisionTask extends RunBrief {
   readonly issueRef: string;
   readonly specRef: string | null;
   /** The work item's current sandbox, for the provisioner to reuse or replace; `null` on the first provision. */

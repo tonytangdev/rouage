@@ -59,8 +59,12 @@ _Avoid_: Setup, bootstrap
 A transition that waits for a human decision before the work item moves on.
 _Avoid_: Checkpoint, approval step
 
+**Feedback**:
+What the next stage to finish is asked to address: the comment a human gives when rejecting at a gate, retrying, or sending a work item back to Spec, or the changes Review requested. It is gone once any stage finishes.
+_Avoid_: Notes, remarks
+
 **Blocked**:
-The state of a work item that cannot progress without human input: a bug that cannot be reproduced, a stage that failed, or a loop that reached its limit. It records the stage the work item came from, so a human can retry that stage, send the work item back to Spec, or cancel it.
+The state of a work item that cannot progress without human input: a bug that cannot be reproduced or whose reproduction does not fail, a stage that failed, or a loop that reached its limit. It records the stage the work item came from, so a human can retry that stage, send the work item back to Spec, or cancel it.
 
 **Cancelled**:
 The final state of a work item a human stopped. The stage it was in stops with it.

@@ -27,18 +27,20 @@ describe("reproduce stage", () => {
     }),
   );
 
-  it.effect("fails as ReproductionDidNotFail when the captured check passes", () =>
-    Effect.gen(function* () {
-      const { settled } = yield* reproduceUnderTest.run({
-        captures: [captured],
-        confirmations: [checkPassed],
-      });
-      expect(failureReasonOf(settled.error)).toStrictEqual({
-        tag: "ReproductionDidNotFail",
-        message:
-          "The reproduction repro-1 passed, so it does not show the bug: 1 test passed: totals add VAT",
-      });
-    }),
+  it.effect(
+    "finishes as checkPassed with the reproduction and its output when its check passes",
+    () =>
+      Effect.gen(function* () {
+        const { settled } = yield* reproduceUnderTest.run({
+          captures: [captured],
+          confirmations: [checkPassed],
+        });
+        expect(settled.output).toStrictEqual({
+          _tag: "checkPassed",
+          reproductionRef: "repro-1",
+          output: "1 test passed: totals add VAT",
+        });
+      }),
   );
 
   it.effect("asks for a sample without confirming, given the sample and reproduction it had", () =>

@@ -1,12 +1,12 @@
 import { absurd } from "effect/Function";
 
-import { blockedOn, stageErrored } from "./blocked.ts";
-import { learned, soleOutcomeFinished, stageFinished } from "./facts.ts";
+import { reproduceBlocked, stageErrored } from "./blocked.ts";
+import { soleOutcomeFinished, stageFinished } from "./facts.ts";
 import { lifecycleSetup } from "./lifecycle-setup.ts";
 import { loopExhausted, loopLimitReached, noLoopsYet, wentAround } from "./loops.ts";
 import { noFactsYet, stageInput } from "./stage.ts";
 import { innermostState } from "./state-value.ts";
-import { approved, recordDecision, rejected } from "./work-item.ts";
+import { approved, recordDecision, rejected, retried, sentBack } from "./work-item.ts";
 
 // Every transition names its target as a literal, even where a helper could
 // compute it, so Stately's editor can draw every arrow (ADR 0002).
@@ -127,14 +127,9 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
                 case "reproduced": {
                   return { target: "plan", context: stageFinished(context, "reproduce", output) };
                 }
-                case "cannotReproduce": {
-                  return {
-                    target: "#blocked",
-                    context: blockedOn("reproduce", {
-                      tag: "CannotReproduce",
-                      message: output.reason,
-                    }),
-                  };
+                case "cannotReproduce":
+                case "checkPassed": {
+                  return { target: "#blocked", context: reproduceBlocked(context, output) };
                 }
                 case "needsSample": {
                   if (loopExhausted(context, "reproduce")) {
@@ -241,24 +236,13 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
       on: {
         retry: ({ context, event }) => ({
           target: "working.lastStage",
-          context: {
-            blocked: null,
-            counters: noLoopsYet,
-            decisions: recordDecision(context, "retry", "blocked", event),
-          },
+          context: retried(context, event),
         }),
-        backToSpec: ({ context, event }) => {
-          const restart = {
-            blocked: null,
-            counters: noLoopsYet,
-            ...learned(context, { feedback: event.comment ?? null }),
-            decisions: recordDecision(context, "backToSpec", "blocked", event),
-          };
+        backToSpec: ({ context, event }) =>
           // An unclassified work item would reach Provision without a kind and be routed as a feature.
-          return context.facts.kind === null
-            ? { target: "working.intake", context: restart }
-            : { target: "working.spec", context: restart };
-        },
+          context.facts.kind === null
+            ? { target: "working.intake", context: sentBack(context, event) }
+            : { target: "working.spec", context: sentBack(context, event) },
       },
     },
     shipped: { id: "shipped", type: "final" },

@@ -2,14 +2,9 @@ import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
 import { fakeSandboxTeardown } from "./fake-sandbox-teardown.ts";
-import type { Route, Waypoint } from "./lifecycle-harness.ts";
-import {
-  goldenRefs,
-  inputAfter,
-  reviewer,
-  stageInputWith,
-  startWorkItem,
-} from "./lifecycle-harness.ts";
+import type { Route, Waypoint } from "./golden-route.ts";
+import { goldenRefs, inputAfter, reviewer, stageInputWith } from "./golden-route.ts";
+import { startWorkItem } from "./lifecycle-harness.ts";
 import { defaultLifecycle } from "./lifecycle.ts";
 import { createWorkItem } from "./work-item-actor.ts";
 
@@ -112,6 +107,19 @@ describe("lifecycle", () => {
     }),
   );
 
+  it.effect(
+    "clears the feedback Reproduce acted on when it finds the bug cannot be reproduced",
+    () =>
+      Effect.gen(function* () {
+        const workItem = yield* startAt("reproduce", { kind: "bug" });
+        workItem.fail("reproduce", { tag: "ReproducerGaveUp", message: "the sandbox timed out" });
+        workItem.send({ type: "retry", ...reviewer, comment: "use the staging data" });
+        workItem.finish("reproduce", { _tag: "cannotReproduce", reason: "works on staging" });
+        workItem.send({ type: "retry", ...reviewer });
+        expect(workItem.stageInput("reproduce")?.feedback).toBeNull();
+      }),
+  );
+
   it.effect("blocks a bug that cannot be reproduced, and a human can send it back to Spec", () =>
     Effect.gen(function* () {
       const workItem = yield* startAt("provision", { kind: "bug" });
@@ -129,6 +137,48 @@ describe("lifecycle", () => {
         inputAfter("provision", { kind: "bug" }, { feedback: "clarify the steps" }),
       );
     }),
+  );
+
+  it.effect("blocks a bug whose check passed, keeping the reproduction for a retry to revise", () =>
+    Effect.gen(function* () {
+      const workItem = yield* startAt("reproduce", { kind: "bug" });
+      workItem.finish("reproduce", {
+        _tag: "checkPassed",
+        reproductionRef: "repro-1",
+        output: "1 test passed",
+      });
+      expect(workItem.context().blocked).toStrictEqual({
+        from: "reproduce",
+        reason: {
+          tag: "ReproductionDidNotFail",
+          message: "The reproduction repro-1 passed, so it does not show the bug: 1 test passed",
+        },
+      });
+      workItem.send({ type: "retry", ...reviewer, comment: "the bug needs a logged-in user" });
+      expect(workItem.stageInput("reproduce")).toStrictEqual(
+        inputAfter(
+          "provision",
+          { kind: "bug" },
+          { reproductionRef: "repro-1", feedback: "the bug needs a logged-in user" },
+        ),
+      );
+    }),
+  );
+
+  it.effect(
+    "runs Reproduce again before Plan when a bug whose check passed goes back to Spec",
+    () =>
+      Effect.gen(function* () {
+        const workItem = yield* startAt("reproduce", { kind: "bug" });
+        workItem.finish("reproduce", {
+          _tag: "checkPassed",
+          reproductionRef: "repro-1",
+          output: "1 test passed",
+        });
+        workItem.send({ type: "backToSpec", ...reviewer, comment: "the bug is in the export" });
+        workItem.advanceTo("reproduce", { kind: "bug" });
+        expect(workItem.stageInput("reproduce")?.reproductionRef).toStrictEqual("repro-1");
+      }),
   );
 
   it.effect(
@@ -264,6 +314,29 @@ describe("lifecycle", () => {
           comment: null,
         });
       }),
+  );
+
+  it.effect("gives a retry's comment to the stage it re-runs as feedback", () =>
+    Effect.gen(function* () {
+      const workItem = yield* startAt("plan");
+      workItem.fail("plan", { tag: "PlannerGaveUp", message: "the spec is ambiguous" });
+      workItem.send({ type: "retry", ...reviewer, comment: "totals exclude VAT" });
+      expect(workItem.stageInput("plan")).toStrictEqual(
+        inputAfter("provision", {}, { feedback: "totals exclude VAT" }),
+      );
+    }),
+  );
+
+  it.effect("keeps the feedback a failed stage never acted on when a retry has no comment", () =>
+    Effect.gen(function* () {
+      const workItem = yield* startAt("shipGate");
+      workItem.send({ type: "reject", ...reviewer, comment: "wait for the release freeze" });
+      workItem.fail("build", { tag: "BuilderGaveUp", message: "the build timed out" });
+      workItem.send({ type: "retry", ...reviewer });
+      expect(workItem.stageInput("build")).toStrictEqual(
+        inputAfter("review", {}, { feedback: "wait for the release freeze" }),
+      );
+    }),
   );
 
   it.effect("passes the plan and its demo decision on to Build", () =>

@@ -3,14 +3,16 @@ import type { Scope } from "effect";
 import type { Actor, AnyActorLogic, AnyStateMachine, OutputFrom } from "xstate";
 import { createActor, toPromise } from "xstate";
 
-import type { Route, TestWorkItem } from "../lifecycle/lifecycle-harness.ts";
-import { inputOnReaching, nextAfter } from "../lifecycle/lifecycle-harness.ts";
+import type { Route } from "../lifecycle/golden-route.ts";
+import { inputOnReaching, nextAfter } from "../lifecycle/golden-route.ts";
+import type { TestWorkItem } from "../lifecycle/lifecycle-harness.ts";
 import type { Place } from "../lifecycle/place.ts";
 import type { Settled } from "../lifecycle/stage-contract.ts";
 import type { FailureReason, StageInput, StageName } from "../lifecycle/stage.ts";
 import type { Fake, FakePort, Misbehaviour, Misbehaving } from "./fake-script.ts";
 import { crashMessage, gaveUpMessage } from "./fake-script.ts";
 import type { PortGaveUp } from "./port-stage.ts";
+import type { RunBrief } from "./run-brief.ts";
 
 /** A port stage built with a fresh fake for the port the stage runs first, plus any other fakes it needs. */
 export interface ScriptedPortStage<Step extends string> {
@@ -97,7 +99,7 @@ export interface PortStageDeclaration<
   /** The route the work item takes to reach the stage; a feature with no demo unless set. */
   readonly route?: Route;
   /** What the stage's first step is asked when it is reached along `route`. */
-  readonly firstTask: unknown;
+  readonly firstTask: RunBrief;
 }
 
 /** A declared port stage, ready to run outside any lifecycle. */
@@ -124,6 +126,18 @@ export interface PortStageUnderTest<
     input?: StageInput,
   ) => Effect.Effect<Scripted & { readonly settled: Settled<unknown> }, unknown, Scope.Scope>;
 }
+
+/** Builds a port stage's `scripted` from its fake and its stage, the fake's layer providing the port the stage takes from context. */
+export const scriptedStage =
+  <Script, Id, Step extends string, Machine, E>(
+    fake: (script: Script) => Effect.Effect<Fake<Id, Step>>,
+    stage: Effect.Effect<Machine, E, Id>,
+  ) =>
+  (script: Script) =>
+    Effect.gen(function* () {
+      const made = yield* fake(script);
+      return { fake: made, stage: yield* stage.pipe(Effect.provide(made.layer)) };
+    });
 
 /** Starts a stage actor outside any lifecycle and waits until it finishes or fails; the actor stops when the test's scope closes. */
 const runAlone = Effect.fnUntraced(function* <Logic extends AnyActorLogic>(actor: Actor<Logic>) {

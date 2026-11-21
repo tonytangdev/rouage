@@ -1,5 +1,6 @@
 import type { OutcomeOf, StageInput } from "../../lifecycle/stage.ts";
 import { StageFailure } from "../../lifecycle/stage.ts";
+import { briefOf } from "../run-brief.ts";
 import { singleStepStage } from "../single-step-stage.ts";
 import type { WriteTask, Written } from "./spec-writer.ts";
 import { SpecWriter } from "./spec-writer.ts";
@@ -17,10 +18,9 @@ const writeTask = (input: StageInput): WriteTask | StageFailure =>
   input.kind === null
     ? unclassified()
     : {
-        workItemId: input.workItemId,
+        ...briefOf(input),
         issueRef: input.issueRef,
         kind: input.kind,
-        feedback: input.feedback,
         previousSpecRef: input.specRef,
       };
 

@@ -1,8 +1,9 @@
 import type { Effect } from "effect";
 import { Context, Data } from "effect";
 
-export interface CaptureTask {
-  readonly workItemId: string;
+import type { RunBrief } from "../run-brief.ts";
+
+export interface CaptureTask extends RunBrief {
   readonly issueRef: string;
   readonly specRef: string | null;
   readonly sandboxRef: string;

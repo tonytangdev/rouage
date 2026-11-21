@@ -1,8 +1,5 @@
-import { Effect } from "effect";
-
-import { goldenRefs } from "../../lifecycle/lifecycle-harness.ts";
-import { portStageUnderTest } from "../port-stage-under-test.ts";
-import type { FakeReproducerScript } from "./fake-reproducer.ts";
+import { goldenRefs } from "../../lifecycle/golden-route.ts";
+import { portStageUnderTest, scriptedStage } from "../port-stage-under-test.ts";
 import { fakeReproducer, reproducerPort } from "./fake-reproducer.ts";
 import { reproduceStage } from "./reproduce-stage.ts";
 
@@ -19,6 +16,7 @@ export const firstCapture = {
   sampleRef: null,
   sampleRequest: null,
   previousReproductionRef: null,
+  feedback: null,
 } as const;
 
 /** What the reproducer is asked to confirm after the first capture. */
@@ -31,10 +29,7 @@ export const firstConfirm = {
 export const reproduceUnderTest = portStageUnderTest({
   name: "reproduce",
   port: reproducerPort,
-  scripted: Effect.fnUntraced(function* (script: FakeReproducerScript) {
-    const fake = yield* fakeReproducer(script);
-    return { fake, stage: yield* reproduceStage.pipe(Effect.provide(fake.layer)) };
-  }),
+  scripted: scriptedStage(fakeReproducer, reproduceStage),
   passing: (misbehaving) => ({ captures: [captured], confirmations: [checkFailed], misbehaving }),
   outcome: { _tag: "reproduced", reproductionRef: captured.reproductionRef },
   route: { kind: "bug" },

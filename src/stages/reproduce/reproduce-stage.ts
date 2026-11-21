@@ -2,9 +2,9 @@ import { Effect } from "effect";
 import { setup, types } from "xstate";
 
 import type { OutcomeOf, StageInput } from "../../lifecycle/stage.ts";
-import { StageFailure } from "../../lifecycle/stage.ts";
 import type { PortStep } from "../port-stage.ts";
 import { portStage } from "../port-stage.ts";
+import { briefOf } from "../run-brief.ts";
 import { sandboxMissing } from "../sandbox-missing.ts";
 import type { CaptureTask, ConfirmTask } from "./reproducer.ts";
 import { Reproducer } from "./reproducer.ts";
@@ -20,7 +20,7 @@ const captureTask = ({
   readonly context: StageInput;
   readonly input: Sandboxed;
 }): CaptureTask => ({
-  workItemId: context.workItemId,
+  ...briefOf(context),
   issueRef: context.issueRef,
   specRef: context.specRef,
   sandboxRef: input.sandboxRef,
@@ -31,14 +31,6 @@ const captureTask = ({
 
 const capture = (reproducer: Reproducer["Service"], task: CaptureTask) =>
   Effect.map(reproducer.capture(task), (captured) => ({ sandboxRef: task.sandboxRef, captured }));
-
-const reproductionDidNotFail = (reproductionRef: string, output: string) =>
-  new StageFailure({
-    reason: {
-      tag: "ReproductionDidNotFail",
-      message: `The reproduction ${reproductionRef} passed, so it does not show the bug: ${output}`,
-    },
-  });
 
 const confirm = (reproducer: Reproducer["Service"], task: ConfirmTask) =>
   Effect.map(reproducer.confirm(task), (confirmation) => ({
@@ -108,10 +100,13 @@ const reproduceMachine = (step: PortStep<Reproducer["Service"]>) =>
           input: ({ input }) => input,
           onDone: ({ event: { output } }) => {
             const { reproductionRef, confirmation } = output;
-            if (confirmation._tag === "passed") {
-              throw reproductionDidNotFail(reproductionRef, confirmation.output);
-            }
-            return { target: "finished", input: { _tag: "reproduced", reproductionRef } };
+            return {
+              target: "finished",
+              input:
+                confirmation._tag === "passed"
+                  ? { _tag: "checkPassed", reproductionRef, output: confirmation.output }
+                  : { _tag: "reproduced", reproductionRef },
+            };
           },
         },
       },
@@ -122,9 +117,10 @@ const reproduceMachine = (step: PortStep<Reproducer["Service"]>) =>
 /**
  * The Reproduce stage machine: captures a bug's reproduction with the
  * `Reproducer` in context, then confirms its check fails in the sandbox
- * (ADR 0006), finishing with the reference once it does. When the capture
- * asks for a sample or finds the bug cannot be reproduced, finishes with that
- * answer and confirms nothing. Fails with a `StageFailure` when there is no
- * sandbox, the check passes, or the reproducer cannot finish a step.
+ * (ADR 0006), finishing with the reference once it does, or with
+ * `checkPassed`, the reference and what the check printed when it passes
+ * (ADR 0009). When the capture asks for a sample or finds the bug cannot be
+ * reproduced, finishes with that answer and confirms nothing. Fails when
+ * there is no sandbox or the reproducer cannot finish a step.
  */
 export const reproduceStage = portStage(Reproducer, reproduceMachine);

@@ -2,9 +2,9 @@ import type { Effect } from "effect";
 import { Context, Data } from "effect";
 
 import type { Kind } from "../../lifecycle/stage.ts";
+import type { RunBrief } from "../run-brief.ts";
 
-export interface PlanTask {
-  readonly workItemId: string;
+export interface PlanTask extends RunBrief {
   readonly issueRef: string;
   readonly kind: Kind | null;
   readonly specRef: string | null;

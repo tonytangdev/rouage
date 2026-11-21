@@ -3,7 +3,7 @@ import { Schema } from "effect";
 import { BlockedSchema } from "./blocked.ts";
 import { learned } from "./facts.ts";
 import type { LoopLimits } from "./loops.ts";
-import { PerLoopCount } from "./loops.ts";
+import { PerLoopCount, noLoopsYet } from "./loops.ts";
 import type { Gate } from "./place.ts";
 import { StageFactsSchema } from "./stage.ts";
 
@@ -69,4 +69,25 @@ export const approved = (context: WorkItemContext, gate: Gate, decision: HumanDe
 export const rejected = (context: WorkItemContext, gate: Gate, decision: HumanDecision) => ({
   ...learned(context, { feedback: decision.comment ?? null }),
   decisions: recordDecision(context, "reject", gate, decision),
+});
+
+const unblocked = { blocked: null, counters: noLoopsYet };
+
+/**
+ * The context change for a retry from Blocked: unblocked with fresh loop
+ * counters, and the comment, when there is one, as the feedback for the stage
+ * it re-runs. Without a comment the feedback stays, because the stage that
+ * failed never acted on it.
+ */
+export const retried = (context: WorkItemContext, decision: HumanDecision) => ({
+  ...unblocked,
+  ...(decision.comment === undefined ? {} : learned(context, { feedback: decision.comment })),
+  decisions: recordDecision(context, "retry", "blocked", decision),
+});
+
+/** The context change for sending a blocked work item back to Spec: unblocked with fresh loop counters, and the comment as the only feedback. */
+export const sentBack = (context: WorkItemContext, decision: HumanDecision) => ({
+  ...unblocked,
+  ...learned(context, { feedback: decision.comment ?? null }),
+  decisions: recordDecision(context, "backToSpec", "blocked", decision),
 });

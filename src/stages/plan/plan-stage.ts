@@ -1,10 +1,11 @@
 import type { StageInput } from "../../lifecycle/stage.ts";
+import { briefOf } from "../run-brief.ts";
 import { singleStepStage } from "../single-step-stage.ts";
 import type { PlanTask } from "./planner.ts";
 import { Planner } from "./planner.ts";
 
 const planTask = (input: StageInput): PlanTask => ({
-  workItemId: input.workItemId,
+  ...briefOf(input),
   issueRef: input.issueRef,
   kind: input.kind,
   specRef: input.specRef,

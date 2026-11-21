@@ -1,9 +1,6 @@
-import { Effect } from "effect";
-
-import { goldenRefs } from "../../lifecycle/lifecycle-harness.ts";
-import { portStageUnderTest } from "../port-stage-under-test.ts";
+import { goldenRefs } from "../../lifecycle/golden-route.ts";
+import { portStageUnderTest, scriptedStage } from "../port-stage-under-test.ts";
 import { demoStage } from "./demo-stage.ts";
-import type { FakeDemonstratorScript } from "./fake-demonstrator.ts";
 import { demonstratorPort, fakeDemonstrator } from "./fake-demonstrator.ts";
 
 export const firstDemoMade = { demoRef: "demo-1" } as const;
@@ -18,15 +15,13 @@ export const firstDemo = {
   sandboxRef: goldenRefs.sandboxRef,
   reproductionRef: null,
   previousDemoRef: null,
+  feedback: null,
 } as const;
 
 export const demoUnderTest = portStageUnderTest({
   name: "demo",
   port: demonstratorPort,
-  scripted: Effect.fnUntraced(function* (script: FakeDemonstratorScript) {
-    const fake = yield* fakeDemonstrator(script);
-    return { fake, stage: yield* demoStage.pipe(Effect.provide(fake.layer)) };
-  }),
+  scripted: scriptedStage(fakeDemonstrator, demoStage),
   passing: (misbehaving) => ({ demos: [firstDemoMade], misbehaving }),
   outcome: { _tag: "demonstrated", ...firstDemoMade },
   route: { demo: true },

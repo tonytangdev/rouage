@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
+import { reviewer } from "../../lifecycle/golden-route.ts";
 import { restoredWorkItem, startWorkItem, throughJson } from "../../lifecycle/lifecycle-harness.ts";
 import { describePortStageInLifecycle } from "../port-stage-lifecycle-contract.ts";
 import {
@@ -41,6 +42,29 @@ describe("a work item in the Reproduce stage", () => {
         from: "reproduce",
         reason: { tag: "ReproductionDidNotFail" },
       });
+    }),
+  );
+
+  it.effect("revises the reproduction whose check passed, given the retry's comment", () =>
+    Effect.gen(function* () {
+      const { fake, stage } = yield* reproduceUnderTest.scripted({
+        captures: [captured, { _tag: "captured", reproductionRef: "repro-2" }],
+        confirmations: [checkPassed, checkFailed],
+      });
+      const workItem = yield* startWorkItem({ stages: { reproduce: stage } });
+      workItem.advanceTo("reproduce", { kind: "bug" });
+      yield* workItem.reaches("blocked");
+      workItem.send({ type: "retry", ...reviewer, comment: "log in as an admin first" });
+      yield* workItem.reaches("plan");
+      expect(fake.calls().findLast((call) => call.step === "capture")).toStrictEqual({
+        step: "capture",
+        task: {
+          ...firstCapture,
+          previousReproductionRef: "repro-1",
+          feedback: "log in as an admin first",
+        },
+      });
+      expect(workItem.context().facts.reproductionRef).toStrictEqual("repro-2");
     }),
   );
 

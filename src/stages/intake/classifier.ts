@@ -2,12 +2,10 @@ import type { Effect } from "effect";
 import { Context, Data } from "effect";
 
 import type { Kind } from "../../lifecycle/stage.ts";
+import type { RunBrief } from "../run-brief.ts";
 
-export interface ClassifyTask {
-  readonly workItemId: string;
+export interface ClassifyTask extends RunBrief {
   readonly issueRef: string;
-  /** A human's comment from sending the work item back to Intake, passed on as written. */
-  readonly feedback: string | null;
 }
 
 /** The classifier's verdict on an issue; `unclear` when it cannot tell a bug from a feature. */
