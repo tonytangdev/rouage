@@ -1,6 +1,9 @@
 import { Config, Effect } from "effect";
 
 import { blockedOn } from "./blocked.ts";
+import { stageFinished } from "./facts.ts";
+import type { OutcomeOf } from "./stage.ts";
+import type { WorkItemContext } from "./work-item.ts";
 
 /** Each loop is named after the stage that sends the work item back around it. */
 export type LoopName = "review" | "reproduce";
@@ -33,7 +36,13 @@ const loops: Readonly<Record<LoopName, Loop>> = {
   },
 };
 
-export const noLoopsYet: LoopCounts = { review: 0, reproduce: 0 };
+/** One value per loop, so every per-loop record is built from this one list of loops. */
+export const perLoop = <A>(value: (loop: LoopName) => A): Readonly<Record<LoopName, A>> => ({
+  review: value("review"),
+  reproduce: value("reproduce"),
+});
+
+export const noLoopsYet: LoopCounts = perLoop(() => 0);
 
 const limit = (loop: LoopName, override: number | undefined) =>
   override === undefined
@@ -47,19 +56,25 @@ const limit = (loop: LoopName, override: number | undefined) =>
  * variable never moves the limits of a work item already in flight.
  */
 export const resolveLoopLimits = Effect.fnUntraced(function* (overrides: Partial<LoopLimits> = {}) {
-  return yield* Config.all({
-    review: limit("review", overrides.review),
-    reproduce: limit("reproduce", overrides.reproduce),
-  });
+  return yield* Config.all(perLoop((loop) => limit(loop, overrides[loop])));
 });
 
 /** Whether the work item has already gone around `loop` as many times as its limit allows. */
 export const loopExhausted = (state: LoopState, loop: LoopName) =>
   state.counters[loop] >= state.limits[loop];
 
-/** The context change for one more trip around `loop`. */
-export const goneAround = (state: LoopState, loop: LoopName) => ({
-  counters: { ...state.counters, [loop]: state.counters[loop] + 1 },
+/**
+ * The context change when the stage that names `loop` finishes with an
+ * `outcome` that sends the work item back around it: the facts the outcome
+ * teaches, and one more trip counted.
+ */
+export const wentAround = <Name extends LoopName>(
+  context: WorkItemContext,
+  loop: Name,
+  outcome: OutcomeOf<Name>,
+) => ({
+  ...stageFinished(context, loop, outcome),
+  counters: { ...context.counters, [loop]: context.counters[loop] + 1 },
 });
 
 /** The context change that blocks the work item on the stage that names an exhausted `loop`. */

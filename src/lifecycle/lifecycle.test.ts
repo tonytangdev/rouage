@@ -273,6 +273,7 @@ describe("lifecycle", () => {
         };
         requestChanges();
         expect(workItem.stage()).toStrictEqual("build");
+        expect(workItem.context().counters).toStrictEqual({ review: 1, reproduce: 0 });
         expect(workItem.stageInput("build")).toStrictEqual(
           inputAfter("review", {}, { feedback: "rename the flag" }),
         );

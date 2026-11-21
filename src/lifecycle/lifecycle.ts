@@ -1,7 +1,7 @@
 import { blockedOn, stageErrored } from "./blocked.ts";
 import { stageFinished } from "./facts.ts";
 import { lifecycleSetup } from "./lifecycle-setup.ts";
-import { goneAround, loopExhausted, loopLimitReached, noLoopsYet } from "./loops.ts";
+import { loopExhausted, loopLimitReached, noLoopsYet, wentAround } from "./loops.ts";
 import { noFactsYet, stageInput } from "./stage.ts";
 import { innermostState } from "./state-value.ts";
 import { approved, learned, recordDecision, rejected } from "./work-item.ts";
@@ -114,13 +114,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
               if (loopExhausted(context, "reproduce")) {
                 return { target: "#blocked", context: loopLimitReached(context, "reproduce") };
               }
-              return {
-                target: "provision",
-                context: {
-                  ...stageFinished(context, "reproduce", output),
-                  ...goneAround(context, "reproduce"),
-                },
-              };
+              return { target: "provision", context: wentAround(context, "reproduce", output) };
             },
           },
         },
@@ -171,13 +165,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
               if (loopExhausted(context, "review")) {
                 return { target: "#blocked", context: loopLimitReached(context, "review") };
               }
-              return {
-                target: "build",
-                context: {
-                  ...stageFinished(context, "review", output),
-                  ...goneAround(context, "review"),
-                },
-              };
+              return { target: "build", context: wentAround(context, "review", output) };
             },
           },
         },

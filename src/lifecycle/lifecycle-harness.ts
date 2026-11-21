@@ -2,6 +2,7 @@ import { Data, Effect } from "effect";
 import type { AnyActorRef, AnyStateMachine } from "xstate";
 
 import { defaultLifecycle } from "./lifecycle.ts";
+import { perLoop } from "./loops.ts";
 import type { FailureReason, Kind, OutcomeOf, StageFacts, StageInput, StageName } from "./stage.ts";
 import { noFactsYet } from "./stage.ts";
 import type { AttachStub } from "./stub-stage.ts";
@@ -198,7 +199,7 @@ export const startWorkItem = Effect.fnUntraced(function* (real: RealStages = {})
   const workItem = yield* createWorkItem(lifecycle, {
     id: goldenRefs.workItemId,
     issueRef: goldenRefs.issueRef,
-    limits: { review: 3, reproduce: 3 },
+    limits: perLoop(() => 3),
   });
   return drive(workItem, running);
 });
