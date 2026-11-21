@@ -18,6 +18,7 @@ The version is an opaque counter, independent of the package version. From the f
 - **One machine with every stage's internal states nested in it.** Simpler to start, but a stage cannot be replaced without editing the lifecycle, and "every part is replaceable" is a core principle.
 - **Machines nested to any depth.** Flexible, but much harder to reason about, test and persist. When a stage needs more structure, it gets nested states inside its own stage machine, not a third level of machines.
 - **A `failed` outcome per stage, routed by each stage's transition.** Rejected: every stage then repeated the same move to Blocked, which buried each stage's real outcomes in the diagram.
+- **A stage input per stage, typed with what that stage is guaranteed to have, such as a sandbox for Build.** Rejected: one `StageInput` is what lets any lifecycle pass any stage machine its input, and a stage's guarantees depend on the route its lifecycle takes. A stage that needs a fact a custom lifecycle may not have learned yet checks for it and fails with a `StageFailure` saying so.
 - **A Rouage-specific declarative lifecycle format compiled to XState.** Rejected for now: it is a second language to design, document and version before we know what users need. The lifecycle is plain XState built with Rouage's helpers, and stages are swapped by name with `provide`.
 
 ## Consequences
@@ -26,6 +27,7 @@ The version is an opaque counter, independent of the package version. From the f
 - Lifecycle tests drive the machine with events alone; no plugin, sandbox or agent is needed.
 - Values that must not change mid-flight, such as loop limits read from configuration, are resolved by Effect when the work item is created and stored in its context.
 - Transitions read no clock: events that record a decision carry their own timestamp.
+- Whether an outcome can block the work item is in its type: the outcome teaching names each blocking and each looping outcome, and the context after a looping outcome is reached only by telling whether it was sent around its loop or blocked at the limit, so no transition can route a looping outcome without handling its block.
 - Every transition names its target as a literal, and helpers return only context changes, because Stately's editor cannot draw a target that a helper computes. Retrying a blocked work item targets a history state of the working stages rather than a target computed from context, for the same reason.
 - The work item's context is declared as an Effect Schema and given to XState as its context schema, so restoring a snapshot whose context does not match it, such as one saved before a fact existed, fails with a tagged `UnreadableSnapshot` error. Each stage machine running in the snapshot is checked against its own snapshot schema the same way (ADR 0014), and each port step running in one against its task's Schema (ADR 0016).
 - A work item saved under an older version is restored only once migrations move it, one version at a time, to the current one (ADR 0015).
