@@ -1,12 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import {
-  restoredWorkItem,
-  reviewer,
-  startWorkItem,
-  throughJson,
-} from "../../lifecycle/lifecycle-harness.ts";
+import { reviewer } from "../../lifecycle/golden-route.ts";
+import { restoredWorkItem, startWorkItem, throughJson } from "../../lifecycle/lifecycle-harness.ts";
 import { describePortStageInLifecycle } from "../port-stage-lifecycle-contract.ts";
 import {
   awaitingRun,
@@ -23,7 +19,7 @@ describe("a work item in the Provision stage", () => {
   it.effect("goes on to Plan holding the reference to a feature's sandbox", () =>
     Effect.gen(function* () {
       const { stage } = yield* provisionUnderTest.scripted({ provisioner: { results: [sandbox] } });
-      const workItem = yield* startWorkItem({ provision: stage });
+      const workItem = yield* startWorkItem({ stages: { provision: stage } });
       workItem.advanceTo("provision", { kind: "feature" });
       yield* workItem.reaches("plan");
       expect(workItem.context().facts.sandboxRef).toStrictEqual(sandbox.sandboxRef);
@@ -36,7 +32,7 @@ describe("a work item in the Provision stage", () => {
         provisioner: { results: [sandbox, sandbox] },
         sampler: { results: [sample] },
       });
-      const workItem = yield* startWorkItem({ provision: stage });
+      const workItem = yield* startWorkItem({ stages: { provision: stage } });
       workItem.advanceTo("provision", { kind: "bug" });
       yield* workItem.reaches("reproduce");
       workItem.finish("reproduce", askForSample);
@@ -58,7 +54,7 @@ describe("a work item in the Provision stage", () => {
         provisioner: { results: [sandbox, sandbox, sandbox] },
         sampler: { results: [awaitingRun, sample] },
       });
-      const workItem = yield* startWorkItem({ provision: stage });
+      const workItem = yield* startWorkItem({ stages: { provision: stage } });
       workItem.advanceTo("provision", { kind: "bug" });
       yield* workItem.reaches("reproduce");
       workItem.finish("reproduce", askForSample);
@@ -85,7 +81,7 @@ describe("a work item in the Provision stage", () => {
           provisioner: { results: [sandbox, sandbox] },
           sampler: { results: [], misbehaving: { step: "sample", as: "hanging" } },
         });
-        const original = yield* startWorkItem({ provision: before.stage });
+        const original = yield* startWorkItem({ stages: { provision: before.stage } });
         original.advanceTo("provision", { kind: "bug" });
         yield* original.reaches("reproduce");
         original.finish("reproduce", askForSample);
@@ -95,7 +91,7 @@ describe("a work item in the Provision stage", () => {
           sampler: { results: [sample] },
         });
         const workItem = yield* restoredWorkItem(throughJson(original.save()), {
-          provision: after.stage,
+          stages: { provision: after.stage },
         });
         yield* workItem.reaches("reproduce");
         expect(after.sampler.tasks()).toStrictEqual([firstSample]);

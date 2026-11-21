@@ -1,7 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { restoredWorkItem, reviewer, startWorkItem, throughJson } from "./lifecycle-harness.ts";
+import { reviewer } from "./golden-route.ts";
+import { restoredWorkItem, startWorkItem, throughJson } from "./lifecycle-harness.ts";
 
 describe("work item persistence", () => {
   it.effect("resumes a work item saved while it waits at a gate", () =>
@@ -10,9 +11,9 @@ describe("work item persistence", () => {
       original.finish("intake", { _tag: "classified", kind: "feature" });
       original.finish("spec", { _tag: "written", specRef: "spec-1" });
       const workItem = yield* restoredWorkItem(throughJson(original.save()));
-      expect(workItem.stage()).toStrictEqual("specGate");
+      expect(workItem.state()).toStrictEqual("specGate");
       workItem.send({ type: "approve", ...reviewer });
-      expect(workItem.stage()).toStrictEqual("provision");
+      expect(workItem.state()).toStrictEqual("provision");
     }),
   );
 
@@ -28,7 +29,7 @@ describe("work item persistence", () => {
       const workItem = yield* restoredWorkItem(throughJson(original.save()));
       expect(workItem.context().counters).toStrictEqual({ review: 0, reproduce: 1 });
       workItem.finish("reproduce", { _tag: "reproduced", reproductionRef: "repro-1" });
-      expect(workItem.stage()).toStrictEqual("plan");
+      expect(workItem.state()).toStrictEqual("plan");
     }),
   );
 
@@ -39,7 +40,7 @@ describe("work item persistence", () => {
       original.fail("spec", { tag: "AgentTimedOut", message: "no answer" });
       const workItem = yield* restoredWorkItem(throughJson(original.save()));
       workItem.send({ type: "retry", ...reviewer });
-      expect(workItem.stage()).toStrictEqual("spec");
+      expect(workItem.state()).toStrictEqual("spec");
     }),
   );
 

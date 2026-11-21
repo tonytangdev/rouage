@@ -21,7 +21,7 @@ describe("a work item in the Reproduce stage", () => {
         captures: [captured],
         confirmations: [checkFailed],
       });
-      const workItem = yield* startWorkItem({ reproduce: stage });
+      const workItem = yield* startWorkItem({ stages: { reproduce: stage } });
       workItem.advanceTo("reproduce", { kind: "bug" });
       yield* workItem.reaches("plan");
       expect(workItem.context().facts.reproductionRef).toStrictEqual("repro-1");
@@ -34,7 +34,7 @@ describe("a work item in the Reproduce stage", () => {
         captures: [captured],
         confirmations: [checkPassed],
       });
-      const workItem = yield* startWorkItem({ reproduce: stage });
+      const workItem = yield* startWorkItem({ stages: { reproduce: stage } });
       workItem.advanceTo("reproduce", { kind: "bug" });
       yield* workItem.reaches("blocked");
       expect(workItem.context().blocked).toMatchObject({
@@ -50,7 +50,7 @@ describe("a work item in the Reproduce stage", () => {
         captures: [needsSample, captured],
         confirmations: [checkFailed],
       });
-      const workItem = yield* startWorkItem({ reproduce: stage });
+      const workItem = yield* startWorkItem({ stages: { reproduce: stage } });
       workItem.advanceTo("reproduce", { kind: "bug" });
       yield* workItem.reaches("provision");
       workItem.finish("provision", {
@@ -77,7 +77,7 @@ describe("a work item in the Reproduce stage", () => {
           captures: [captured],
           misbehaving: { step: "confirm", as: "hanging" },
         });
-        const original = yield* startWorkItem({ reproduce: before.stage });
+        const original = yield* startWorkItem({ stages: { reproduce: before.stage } });
         original.advanceTo("reproduce", { kind: "bug" });
         yield* before.fake.started("confirm");
         const after = yield* reproduceUnderTest.scripted({
@@ -85,7 +85,7 @@ describe("a work item in the Reproduce stage", () => {
           confirmations: [checkFailed],
         });
         const workItem = yield* restoredWorkItem(throughJson(original.save()), {
-          reproduce: after.stage,
+          stages: { reproduce: after.stage },
         });
         yield* workItem.reaches("plan");
         expect(after.fake.calls()).toStrictEqual([{ step: "confirm", task: firstConfirm }]);

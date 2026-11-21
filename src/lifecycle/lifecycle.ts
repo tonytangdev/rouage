@@ -1,3 +1,5 @@
+import { absurd } from "effect/Function";
+
 import { blockedOn, stageErrored } from "./blocked.ts";
 import { learned, stageFinished } from "./facts.ts";
 import { lifecycleSetup } from "./lifecycle-setup.ts";
@@ -96,25 +98,32 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             src: "reproduce",
             input: stageInput,
             onDone: ({ context, event: { output } }) => {
-              if (output._tag === "reproduced") {
-                return {
-                  target: "plan",
-                  context: stageFinished(context, "reproduce", output),
-                };
+              switch (output._tag) {
+                case "reproduced": {
+                  return { target: "plan", context: stageFinished(context, "reproduce", output) };
+                }
+                case "cannotReproduce": {
+                  return {
+                    target: "#blocked",
+                    context: blockedOn("reproduce", {
+                      tag: "CannotReproduce",
+                      message: output.reason,
+                    }),
+                  };
+                }
+                case "needsSample": {
+                  if (loopExhausted(context, "reproduce")) {
+                    return { target: "#blocked", context: loopLimitReached(context, "reproduce") };
+                  }
+                  return {
+                    target: "provision",
+                    context: wentAround(context, "reproduce", output),
+                  };
+                }
+                default: {
+                  return absurd(output);
+                }
               }
-              if (output._tag === "cannotReproduce") {
-                return {
-                  target: "#blocked",
-                  context: blockedOn("reproduce", {
-                    tag: "CannotReproduce",
-                    message: output.reason,
-                  }),
-                };
-              }
-              if (loopExhausted(context, "reproduce")) {
-                return { target: "#blocked", context: loopLimitReached(context, "reproduce") };
-              }
-              return { target: "provision", context: wentAround(context, "reproduce", output) };
             },
           },
         },
@@ -159,13 +168,20 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             src: "review",
             input: stageInput,
             onDone: ({ context, event: { output } }) => {
-              if (output._tag === "approved") {
-                return { target: "shipGate", context: stageFinished(context, "review", output) };
+              switch (output._tag) {
+                case "approved": {
+                  return { target: "shipGate", context: stageFinished(context, "review", output) };
+                }
+                case "changesRequested": {
+                  if (loopExhausted(context, "review")) {
+                    return { target: "#blocked", context: loopLimitReached(context, "review") };
+                  }
+                  return { target: "build", context: wentAround(context, "review", output) };
+                }
+                default: {
+                  return absurd(output);
+                }
               }
-              if (loopExhausted(context, "review")) {
-                return { target: "#blocked", context: loopLimitReached(context, "review") };
-              }
-              return { target: "build", context: wentAround(context, "review", output) };
             },
           },
         },

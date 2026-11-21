@@ -13,11 +13,7 @@ export interface Provisioned {
   readonly sandboxRef: string;
 }
 
-export interface TeardownTask {
-  readonly workItemId: string;
-}
-
-/** The provisioner could not prepare or tear down a sandbox. */
+/** The provisioner could not prepare a sandbox. */
 export class ProvisionerGaveUp extends Data.TaggedError("ProvisionerGaveUp")<{
   readonly message: string;
 }> {}
@@ -25,14 +21,14 @@ export class ProvisionerGaveUp extends Data.TaggedError("ProvisionerGaveUp")<{
 /**
  * The port the Provision stage prepares the work item's sandbox through:
  * images built, services started, data seeded. It keeps at most one live
- * sandbox per work item, so `provision` reuses or replaces it and `teardown`
- * finds it by work item ID (ADR 0005). Returns an opaque reference other
- * plugins find the sandbox by (ADR 0004). Usually filled by a Sandbox plugin.
+ * sandbox per work item, so `provision` reuses or replaces it and the
+ * lifecycle's sandbox teardown finds it by work item ID (ADR 0005, ADR 0007).
+ * Returns an opaque reference other plugins find the sandbox by (ADR 0004).
+ * Usually filled by a Sandbox plugin, which fills the teardown port too.
  */
 export class Provisioner extends Context.Service<
   Provisioner,
   {
     readonly provision: (task: ProvisionTask) => Effect.Effect<Provisioned, ProvisionerGaveUp>;
-    readonly teardown: (task: TeardownTask) => Effect.Effect<void, ProvisionerGaveUp>;
   }
 >()("rouage/stages/provision/Provisioner") {}
