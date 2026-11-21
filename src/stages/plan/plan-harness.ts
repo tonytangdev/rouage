@@ -1,5 +1,6 @@
 import { Effect } from "effect";
 
+import { goldenRefs } from "../../lifecycle/lifecycle-harness.ts";
 import { portStageUnderTest } from "../port-stage-under-test.ts";
 import type { FakePlannerScript } from "./fake-planner.ts";
 import { fakePlanner, plannerPort } from "./fake-planner.ts";
@@ -9,11 +10,11 @@ export const plannedWithDemo = { planRef: "plan-1", demo: true } as const;
 
 /** What the planner is asked on a feature's first plan. */
 export const firstPlan = {
-  workItemId: "wi-1",
-  issueRef: "#1",
+  workItemId: goldenRefs.workItemId,
+  issueRef: goldenRefs.issueRef,
   kind: "feature",
-  specRef: "spec-1",
-  sandboxRef: "box-1",
+  specRef: goldenRefs.specRef,
+  sandboxRef: goldenRefs.sandboxRef,
   sampleRef: null,
   reproductionRef: null,
   previousPlanRef: null,

@@ -1,5 +1,6 @@
 import { Effect } from "effect";
 
+import { goldenRefs } from "../../lifecycle/lifecycle-harness.ts";
 import { portStageUnderTest } from "../port-stage-under-test.ts";
 import type { FakeClassifierScript } from "./fake-classifier.ts";
 import { classifierPort, fakeClassifier } from "./fake-classifier.ts";
@@ -13,7 +14,11 @@ export const isUnclear = {
 } as const;
 
 /** What the classifier is asked on a work item's first classification. */
-export const firstClassify = { workItemId: "wi-1", issueRef: "#1", feedback: null } as const;
+export const firstClassify = {
+  workItemId: goldenRefs.workItemId,
+  issueRef: goldenRefs.issueRef,
+  feedback: null,
+} as const;
 
 export const intakeUnderTest = portStageUnderTest({
   name: "intake",

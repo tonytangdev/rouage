@@ -1,5 +1,6 @@
 import { Effect } from "effect";
 
+import { goldenRefs } from "../../lifecycle/lifecycle-harness.ts";
 import { portStageUnderTest } from "../port-stage-under-test.ts";
 import type { FakeReviewerScript } from "./fake-reviewer.ts";
 import { fakeReviewer, reviewerPort } from "./fake-reviewer.ts";
@@ -10,12 +11,12 @@ export const changesRequested = { _tag: "changesRequested", feedback: "rename to
 
 /** What the reviewer is asked on a feature's first review. */
 export const firstReview = {
-  workItemId: "wi-1",
-  issueRef: "#1",
+  workItemId: goldenRefs.workItemId,
+  issueRef: goldenRefs.issueRef,
   kind: "feature",
-  specRef: "spec-1",
-  planRef: "plan-1",
-  sandboxRef: "box-1",
+  specRef: goldenRefs.specRef,
+  planRef: goldenRefs.planRef,
+  sandboxRef: goldenRefs.sandboxRef,
   reproductionRef: null,
   demoRef: null,
 } as const;

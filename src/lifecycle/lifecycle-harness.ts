@@ -41,8 +41,8 @@ const stubController = (real: RealStages) => {
 
 /** The input a stage of the test work item receives: no facts yet except `facts`. */
 export const stageInputWith = (facts: Partial<StageFacts> = {}): StageInput => ({
-  workItemId: "wi-1",
-  issueRef: "#1",
+  workItemId: goldenRefs.workItemId,
+  issueRef: goldenRefs.issueRef,
   ...noFactsYet,
   ...facts,
 });
@@ -75,33 +75,45 @@ const defaultPath = ({ kind = "feature", demo = false }: Route): readonly Waypoi
   "ship",
 ];
 
-const passingOutcomes = (route: Route): { readonly [Stage in StageName]: OutcomeOf<Stage> } => ({
-  intake: { _tag: "classified", kind: route.kind ?? "feature" },
-  spec: { _tag: "written", specRef: "spec-1" },
-  provision: { _tag: "provisioned", sandboxRef: "box-1", sampleRef: null },
-  reproduce: { _tag: "reproduced", reproductionRef: "repro-1" },
-  plan: { _tag: "planned", planRef: "plan-1", demo: route.demo ?? false },
-  build: { _tag: "built" },
-  demo: { _tag: "demonstrated", demoRef: "demo-1" },
-  review: { _tag: "approved" },
-  ship: { _tag: "shipped" },
-});
+/** The references the default path's stages produce, named so fixtures need not retype them. */
+export const goldenRefs = {
+  workItemId: "wi-1",
+  issueRef: "#1",
+  specRef: "spec-1",
+  sandboxRef: "box-1",
+  reproductionRef: "repro-1",
+  planRef: "plan-1",
+  demoRef: "demo-1",
+} as const;
+
+interface GoldenStep<Stage extends StageName> {
+  readonly outcome: OutcomeOf<Stage>;
+  readonly teaches: Partial<StageFacts>;
+}
 
 const isStage = (waypoint: Waypoint): waypoint is StageName => !gates.has(waypoint);
 
-// Written out as facts rather than derived from `passingOutcomes`, because a
+// `teaches` is written out rather than derived from `outcome`, because a
 // derivation would repeat the lifecycle's own mapping and agree with it by construction.
-const factsTaught = (route: Route): Readonly<Record<StageName, Partial<StageFacts>>> => ({
-  intake: { kind: route.kind ?? "feature" },
-  spec: { specRef: "spec-1" },
-  provision: { sandboxRef: "box-1", sampleRef: null },
-  reproduce: { reproductionRef: "repro-1" },
-  plan: { planRef: "plan-1", demoPlanned: route.demo ?? false },
-  build: {},
-  demo: { demoRef: "demo-1" },
-  review: {},
-  ship: {},
-});
+const goldenPath = (route: Route): { readonly [Stage in StageName]: GoldenStep<Stage> } => {
+  const kind = route.kind ?? "feature";
+  const demo = route.demo ?? false;
+  const { specRef, sandboxRef, reproductionRef, planRef, demoRef } = goldenRefs;
+  return {
+    intake: { outcome: { _tag: "classified", kind }, teaches: { kind } },
+    spec: { outcome: { _tag: "written", specRef }, teaches: { specRef } },
+    provision: {
+      outcome: { _tag: "provisioned", sandboxRef, sampleRef: null },
+      teaches: { sandboxRef, sampleRef: null },
+    },
+    reproduce: { outcome: { _tag: "reproduced", reproductionRef }, teaches: { reproductionRef } },
+    plan: { outcome: { _tag: "planned", planRef, demo }, teaches: { planRef, demoPlanned: demo } },
+    build: { outcome: { _tag: "built" }, teaches: {} },
+    demo: { outcome: { _tag: "demonstrated", demoRef }, teaches: { demoRef } },
+    review: { outcome: { _tag: "approved" }, teaches: {} },
+    ship: { outcome: { _tag: "shipped" }, teaches: {} },
+  };
+};
 
 /**
  * The input a stage receives once the work item has passed every stage on
@@ -128,10 +140,10 @@ const inputFrom = (
   route: Route,
   changes: Partial<StageFacts>,
 ): StageInput => {
-  const taught = factsTaught(route);
+  const path = goldenPath(route);
   const learnt: Partial<StageFacts> = {};
   for (const stage of passed) {
-    Object.assign(learnt, taught[stage]);
+    Object.assign(learnt, path[stage].teaches);
   }
   return stageInputWith({ ...learnt, ...changes });
 };
@@ -164,10 +176,10 @@ const drive = (workItem: WorkItem, running: ReadonlyMap<StageName, RunningStub>)
     /** Finishes every stub stage and approves every gate on the default path before `waypoint`, so the work item stops there. */
     advanceTo: (waypoint: Waypoint, route: Route = {}) => {
       const path = defaultPath(route);
-      const outcomes = passingOutcomes(route);
+      const steps = goldenPath(route);
       for (const passed of path.slice(0, path.indexOf(waypoint))) {
         if (isStage(passed)) {
-          stub(passed).send({ type: "finish", outcome: outcomes[passed] });
+          stub(passed).send({ type: "finish", outcome: steps[passed].outcome });
         } else {
           workItem.send({ type: "approve", ...reviewer });
         }
@@ -183,8 +195,8 @@ export const throughJson = (persisted: unknown): unknown => JSON.parse(JSON.stri
 export const startWorkItem = Effect.fnUntraced(function* (real: RealStages = {}) {
   const { running, lifecycle } = stubController(real);
   const workItem = yield* createWorkItem(lifecycle, {
-    id: "wi-1",
-    issueRef: "#1",
+    id: goldenRefs.workItemId,
+    issueRef: goldenRefs.issueRef,
     limits: { review: 3, reproduce: 3 },
   });
   return drive(workItem, running);
