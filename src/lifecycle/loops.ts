@@ -77,7 +77,9 @@ export const resolveLoopLimits = Effect.fnUntraced(function* (overrides: Partial
  * way the facts the outcome teaches are kept, as a block keeps a reproduction
  * (ADR 0009). Below the limit one more trip is counted; at the limit the work
  * item is blocked with no feedback, because a retry re-runs the looping stage
- * itself, so what it asked for goes to the human in the block's message.
+ * itself, so what it asked for goes to the human in the block's message. For
+ * the same reason the change request stays the one Build last addressed
+ * (ADR 0012).
  */
 export const aroundLoop = <Name extends LoopName>(
   context: WorkItemContext,
@@ -90,7 +92,10 @@ export const aroundLoop = <Name extends LoopName>(
     const reason = { tag: "LoopLimitReached", message: loops[loop].describe(allowed, outcome) };
     return {
       exhausted: true as const,
-      context: { facts: { ...taught.facts, feedback: null }, ...blockedOn(loop, reason) },
+      context: {
+        facts: { ...taught.facts, feedback: null, changeRequest: context.facts.changeRequest },
+        ...blockedOn(loop, reason),
+      },
     };
   }
   return {

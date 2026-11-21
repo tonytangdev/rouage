@@ -1,10 +1,14 @@
 import type { Effect } from "effect";
 import { Context, Data } from "effect";
 
+import type { ChangeRequest } from "../../lifecycle/change-request.ts";
 import type { OutcomeOf } from "../../lifecycle/stage.ts";
 import type { DemonstratedChange } from "../built-change.ts";
 
-export type ReviewTask = DemonstratedChange;
+export interface ReviewTask extends DemonstratedChange {
+  /** What the change was last sent back to Build to address, for the reviewer to check it was; `null` on a first review (ADR 0012). */
+  readonly changeRequest: ChangeRequest | null;
+}
 
 /** The reviewer's verdict: approve the change, or request changes with feedback for Build. */
 export type Verdict = OutcomeOf<"review">;

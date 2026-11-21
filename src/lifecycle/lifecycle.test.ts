@@ -327,7 +327,14 @@ describe("lifecycle", () => {
       workItem.fail("build", { tag: "BuilderGaveUp", message: "the build timed out" });
       workItem.send({ type: "retry", ...reviewer });
       expect(workItem.stageInput("build")).toStrictEqual(
-        inputAfter("review", {}, { feedback: "wait for the release freeze" }),
+        inputAfter(
+          "review",
+          {},
+          {
+            feedback: "wait for the release freeze",
+            changeRequest: { from: "shipGate", text: "wait for the release freeze" },
+          },
+        ),
       );
     }),
   );
@@ -395,7 +402,14 @@ describe("lifecycle", () => {
         expect(workItem.state()).toStrictEqual("build");
         expect(workItem.context().counters).toStrictEqual({ review: 1, reproduce: 0 });
         expect(workItem.stageInput("build")).toStrictEqual(
-          inputAfter("review", {}, { feedback: "rename the flag" }),
+          inputAfter(
+            "review",
+            {},
+            {
+              feedback: "rename the flag",
+              changeRequest: { from: "review", text: "rename the flag" },
+            },
+          ),
         );
         requestChanges();
         requestChanges();
@@ -420,6 +434,7 @@ describe("lifecycle", () => {
         stageInputWith({
           kind: "bug",
           feedback: "the flag is still on",
+          changeRequest: { from: "shipGate", text: "the flag is still on" },
           specRef: "spec-1",
           sandboxRef: "box-1",
           reproductionRef: "repro-1",
@@ -466,7 +481,14 @@ describe("lifecycle", () => {
       workItem.send({ type: "reject", ...reviewer, comment: "wait for the release freeze" });
       expect(workItem.state()).toStrictEqual("build");
       expect(workItem.stageInput("build")).toStrictEqual(
-        inputAfter("review", {}, { feedback: "wait for the release freeze" }),
+        inputAfter(
+          "review",
+          {},
+          {
+            feedback: "wait for the release freeze",
+            changeRequest: { from: "shipGate", text: "wait for the release freeze" },
+          },
+        ),
       );
     }),
   );

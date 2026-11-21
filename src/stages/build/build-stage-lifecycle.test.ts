@@ -95,7 +95,14 @@ describe("a work item in the Build stage", () => {
         yield* workItem.reaches("review");
         expect(fake.calls().filter((call) => call.step === "implement")).toStrictEqual([
           { step: "implement", task: firstImplement },
-          { step: "implement", task: { ...firstImplement, feedback: "rename totals" } },
+          {
+            step: "implement",
+            task: {
+              ...firstImplement,
+              feedback: "rename totals",
+              changeRequest: { from: "review", text: "rename totals" },
+            },
+          },
         ]);
       }),
   );

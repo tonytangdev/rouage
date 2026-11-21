@@ -1,6 +1,7 @@
 import { Schema } from "effect";
 
 import { BlockedSchema } from "./blocked.ts";
+import { changeRequestOnReturnToSpec, requestedAtShipGate } from "./change-request.ts";
 import { demoOnReturnToSpec, demoRequiredByHuman, demoSkippedByHuman } from "./demo-decision.ts";
 import { learned } from "./facts.ts";
 import type { LoopLimits } from "./loops.ts";
@@ -74,9 +75,22 @@ export const rejected = (context: WorkItemContext, gate: Gate, decision: HumanDe
   decisions: recordDecision(context, "reject", gate, decision),
 });
 
-/** The context change for a spec gate rejection: a gate rejection that also returns the demo decision to the new spec's plan. */
+/** The context change for a ship gate rejection: a gate rejection that also makes the comment, or its absence, the change request Review checks next (ADR 0012). */
+export const shipRejected = (context: WorkItemContext, decision: HumanDecision) => ({
+  ...learned(context, {
+    feedback: decision.comment ?? null,
+    ...requestedAtShipGate(decision.comment ?? null),
+  }),
+  decisions: recordDecision(context, "reject", "shipGate", decision),
+});
+
+/** The context change for a spec gate rejection: a gate rejection that also returns the demo decision to the new spec's plan and drops the change request. */
 export const specRejected = (context: WorkItemContext, decision: HumanDecision) => ({
-  ...learned(context, { feedback: decision.comment ?? null, ...demoOnReturnToSpec }),
+  ...learned(context, {
+    feedback: decision.comment ?? null,
+    ...demoOnReturnToSpec,
+    ...changeRequestOnReturnToSpec,
+  }),
   decisions: recordDecision(context, "reject", "specGate", decision),
 });
 
@@ -96,12 +110,16 @@ export const retried = (context: WorkItemContext, decision: HumanDecision) => ({
 
 /**
  * The context change for sending a blocked work item back to Spec: unblocked
- * with fresh loop counters, the comment as the only feedback, and the demo
- * decision returned to the new spec's plan.
+ * with fresh loop counters, the comment as the only feedback, the demo
+ * decision returned to the new spec's plan, and no change request.
  */
 export const sentBack = (context: WorkItemContext, decision: HumanDecision) => ({
   ...unblocked,
-  ...learned(context, { feedback: decision.comment ?? null, ...demoOnReturnToSpec }),
+  ...learned(context, {
+    feedback: decision.comment ?? null,
+    ...demoOnReturnToSpec,
+    ...changeRequestOnReturnToSpec,
+  }),
   decisions: recordDecision(context, "backToSpec", "blocked", decision),
 });
 

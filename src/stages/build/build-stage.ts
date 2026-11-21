@@ -26,6 +26,7 @@ const buildTask = ({ context }: { readonly context: BuildContext }): BuildTask =
   ...briefOf(context.input),
   planRef: context.input.planRef,
   reproductionRef: context.input.reproductionRef,
+  changeRequest: context.input.changeRequest,
 });
 
 const fixTask = ({

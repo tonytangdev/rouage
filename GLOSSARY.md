@@ -63,6 +63,10 @@ _Avoid_: Checkpoint, approval step
 What the next stage to finish is asked to address: the comment a human gives when rejecting at a gate, retrying, or sending a work item back to Spec, or the changes Review requested. It is gone once any stage finishes.
 _Avoid_: Notes, remarks
 
+**Change request**:
+What the change was last sent back to Build to address: the changes Review requested, or a human's rejection at the ship gate, with its comment if any. Unlike feedback, it stands after Build finishes, so Review can check it was addressed, until a newer one replaces it or the spec is sent back to be rewritten.
+_Avoid_: Review comments, review feedback
+
 **Blocked**:
 The state of a work item that cannot progress without human input: a bug that cannot be reproduced or whose reproduction does not fail, a stage that failed, or a loop that reached its limit. It records the stage the work item came from, so a human can retry that stage, send the work item back to Spec, or cancel it.
 

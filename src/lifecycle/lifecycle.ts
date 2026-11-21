@@ -13,6 +13,7 @@ import {
   demoSkipped,
   recordDecision,
   rejected,
+  shipRejected,
   specRejected,
   retried,
   sentBack,
@@ -232,7 +233,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             }),
             reject: ({ context, event }) => ({
               target: "build",
-              context: rejected(context, "shipGate", event),
+              context: shipRejected(context, event),
             }),
           },
         },

@@ -20,6 +20,7 @@ export const firstImplement = {
   workItemId: goldenRefs.workItemId,
   planRef: goldenRefs.planRef,
   reproductionRef: null,
+  changeRequest: null,
   feedback: null,
 } as const;
 

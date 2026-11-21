@@ -9,6 +9,7 @@ import {
   bugImplement,
   bugInput,
   buildUnderTest,
+  firstImplement,
   reproductionFailed,
   reproductionPassed,
   testsFailed,
@@ -16,6 +17,26 @@ import {
 } from "./build-harness.ts";
 
 describe("build stage", () => {
+  it.effect("asks the builder to address the change request, but only to fix the failures", () =>
+    Effect.gen(function* () {
+      const changeRequest = { from: "shipGate", text: "totals exclude VAT" } as const;
+      const { fake } = yield* buildUnderTest.run(
+        { testReports: [testsFailed, testsPassed] },
+        { ...buildUnderTest.input, changeRequest },
+      );
+      const implement = { ...firstImplement, changeRequest };
+      expect(fake.calls()).toStrictEqual([
+        { step: "implement", task: implement },
+        { step: "test", task: implement },
+        {
+          step: "fix",
+          task: { workItemId: firstImplement.workItemId, failures: testsFailed.failures },
+        },
+        { step: "test", task: implement },
+      ]);
+    }),
+  );
+
   it.effect("checks a bug's reproduction in its sandbox once the tests pass", () =>
     Effect.gen(function* () {
       const { settled, fake } = yield* buildUnderTest.run(

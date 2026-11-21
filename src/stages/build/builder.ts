@@ -1,6 +1,7 @@
 import type { Effect } from "effect";
 import { Context, Data } from "effect";
 
+import type { ChangeRequest } from "../../lifecycle/change-request.ts";
 import type { RunBrief } from "../run-brief.ts";
 
 export interface BuildTask extends RunBrief {
@@ -8,6 +9,8 @@ export interface BuildTask extends RunBrief {
   readonly planRef: string | null;
   /** The bug's reproduction, confirmed failing before the change; `null` for a feature. */
   readonly reproductionRef: string | null;
+  /** What the change was last sent back to address, which outlives this run's feedback (ADR 0012); `null` on a first build. */
+  readonly changeRequest: ChangeRequest | null;
 }
 
 /** A bug's reproduction to run in the sandbox holding the change. */

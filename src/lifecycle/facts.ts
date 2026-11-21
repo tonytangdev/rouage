@@ -1,5 +1,6 @@
 import { Match } from "effect";
 
+import { requestedByReview } from "./change-request.ts";
 import { demoMade, demoOutdatedByBuild, demoPlannedBy } from "./demo-decision.ts";
 import type { OutcomeOf, StageFacts, StageName } from "./stage.ts";
 import type { WorkItemContext } from "./work-item.ts";
@@ -45,7 +46,7 @@ const factsTaught: FactsTaught = {
   review: (outcome) =>
     Match.valueTags(outcome, {
       approved: nothing,
-      changesRequested: ({ feedback }) => ({ feedback }),
+      changesRequested: ({ feedback }) => ({ feedback, ...requestedByReview(feedback) }),
     }),
   ship: (outcome) => Match.valueTags(outcome, { shipped: ({ deliveryRef }) => ({ deliveryRef }) }),
 };

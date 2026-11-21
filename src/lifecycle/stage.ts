@@ -1,5 +1,6 @@
 import { Data, Predicate, Schema, Struct } from "effect";
 
+import { ChangeRequestSchema } from "./change-request.ts";
 import type { DemoFacts } from "./demo-decision.ts";
 import {
   DemoFactsSchema,
@@ -57,6 +58,8 @@ export const StageFactsSchema = Schema.Struct({
   kind: Schema.NullOr(KindSchema),
   /** A comment for the next stage to finish, set by a rejection, a retry or return to Spec with a comment, or Review's requested changes, and cleared when any stage finishes. */
   feedback: Reference,
+  /** What the change was last sent back to Build to address; kept after Build finishes so Review can check it, and reset only on return to Spec (ADR 0012). */
+  changeRequest: Schema.NullOr(ChangeRequestSchema),
   /** The reference to the latest written spec, opaque to Rouage; only the next written spec replaces it (ADR 0004). */
   specRef: Reference,
   /** The reference to the work item's sandbox, opaque to Rouage; set by Provision (ADR 0004). */
@@ -81,6 +84,7 @@ export type StageFacts = typeof StageFactsSchema.Type;
 export const noFactsYet: Omit<StageFacts, "issueRef"> = {
   kind: null,
   feedback: null,
+  changeRequest: null,
   specRef: null,
   sandboxRef: null,
   sampleRequest: null,
