@@ -1,29 +1,8 @@
-import { setup, types } from "xstate";
-
-import type { Kind, OutcomeOf, StageInput } from "../../lifecycle/stage.ts";
+import type { OutcomeOf, StageInput } from "../../lifecycle/stage.ts";
 import { StageFailure } from "../../lifecycle/stage.ts";
-import type { PortStep } from "../port-stage.ts";
-import { portStage } from "../port-stage.ts";
-import type { WriteTask } from "./spec-writer.ts";
+import { singleStepStage } from "../single-step-stage.ts";
+import type { WriteTask, Written } from "./spec-writer.ts";
 import { SpecWriter } from "./spec-writer.ts";
-
-interface Classified {
-  readonly kind: Kind;
-}
-
-const writeTask = ({
-  context,
-  input,
-}: {
-  readonly context: StageInput;
-  readonly input: Classified;
-}): WriteTask => ({
-  workItemId: context.workItemId,
-  issueRef: context.issueRef,
-  kind: input.kind,
-  feedback: context.feedback,
-  previousSpecRef: context.specRef,
-});
 
 const unclassified = () =>
   new StageFailure({
@@ -33,61 +12,22 @@ const unclassified = () =>
     },
   });
 
-const unspecifiable = (reason: string) =>
-  new StageFailure({ reason: { tag: "Unspecifiable", message: reason } });
+// The lifecycle sends an unclassified work item to Intake, so a null kind means a lifecycle that skips Intake.
+const writeTask = (input: StageInput): WriteTask | StageFailure =>
+  input.kind === null
+    ? unclassified()
+    : {
+        workItemId: input.workItemId,
+        issueRef: input.issueRef,
+        kind: input.kind,
+        feedback: input.feedback,
+        previousSpecRef: input.specRef,
+      };
 
-const specSetup = (step: PortStep<SpecWriter["Service"]>) =>
-  setup({
-    schemas: {
-      input: types<StageInput>(),
-      context: types<StageInput>(),
-      output: types<OutcomeOf<"spec">>(),
-    },
-    actors: {
-      write: step((specWriter, task: WriteTask) => specWriter.write(task)),
-    },
-    states: {
-      checkingKind: { type: "choice" },
-      writing: { schemas: { input: types<Classified>() } },
-      written: { type: "final", schemas: { input: types<{ readonly specRef: string }>() } },
-    },
-  });
-
-const specMachine = (step: PortStep<SpecWriter["Service"]>) =>
-  specSetup(step).createMachine({
-    id: "spec",
-    context: ({ input }) => input,
-    initial: "checkingKind",
-    states: {
-      checkingKind: {
-        type: "choice",
-        // The lifecycle sends an unclassified work item to Intake, so a null kind means a lifecycle that skips Intake.
-        choice: ({ context }) => {
-          if (context.kind === null) {
-            throw unclassified();
-          }
-          return { target: "writing", input: { kind: context.kind } };
-        },
-      },
-      writing: {
-        invoke: {
-          id: "write",
-          src: "write",
-          input: writeTask,
-          onDone: ({ event: { output } }) => {
-            if (output._tag === "unclear") {
-              throw unspecifiable(output.reason);
-            }
-            return { target: "written", input: { specRef: output.specRef } };
-          },
-        },
-      },
-      written: {
-        type: "final",
-        output: ({ input }) => ({ _tag: "written", specRef: input.specRef }),
-      },
-    },
-  });
+const written = (answer: Written): OutcomeOf<"spec"> | StageFailure =>
+  answer._tag === "unclear"
+    ? new StageFailure({ reason: { tag: "Unspecifiable", message: answer.reason } })
+    : { _tag: "written", specRef: answer.specRef };
 
 /**
  * The Spec stage machine, writing the work item's expected behaviour with the
@@ -95,4 +35,9 @@ const specMachine = (step: PortStep<SpecWriter["Service"]>) =>
  * with a `StageFailure` when the work item has no kind, the writer finds the
  * issue unclear, or the writer cannot finish.
  */
-export const specStage = portStage(SpecWriter, specMachine);
+export const specStage = singleStepStage(SpecWriter, {
+  stage: "spec",
+  task: writeTask,
+  ask: (specWriter, task: WriteTask) => specWriter.write(task),
+  outcome: written,
+});
