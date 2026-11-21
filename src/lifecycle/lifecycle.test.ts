@@ -2,7 +2,15 @@ import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
 import type { Route, Waypoint } from "./lifecycle-harness.ts";
-import { inputAfter, reviewer, stageInputWith, startWorkItem } from "./lifecycle-harness.ts";
+import {
+  goldenRefs,
+  inputAfter,
+  reviewer,
+  stageInputWith,
+  startWorkItem,
+} from "./lifecycle-harness.ts";
+import { defaultLifecycle } from "./lifecycle.ts";
+import { createWorkItem } from "./work-item-actor.ts";
 
 const startAt = Effect.fnUntraced(function* (waypoint: Waypoint, route: Route = {}) {
   const workItem = yield* startWorkItem();
@@ -11,6 +19,20 @@ const startAt = Effect.fnUntraced(function* (waypoint: Waypoint, route: Route = 
 });
 
 describe("lifecycle", () => {
+  it.effect("blocks a work item on a stage nothing implements", () =>
+    Effect.gen(function* () {
+      const workItem = yield* createWorkItem(defaultLifecycle, {
+        id: goldenRefs.workItemId,
+        issueRef: goldenRefs.issueRef,
+      });
+      yield* workItem.reaches("blocked");
+      expect(workItem.context().blocked).toStrictEqual({
+        from: "intake",
+        reason: { tag: "StageNotProvided", message: "No implementation for the intake stage" },
+      });
+    }),
+  );
+
   it.effect("moves a classified work item from Intake to Spec", () =>
     Effect.gen(function* () {
       const workItem = yield* startWorkItem();

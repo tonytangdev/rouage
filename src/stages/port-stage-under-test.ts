@@ -13,7 +13,7 @@ import type { PortGaveUp } from "./port-stage.ts";
 
 /** A port stage built with a fresh fake for the port the stage runs first, plus any other fakes it needs. */
 export interface ScriptedPortStage<Step extends string> {
-  readonly fake: Pick<Fake<unknown, Step>, "calls" | "started">;
+  readonly fake: Pick<Fake<unknown, Step>, "calls" | "started" | "interrupted">;
   readonly stage: AnyStateMachine;
 }
 
