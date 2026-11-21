@@ -1,6 +1,6 @@
 import { absurd } from "effect/Function";
 
-import { blockedOn, reproductionDidNotFail, stageErrored } from "./blocked.ts";
+import { reproduceBlocked, stageErrored } from "./blocked.ts";
 import { soleOutcomeFinished, stageFinished } from "./facts.ts";
 import { lifecycleSetup } from "./lifecycle-setup.ts";
 import { loopExhausted, loopLimitReached, noLoopsYet, wentAround } from "./loops.ts";
@@ -127,23 +127,9 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
                 case "reproduced": {
                   return { target: "plan", context: stageFinished(context, "reproduce", output) };
                 }
-                case "cannotReproduce": {
-                  return {
-                    target: "#blocked",
-                    context: {
-                      ...stageFinished(context, "reproduce", output),
-                      ...blockedOn("reproduce", { tag: "CannotReproduce", message: output.reason }),
-                    },
-                  };
-                }
+                case "cannotReproduce":
                 case "checkPassed": {
-                  return {
-                    target: "#blocked",
-                    context: {
-                      ...stageFinished(context, "reproduce", output),
-                      ...blockedOn("reproduce", reproductionDidNotFail(output)),
-                    },
-                  };
+                  return { target: "#blocked", context: reproduceBlocked(context, output) };
                 }
                 case "needsSample": {
                   if (loopExhausted(context, "reproduce")) {
