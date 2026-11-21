@@ -37,5 +37,5 @@ export const runSpec = Effect.fnUntraced(function* (
 ) {
   const { specWriter, spec } = yield* scriptedSpec(script);
   const settled = yield* runAlone(createActor(spec, { input }));
-  return { settled, calls: specWriter.calls() };
+  return { settled, calls: specWriter.tasks() };
 });

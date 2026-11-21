@@ -60,5 +60,5 @@ export const runProvision = Effect.fnUntraced(function* (
 ) {
   const { provisioner, sampler, provision } = yield* scriptedProvision(script);
   const settled = yield* runAlone(createActor(provision, { input }));
-  return { settled, provisions: provisioner.calls(), samples: sampler.calls() };
+  return { settled, provisions: provisioner.calls(), samples: sampler.tasks() };
 });

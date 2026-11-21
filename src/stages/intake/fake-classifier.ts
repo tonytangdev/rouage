@@ -1,16 +1,9 @@
-import { Effect, Layer } from "effect";
-
 import type { FakePort, Misbehaving } from "../fake-script.ts";
-import { scriptedAnswers, scriptedPort } from "../fake-script.ts";
-import type { Classification, ClassifyTask } from "./classifier.ts";
+import { fakePort } from "../fake-script.ts";
+import type { Classification } from "./classifier.ts";
 import { Classifier, ClassifierGaveUp } from "./classifier.ts";
 
 export type ClassifyStep = "classify";
-
-interface ClassifyCall {
-  readonly step: ClassifyStep;
-  readonly task: ClassifyTask;
-}
 
 /** The classifier as its fake and the stage contract suite know it. */
 export const classifierPort: FakePort<ClassifyStep, ClassifierGaveUp> = {
@@ -26,18 +19,7 @@ export interface FakeClassifierScript {
 }
 
 /** A classifier that follows a script instead of reading an issue. */
-export const fakeClassifier = Effect.fnUntraced(function* (script: FakeClassifierScript) {
-  const port = yield* scriptedPort<ClassifyStep, ClassifyCall, ClassifierGaveUp>({
-    ...classifierPort,
-    misbehaving: script.misbehaving,
-  });
-  const results = scriptedAnswers(script.results, classifierPort.port);
-  const classifier = Classifier.of({
-    classify: (task) => port.run({ step: "classify", task }, results),
-  });
-  return {
-    layer: Layer.succeed(Classifier, classifier),
-    calls: (): readonly ClassifyTask[] => port.calls().map((call) => call.task),
-    started: port.started,
-  };
-});
+export const fakeClassifier = (script: FakeClassifierScript) =>
+  fakePort(Classifier, classifierPort, script.misbehaving, ({ answer }) =>
+    Classifier.of({ classify: (task) => answer("classify", task, script.results) }),
+  );

@@ -30,7 +30,7 @@ describe("a work item in the Intake stage", () => {
       });
       workItem.send({ type: "backToSpec", ...reviewer, comment: "It is a bug: totals skip VAT" });
       yield* workItem.reaches("spec");
-      expect(classifier.calls()).toStrictEqual([
+      expect(classifier.tasks()).toStrictEqual([
         { workItemId: "wi-1", issueRef: "#1", feedback: null },
         { workItemId: "wi-1", issueRef: "#1", feedback: "It is a bug: totals skip VAT" },
       ]);
@@ -50,7 +50,7 @@ describe("a work item in the Intake stage", () => {
         intake: after.intake,
       });
       yield* workItem.reaches("spec");
-      expect(after.classifier.calls()).toStrictEqual([
+      expect(after.classifier.tasks()).toStrictEqual([
         { workItemId: "wi-1", issueRef: "#1", feedback: null },
       ]);
     }),

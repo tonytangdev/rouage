@@ -31,7 +31,7 @@ describe("a work item in the Spec stage", () => {
       workItem.send({ type: "reject", ...reviewer, comment: "Cover the empty cart" });
       yield* workItem.reaches("specGate");
       expect(workItem.context().specRef).toStrictEqual("spec-2");
-      expect(specWriter.calls()).toStrictEqual([
+      expect(specWriter.tasks()).toStrictEqual([
         firstWrite,
         { ...firstWrite, feedback: "Cover the empty cart", previousSpecRef: "spec-1" },
       ]);
@@ -50,7 +50,7 @@ describe("a work item in the Spec stage", () => {
       });
       workItem.send({ type: "backToSpec", ...reviewer, comment: "It should list the open orders" });
       yield* workItem.reaches("specGate");
-      expect(specWriter.calls()).toStrictEqual([
+      expect(specWriter.tasks()).toStrictEqual([
         firstWrite,
         { ...firstWrite, feedback: "It should list the open orders" },
       ]);
@@ -68,7 +68,7 @@ describe("a work item in the Spec stage", () => {
       workItem.finish("reproduce", { _tag: "cannotReproduce", reason: "works on staging" });
       workItem.send({ type: "backToSpec", ...reviewer, comment: "Name the browser" });
       yield* workItem.reaches("specGate");
-      expect(specWriter.calls().at(-1)).toStrictEqual({
+      expect(specWriter.tasks().at(-1)).toStrictEqual({
         ...firstWrite,
         feedback: "Name the browser",
         previousSpecRef: "spec-1",
@@ -88,7 +88,7 @@ describe("a work item in the Spec stage", () => {
       const after = yield* scriptedSpec({ results: [writtenSpec] });
       const workItem = yield* restoredWorkItem(throughJson(original.save()), { spec: after.spec });
       yield* workItem.reaches("specGate");
-      expect(after.specWriter.calls()).toStrictEqual([firstWrite]);
+      expect(after.specWriter.tasks()).toStrictEqual([firstWrite]);
     }),
   );
 });

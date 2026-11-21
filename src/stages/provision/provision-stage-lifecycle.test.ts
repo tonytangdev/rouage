@@ -72,7 +72,7 @@ describe("a work item in the Provision stage", () => {
       workItem.send({ type: "retry", ...reviewer });
       yield* workItem.reaches("reproduce");
       expect(workItem.context().sampleRef).toStrictEqual("sample-1");
-      expect(sampler.calls()).toStrictEqual([firstSample, firstSample]);
+      expect(sampler.tasks()).toStrictEqual([firstSample, firstSample]);
     }),
   );
 
@@ -116,7 +116,7 @@ describe("a work item in the Provision stage", () => {
           provision: after.provision,
         });
         yield* workItem.reaches("reproduce");
-        expect(after.sampler.calls()).toStrictEqual([firstSample]);
+        expect(after.sampler.tasks()).toStrictEqual([firstSample]);
         expect(after.provisioner.calls()).toStrictEqual([
           { step: "provision", task: { ...firstProvision, previousSandboxRef: "box-1" } },
         ]);

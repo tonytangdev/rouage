@@ -1,4 +1,5 @@
-import { Deferred, Effect } from "effect";
+import type { Context } from "effect";
+import { Deferred, Effect, Layer } from "effect";
 
 import type { PortGaveUp } from "./port-stage.ts";
 
@@ -26,70 +27,112 @@ export interface FakePort<Step extends string, GaveUp extends PortGaveUp> {
   readonly gaveUp: (message: string) => GaveUp;
 }
 
-interface PortScript<Step extends string, GaveUp extends PortGaveUp> extends FakePort<
-  Step,
-  GaveUp
-> {
-  readonly misbehaving: Misbehaving<Step> | undefined;
+/** One request a fake port received: the step and the task it was given. */
+export interface FakeCall<Step extends string> {
+  readonly step: Step;
+  readonly task: unknown;
 }
 
-const behaving = <A, GaveUp extends PortGaveUp>(
-  script: PortScript<string, GaveUp>,
+/** What a fake's port methods answer through, so each method is one line. */
+export interface FakeSteps<Step extends string, GaveUp extends PortGaveUp> {
+  /** Records the call, then answers with the next of `answers` for `step`; a run beyond them dies, so a test that under-scripts its fake fails loudly. */
+  readonly answer: <A>(
+    step: Step,
+    task: unknown,
+    answers: readonly A[],
+  ) => Effect.Effect<A, GaveUp>;
+  /** Records the call to a step that returns nothing. */
+  readonly perform: (step: Step, task: unknown) => Effect.Effect<void, GaveUp>;
+}
+
+/** A fake port ready for a test: the layer that provides it and what it saw. */
+export interface Fake<Id, Step extends string> {
+  readonly layer: Layer.Layer<Id>;
+  readonly calls: () => ReadonlyArray<FakeCall<Step>>;
+  /** The tasks of every call, for a port a stage calls through one step. */
+  readonly tasks: () => readonly unknown[];
+  readonly steps: () => readonly Step[];
+  /** Waits until `step` first starts, so a test can save the work item mid-step. */
+  readonly started: (step: Step) => Effect.Effect<void>;
+}
+
+const misbehave = <A, GaveUp extends PortGaveUp>(
+  port: FakePort<string, GaveUp>,
   step: string,
+  mode: Misbehaviour | undefined,
   answer: Effect.Effect<A>,
 ): Effect.Effect<A, GaveUp> => {
-  const mode = script.misbehaving?.step === step ? script.misbehaving.as : undefined;
   if (mode === "failing") {
-    return Effect.fail(script.gaveUp(gaveUpMessage(script.port, step)));
+    return Effect.fail(port.gaveUp(gaveUpMessage(port.port, step)));
   }
   if (mode === "crashing") {
-    return Effect.die(new Error(crashMessage(script.port, step)));
+    return Effect.die(new Error(crashMessage(port.port, step)));
   }
   return mode === "hanging" ? Effect.never : answer;
 };
 
-/**
- * The shared workings of a fake port: it records every call, signals when
- * each step first starts, and runs a step's scripted answer unless the
- * script makes that step misbehave. Each fake supplies only its answers.
- */
-export const scriptedPort = Effect.fnUntraced(function* <
-  Step extends string,
-  Call extends { readonly step: Step },
-  GaveUp extends PortGaveUp,
->(script: PortScript<Step, GaveUp>) {
-  const calls: Call[] = [];
-  const begun = new Map<string, Deferred.Deferred<boolean>>();
-  for (const step of script.steps) {
+const startSignals = Effect.fnUntraced(function* <Step extends string>(steps: readonly Step[]) {
+  const begun = new Map<Step, Deferred.Deferred<boolean>>();
+  for (const step of steps) {
     begun.set(step, yield* Deferred.make<boolean>());
   }
-  const begunSignal = (step: string) => {
+  return (step: Step) => {
     const deferred = begun.get(step);
     return deferred === undefined
-      ? Effect.die(new Error(`The fake ${script.port} has no step ${step}`))
+      ? Effect.die(new Error(`The fake has no step ${step}`))
       : Effect.succeed(deferred);
-  };
-  return {
-    run: <A>(call: Call, answer: Effect.Effect<A>) =>
-      Effect.suspend(() => {
-        calls.push(call);
-        return begunSignal(call.step).pipe(
-          Effect.flatMap((deferred) => Deferred.succeed(deferred, true)),
-          Effect.andThen(behaving(script, call.step, answer)),
-        );
-      }),
-    calls: (): readonly Call[] => calls,
-    started: (step: Step) => begunSignal(step).pipe(Effect.flatMap(Deferred.await), Effect.asVoid),
   };
 });
 
-/** Hands out `answers` in order, one per run; a run beyond them dies, so a test that under-scripts its fake fails loudly. */
-export const scriptedAnswers = <A>(answers: readonly A[], fake: string) => {
-  const queue = [...answers];
-  return Effect.suspend(() => {
-    const answer = queue.shift();
-    return answer === undefined
-      ? Effect.die(new Error(`The fake ${fake} ran out of scripted answers`))
-      : Effect.succeed(answer);
-  });
+const nextAnswer = <A>(answers: readonly A[], index: number, what: string) => {
+  const answer = answers[index];
+  return answer === undefined
+    ? Effect.die(new Error(`The fake ran out of scripted answers to ${what}`))
+    : Effect.succeed(answer);
 };
+
+/**
+ * Builds a fake for the port behind `key`: `implement` maps each of the
+ * port's methods to `answer` or `perform`, and the fake records every call,
+ * signals when each step first starts, and makes the step in `misbehaving`
+ * go wrong every time it runs.
+ */
+export const fakePort = Effect.fnUntraced(function* <
+  Id,
+  Service,
+  Step extends string,
+  GaveUp extends PortGaveUp,
+>(
+  key: Context.Key<Id, Service>,
+  port: FakePort<Step, GaveUp>,
+  misbehaving: Misbehaving<Step> | undefined,
+  implement: (steps: FakeSteps<Step, GaveUp>) => Service,
+) {
+  const calls: Array<FakeCall<Step>> = [];
+  const signal = yield* startSignals(port.steps);
+  const record = <A>(step: Step, task: unknown, answer: Effect.Effect<A>) =>
+    Effect.suspend(() => {
+      calls.push({ step, task });
+      return signal(step).pipe(
+        Effect.flatMap((deferred) => Deferred.succeed(deferred, true)),
+        Effect.andThen(
+          misbehave(port, step, misbehaving?.step === step ? misbehaving.as : undefined, answer),
+        ),
+      );
+    });
+  const answered = (step: Step) => calls.filter((call) => call.step === step).length;
+  const service = implement({
+    answer: (step, task, answers) =>
+      Effect.suspend(() =>
+        record(step, task, nextAnswer(answers, answered(step), `${port.port} ${step}`)),
+      ),
+    perform: (step, task) => record(step, task, Effect.void),
+  });
+  return {
+    layer: Layer.succeed(key, service),
+    calls: () => calls,
+    tasks: () => calls.map((call) => call.task),
+    steps: () => calls.map((call) => call.step),
+    started: (step) => signal(step).pipe(Effect.flatMap(Deferred.await), Effect.asVoid),
+  } satisfies Fake<Id, Step>;
+});

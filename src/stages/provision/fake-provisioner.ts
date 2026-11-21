@@ -1,15 +1,9 @@
-import { Effect, Layer } from "effect";
-
 import type { FakePort, Misbehaving } from "../fake-script.ts";
-import { scriptedAnswers, scriptedPort } from "../fake-script.ts";
-import type { ProvisionTask, Provisioned, TeardownTask } from "./provisioner.ts";
+import { fakePort } from "../fake-script.ts";
+import type { Provisioned } from "./provisioner.ts";
 import { Provisioner, ProvisionerGaveUp } from "./provisioner.ts";
 
 export type ProvisionerStep = "provision" | "teardown";
-
-type ProvisionerCall =
-  | { readonly step: "provision"; readonly task: ProvisionTask }
-  | { readonly step: "teardown"; readonly task: TeardownTask };
 
 /** The provisioner as its fake and the stage contract suite know it. */
 export const provisionerPort: FakePort<ProvisionerStep, ProvisionerGaveUp> = {
@@ -25,19 +19,10 @@ export interface FakeProvisionerScript {
 }
 
 /** A provisioner that follows a script instead of preparing a sandbox. */
-export const fakeProvisioner = Effect.fnUntraced(function* (script: FakeProvisionerScript) {
-  const port = yield* scriptedPort<ProvisionerStep, ProvisionerCall, ProvisionerGaveUp>({
-    ...provisionerPort,
-    misbehaving: script.misbehaving,
-  });
-  const results = scriptedAnswers(script.results, provisionerPort.port);
-  const provisioner = Provisioner.of({
-    provision: (task) => port.run({ step: "provision", task }, results),
-    teardown: (task) => port.run({ step: "teardown", task }, Effect.void),
-  });
-  return {
-    layer: Layer.succeed(Provisioner, provisioner),
-    calls: port.calls,
-    started: port.started,
-  };
-});
+export const fakeProvisioner = (script: FakeProvisionerScript) =>
+  fakePort(Provisioner, provisionerPort, script.misbehaving, ({ answer, perform }) =>
+    Provisioner.of({
+      provision: (task) => answer("provision", task, script.results),
+      teardown: (task) => perform("teardown", task),
+    }),
+  );

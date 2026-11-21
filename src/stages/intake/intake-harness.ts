@@ -22,5 +22,5 @@ export const scriptedIntake = Effect.fnUntraced(function* (script: FakeClassifie
 export const runIntake = Effect.fnUntraced(function* (script: FakeClassifierScript) {
   const { classifier, intake } = yield* scriptedIntake(script);
   const settled = yield* runAlone(createActor(intake, { input: aloneInput }));
-  return { settled, calls: classifier.calls() };
+  return { settled, calls: classifier.tasks() };
 });
