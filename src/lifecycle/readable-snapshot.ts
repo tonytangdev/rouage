@@ -10,7 +10,7 @@ export class UnreadableSnapshot extends Data.TaggedError("UnreadableSnapshot")<{
   readonly message: string;
 }> {}
 
-const unreadable = (message: string) => new UnreadableSnapshot({ message });
+export const unreadable = (message: string) => new UnreadableSnapshot({ message });
 
 const validated = Effect.fnUntraced(function* <Output>(
   schema: StandardSchemaV1<unknown, Output>,
@@ -40,7 +40,8 @@ const SavedStages = Schema.Struct({
 // XState checks neither a child's context against its machine's context
 // schema when it validates the parent snapshot, nor when it restores it, so
 // each running stage machine is checked against its own snapshot schema.
-// Stage logic that is not a machine keeps its saved state to itself.
+// Stage logic that is not a machine goes unchecked, because XState gives a
+// snapshot schema only for machines (ADR 0014).
 const checkSavedStages = Effect.fnUntraced(function* (
   lifecycle: LifecycleSources,
   persisted: unknown,

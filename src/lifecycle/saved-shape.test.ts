@@ -6,6 +6,7 @@ import { format } from "oxfmt";
 
 import formatConfig from "../../.oxfmtrc.json" with { type: "json" };
 import { defaultLifecycleMigrations } from "./lifecycle-migration.ts";
+import { defaultLifecycle } from "./lifecycle.ts";
 import { savedShape } from "./saved-shape.ts";
 
 const pin = `saved-shape.v${savedShape.version}.json`;
@@ -47,7 +48,9 @@ describe("the default lifecycle's saved shape", () => {
     Effect.gen(function* () {
       const older = (yield* pinnedVersions).filter((version) => version !== savedShape.version);
       const migrated = new Set(
-        defaultLifecycleMigrations.map((migration) => migration.from.version),
+        defaultLifecycleMigrations
+          .filter((migration) => migration.from.id === defaultLifecycle.id)
+          .map((migration) => migration.from.version),
       );
       expect(
         older.filter((version) => !migrated.has(version)),

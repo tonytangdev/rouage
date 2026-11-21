@@ -1,7 +1,8 @@
 import { Data, Effect, Schema } from "effect";
 
 import type { LifecycleIdentity } from "./lifecycle-logic.ts";
-import { UnreadableSnapshot } from "./readable-snapshot.ts";
+import type { UnreadableSnapshot } from "./readable-snapshot.ts";
+import { unreadable } from "./readable-snapshot.ts";
 
 /** A saved work item as plain JSON, as a work item saves it and a store gives it back. */
 export const SavedWorkItemSchema = Schema.Record(Schema.String, Schema.Unknown);
@@ -32,28 +33,27 @@ const PersistedEnvelope = Schema.Struct({
   machine: Schema.Struct({ id: Schema.String, version: Schema.String }),
 });
 
-const unreadable = (message: string) => new UnreadableSnapshot({ message });
-
 const sameIdentity = (a: LifecycleIdentity, b: LifecycleIdentity) =>
   a.id === b.id && a.version === b.version;
 
-interface Chain {
+/** The lifecycle a work item is restored on, and the one it was saved under. */
+interface VersionGap {
   readonly expected: LifecycleIdentity;
   readonly found: LifecycleIdentity;
 }
 
 const migrateFrom = Effect.fnUntraced(function* (
-  chain: Chain,
+  gap: VersionGap,
   saved: SavedWorkItem,
   current: LifecycleIdentity,
-  unused: readonly LifecycleMigration[],
+  remaining: readonly LifecycleMigration[],
 ): Effect.fn.Return<SavedWorkItem, LifecycleVersionMismatch | UnreadableSnapshot> {
-  if (sameIdentity(current, chain.expected)) {
+  if (sameIdentity(current, gap.expected)) {
     return saved;
   }
-  const next = unused.find((migration) => sameIdentity(migration.from, current));
+  const next = remaining.find((migration) => sameIdentity(migration.from, current));
   if (next === undefined) {
-    return yield* new LifecycleVersionMismatch(chain);
+    return yield* new LifecycleVersionMismatch(gap);
   }
   const migrated = yield* Effect.try({
     try: () => next.migrate(saved),
@@ -62,10 +62,10 @@ const migrateFrom = Effect.fnUntraced(function* (
   });
   const reached = { id: current.id, version: next.to };
   return yield* migrateFrom(
-    chain,
+    gap,
     { ...migrated, machine: reached },
     reached,
-    unused.filter((migration) => migration !== next),
+    remaining.filter((migration) => migration !== next),
   );
 });
 
@@ -73,8 +73,8 @@ const migrateFrom = Effect.fnUntraced(function* (
  * `persisted` as `lifecycle`'s current version saves it: as is when it was
  * saved under that version, else after each migration from the version it
  * reached so far, one step at a time, using each migration once. Fails with
- * `LifecycleVersionMismatch` when no migration leads on to the current
- * version, because restoring the work item anyway could silently put it in the
+ * `LifecycleVersionMismatch` when it was saved under another lifecycle id or
+ * no migration leads on to the current version, because restoring the work item anyway could silently put it in the
  * wrong state, and with `UnreadableSnapshot` when it is not a saved work item
  * or a migration throws. What a migration returns is checked only once
  * restored (ADR 0015).

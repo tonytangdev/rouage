@@ -6,27 +6,23 @@ import { restoredWorkItem, startWorkItem, throughJson } from "./lifecycle-harnes
 import type { LifecycleMigration, SavedWorkItem } from "./lifecycle-migration.ts";
 import { SavedWorkItemSchema } from "./lifecycle-migration.ts";
 
-const objectIn = Schema.decodeUnknownSync(SavedWorkItemSchema);
+const savedWorkItemIn = Schema.decodeUnknownSync(SavedWorkItemSchema);
 
-const factsIn = (saved: SavedWorkItem) => objectIn(objectIn(saved["context"])["facts"]);
+const factsIn = (saved: SavedWorkItem) =>
+  savedWorkItemIn(savedWorkItemIn(saved["context"])["facts"]);
 
 const withFacts = (saved: SavedWorkItem, facts: SavedWorkItem): SavedWorkItem => ({
   ...saved,
-  context: { ...objectIn(saved["context"]), facts },
+  context: { ...savedWorkItemIn(saved["context"]), facts },
 });
 
-/** The test work item at the spec gate, as version `version` of lifecycle `id`, the default one unless given, saved it when it had none of the facts in `missing`. */
-const savedUnder = Effect.fnUntraced(function* (
-  version: string,
-  missing: readonly string[],
-  id?: string,
-) {
+const savedUnder = Effect.fnUntraced(function* (version: string, missing: readonly string[]) {
   const original = yield* startWorkItem();
   original.advanceTo("specGate");
-  const saved = objectIn(throughJson(original.save()));
+  const saved = savedWorkItemIn(throughJson(original.save()));
   const kept = Object.entries(factsIn(saved)).filter(([name]) => !missing.includes(name));
   const older = withFacts(saved, Object.fromEntries(kept));
-  return { ...older, machine: { id: id ?? "lifecycle", version } };
+  return { ...older, machine: { id: "lifecycle", version } };
 });
 
 const adding =
@@ -63,7 +59,10 @@ describe("migrating a saved work item between lifecycle versions", () => {
         migration("0.1", "0.2", adding("planRef")),
       ];
       const workItem = yield* restoredWorkItem(persisted, { migrations });
-      expect(objectIn(workItem.save())["machine"]).toStrictEqual({ id: "lifecycle", version: "1" });
+      expect(savedWorkItemIn(workItem.save())["machine"]).toStrictEqual({
+        id: "lifecycle",
+        version: "1",
+      });
     }),
   );
 
@@ -93,7 +92,8 @@ describe("migrating a saved work item between lifecycle versions", () => {
 
   it.effect("applies no migration written for another lifecycle", () =>
     Effect.gen(function* () {
-      const persisted = yield* savedUnder("0", [], "hotfix");
+      const saved = yield* savedUnder("0", []);
+      const persisted = { ...saved, machine: { id: "hotfix", version: "0" } };
       const migrations = [migration("0", "1", unchanged)];
       const error = yield* Effect.flip(restoredWorkItem(persisted, { migrations }));
       expect(error._tag).toStrictEqual("LifecycleVersionMismatch");

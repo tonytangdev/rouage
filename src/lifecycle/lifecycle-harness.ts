@@ -5,6 +5,7 @@ import { fakeSandboxTeardown } from "./fake-sandbox-teardown.ts";
 import type { RealStages, Route, Running, Waypoint } from "./golden-route.ts";
 import { StageNotRunning, advance, newWorkItem, stubController } from "./golden-route.ts";
 import type { LifecycleMigration } from "./lifecycle-migration.ts";
+import { SavedWorkItemSchema } from "./lifecycle-migration.ts";
 import type { FailureReason, OutcomeOf, StageName } from "./stage.ts";
 import type { WorkItem } from "./work-item-actor.ts";
 import { createWorkItem, restoreWorkItem } from "./work-item-actor.ts";
@@ -48,8 +49,7 @@ const drive = (workItem: WorkItem, running: Running, sandbox: FakeSandboxTeardow
 /** A test work item: a work item plus the controls that drive its stub stages. */
 export type TestWorkItem = ReturnType<typeof drive>;
 
-const JsonObject = Schema.Record(Schema.String, Schema.Unknown);
-const objectIn = Schema.decodeUnknownSync(JsonObject);
+const objectIn = Schema.decodeUnknownSync(SavedWorkItemSchema);
 
 /** `persisted` with the saved context of its running `stage` replaced by `context`, as a stage machine whose context has changed since would find it; throws if `stage` is not running in it. */
 export const withStageContext = (persisted: unknown, stage: StageName, context: unknown) => {

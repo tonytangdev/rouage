@@ -10,7 +10,7 @@ import type { LoopLimits } from "./loops.ts";
 import { resolveLoopLimits } from "./loops.ts";
 import type { Place } from "./place.ts";
 import { placeOf } from "./place.ts";
-import { UnreadableSnapshot, readableSnapshot } from "./readable-snapshot.ts";
+import { readableSnapshot, unreadable } from "./readable-snapshot.ts";
 import type { TeardownGaveUp } from "./sandbox-teardown.ts";
 import { teardownWhenFinal } from "./teardown-when-final.ts";
 import type { WorkItemContext } from "./work-item.ts";
@@ -95,15 +95,12 @@ export const createWorkItem = Effect.fnUntraced(function* (
   return yield* withTeardown(actor);
 });
 
-const unreadable = (message: string) => new UnreadableSnapshot({ message });
-
 /**
  * Resumes a saved work item, first moving it to `lifecycle`'s version through
  * `migrations` when it was saved under an older one, failing as
  * `migratedToCurrent` does when it was saved under another lifecycle id or a
- * version no migration leads on from (ADR 0015). Fails with
- * `UnreadableSnapshot` when what it then holds does not fit `lifecycle`
- * (ADR 0002, ADR 0014).
+ * version no migration leads on from (ADR 0015), and as `readableSnapshot`
+ * does when what it then holds does not fit `lifecycle` (ADR 0002, ADR 0014).
  */
 export const restoreWorkItem = Effect.fnUntraced(function* (
   lifecycle: Lifecycle,
