@@ -5,6 +5,7 @@ import {
   restoredWorkItem,
   startWorkItem,
   throughJson,
+  withStateInput,
   withStepTask,
 } from "../../lifecycle/lifecycle-harness.ts";
 import { describePortStageInLifecycle } from "../port-stage-lifecycle-contract.ts";
@@ -61,6 +62,25 @@ describe("a work item in the Build stage", () => {
         restoredWorkItem(persisted, { stages: { build: after.stage } }),
       );
       expect(error.message).toContain("The task of the saved build stage's test step");
+      expect(after.fake.steps()).toStrictEqual([]);
+    }),
+  );
+
+  it.effect("refuses a Build saved mid-fix whose state input no longer fits", () =>
+    Effect.gen(function* () {
+      const before = yield* buildUnderTest.scripted({
+        testReports: [testsFailed],
+        misbehaving: { step: "fix", as: "hanging" },
+      });
+      const original = yield* startWorkItem({ stages: { build: before.stage } });
+      original.advanceTo("build");
+      yield* before.fake.started("fix");
+      const after = yield* buildUnderTest.scripted({ testReports: [testsPassed] });
+      const persisted = withStateInput(throughJson(original.save()), "build", {});
+      const error = yield* Effect.flip(
+        restoredWorkItem(persisted, { stages: { build: after.stage } }),
+      );
+      expect(error.message).toContain("The input of the saved build stage's fixing state");
       expect(after.fake.steps()).toStrictEqual([]);
     }),
   );

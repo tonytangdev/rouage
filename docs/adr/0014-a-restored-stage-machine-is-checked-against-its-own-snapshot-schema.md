@@ -15,4 +15,5 @@ For the check to mean anything a stage machine must declare its context as a run
 
 - A stage machine that keeps its context in a TypeScript type only is restored unchecked; a provided stage machine declares a context Schema to be checked.
 - A port step running inside a stage restores with the task it was saved with, which is checked against the task's Schema (ADR 0016).
+- The input each active state of a stage machine was saved with is checked against that state's input schema (ADR 0017).
 - A change to a Rouage stage machine's context is caught by `pnpm check` too, through the pin of its saved shape (ADR 0016).

@@ -2,7 +2,12 @@ import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
 import { reviewer } from "../../lifecycle/golden-route.ts";
-import { restoredWorkItem, startWorkItem, throughJson } from "../../lifecycle/lifecycle-harness.ts";
+import {
+  restoredWorkItem,
+  startWorkItem,
+  throughJson,
+  withStateInput,
+} from "../../lifecycle/lifecycle-harness.ts";
 import { describePortStageInLifecycle } from "../port-stage-lifecycle-contract.ts";
 import {
   captured,
@@ -90,6 +95,25 @@ describe("a work item in the Reproduce stage", () => {
           task: { ...firstCapture, sampleRequest: "orders over 100", sampleRef: "sample-1" },
         },
       ]);
+    }),
+  );
+
+  it.effect("refuses a Reproduce saved mid-capture whose state input no longer fits", () =>
+    Effect.gen(function* () {
+      const before = yield* reproduceUnderTest.scripted({
+        captures: [],
+        misbehaving: { step: "capture", as: "hanging" },
+      });
+      const original = yield* startWorkItem({ stages: { reproduce: before.stage } });
+      original.advanceTo("reproduce", { kind: "bug" });
+      yield* before.fake.started("capture");
+      const after = yield* reproduceUnderTest.scripted({ captures: [captured] });
+      const persisted = withStateInput(throughJson(original.save()), "reproduce", {});
+      const error = yield* Effect.flip(
+        restoredWorkItem(persisted, { stages: { reproduce: after.stage } }),
+      );
+      expect(error.message).toContain("The input of the saved reproduce stage's capturing state");
+      expect(after.fake.steps()).toStrictEqual([]);
     }),
   );
 

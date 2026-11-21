@@ -3,9 +3,9 @@ import { Data, Predicate, Schema, Struct } from "effect";
 import { demoFactNames, demoShown, demoToRevise } from "./demo-decision.ts";
 import type { StageFacts } from "./facts.ts";
 import { StageFactsSchema } from "./facts.ts";
-import type { Kind } from "./kind.ts";
+import { KindSchema } from "./kind.ts";
 
-/** Every stage of the default lifecycle; `StageOutcomes` gives each its outcome. */
+/** Every stage of the default lifecycle; `StageOutcomeSchemas` gives each its outcome. */
 export const StageNameSchema = Schema.Literals([
   "intake",
   "spec",
@@ -96,32 +96,37 @@ export const stageInputs: Readonly<Record<StageName, (argument: InputArgument) =
 /**
  * Each stage of the default lifecycle and the outcome its stage machine
  * finishes with. A stage implementation fits a slot when it accepts
- * `StageInput` and finishes with that slot's outcome.
+ * `StageInput` and finishes with that slot's outcome. Schemas, so a stage
+ * machine that keeps an outcome in a state's input can check a restored one
+ * (ADR 0017).
  */
-export interface StageOutcomes {
-  readonly intake: { readonly _tag: "classified"; readonly kind: Kind };
-  readonly spec: { readonly _tag: "written"; readonly specRef: string };
-  readonly provision:
-    | {
-        readonly _tag: "provisioned";
-        readonly sandboxRef: string;
-        readonly sampleRef: string | null;
-      }
-    | { readonly _tag: "awaitingRun"; readonly sandboxRef: string; readonly scriptRef: string };
-  readonly reproduce:
-    | { readonly _tag: "reproduced"; readonly reproductionRef: string }
-    | { readonly _tag: "needsSample"; readonly sampleRequest: string }
-    | { readonly _tag: "cannotReproduce"; readonly reason: string }
-    | { readonly _tag: "checkPassed"; readonly reproductionRef: string; readonly output: string };
-  readonly plan: { readonly _tag: "planned"; readonly planRef: string; readonly demo: boolean };
-  readonly build: { readonly _tag: "built" };
-  readonly demo: { readonly _tag: "demonstrated"; readonly demoRef: string };
-  readonly review:
-    | { readonly _tag: "approved" }
-    | { readonly _tag: "changesRequested"; readonly feedback: string };
-  readonly ship:
-    | { readonly _tag: "shipped"; readonly deliveryRef: string }
-    | { readonly _tag: "needsRebuild"; readonly feedback: string };
-}
+export const StageOutcomeSchemas = {
+  intake: Schema.TaggedStruct("classified", { kind: KindSchema }),
+  spec: Schema.TaggedStruct("written", { specRef: Schema.String }),
+  provision: Schema.Union([
+    Schema.TaggedStruct("provisioned", {
+      sandboxRef: Schema.String,
+      sampleRef: Schema.NullOr(Schema.String),
+    }),
+    Schema.TaggedStruct("awaitingRun", { sandboxRef: Schema.String, scriptRef: Schema.String }),
+  ]),
+  reproduce: Schema.Union([
+    Schema.TaggedStruct("reproduced", { reproductionRef: Schema.String }),
+    Schema.TaggedStruct("needsSample", { sampleRequest: Schema.String }),
+    Schema.TaggedStruct("cannotReproduce", { reason: Schema.String }),
+    Schema.TaggedStruct("checkPassed", { reproductionRef: Schema.String, output: Schema.String }),
+  ]),
+  plan: Schema.TaggedStruct("planned", { planRef: Schema.String, demo: Schema.Boolean }),
+  build: Schema.TaggedStruct("built", {}),
+  demo: Schema.TaggedStruct("demonstrated", { demoRef: Schema.String }),
+  review: Schema.Union([
+    Schema.TaggedStruct("approved", {}),
+    Schema.TaggedStruct("changesRequested", { feedback: Schema.String }),
+  ]),
+  ship: Schema.Union([
+    Schema.TaggedStruct("shipped", { deliveryRef: Schema.String }),
+    Schema.TaggedStruct("needsRebuild", { feedback: Schema.String }),
+  ]),
+} as const satisfies Readonly<Record<StageName, Schema.Codec<unknown, unknown>>>;
 
-export type OutcomeOf<Stage extends StageName> = StageOutcomes[Stage];
+export type OutcomeOf<Stage extends StageName> = (typeof StageOutcomeSchemas)[Stage]["Type"];

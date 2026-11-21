@@ -76,6 +76,42 @@
         "definitions": {}
       },
       "states": ["intake", "intake.preparing", "intake.asking", "intake.finished"],
+      "stateInputs": {
+        "intake.asking": {
+          "dialect": "draft-2020-12",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "task": {
+                "type": "object",
+                "properties": {
+                  "workItemId": { "type": "string" },
+                  "feedback": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "issueRef": { "type": "string" }
+                },
+                "required": ["workItemId", "feedback", "issueRef"],
+                "additionalProperties": true
+              }
+            },
+            "required": ["task"],
+            "additionalProperties": true
+          },
+          "definitions": {}
+        },
+        "intake.finished": {
+          "dialect": "draft-2020-12",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "_tag": { "type": "string", "enum": ["classified"] },
+              "kind": { "type": "string", "enum": ["bug", "feature"] }
+            },
+            "required": ["_tag", "kind"],
+            "additionalProperties": true
+          },
+          "definitions": {}
+        }
+      },
       "steps": {
         "ask": {
           "dialect": "draft-2020-12",
@@ -168,6 +204,44 @@
         "definitions": {}
       },
       "states": ["spec", "spec.preparing", "spec.asking", "spec.finished"],
+      "stateInputs": {
+        "spec.asking": {
+          "dialect": "draft-2020-12",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "task": {
+                "type": "object",
+                "properties": {
+                  "workItemId": { "type": "string" },
+                  "feedback": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "issueRef": { "type": "string" },
+                  "kind": { "type": "string", "enum": ["bug", "feature"] },
+                  "previousSpecRef": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                },
+                "required": ["workItemId", "feedback", "issueRef", "kind", "previousSpecRef"],
+                "additionalProperties": true
+              }
+            },
+            "required": ["task"],
+            "additionalProperties": true
+          },
+          "definitions": {}
+        },
+        "spec.finished": {
+          "dialect": "draft-2020-12",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "_tag": { "type": "string", "enum": ["written"] },
+              "specRef": { "type": "string" }
+            },
+            "required": ["_tag", "specRef"],
+            "additionalProperties": true
+          },
+          "definitions": {}
+        }
+      },
       "steps": {
         "ask": {
           "dialect": "draft-2020-12",
@@ -262,6 +336,36 @@
         "definitions": {}
       },
       "states": ["provision", "provision.preparing", "provision.prepared"],
+      "stateInputs": {
+        "provision.prepared": {
+          "dialect": "draft-2020-12",
+          "schema": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "_tag": { "type": "string", "enum": ["provisioned"] },
+                  "sandboxRef": { "type": "string" },
+                  "sampleRef": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                },
+                "required": ["_tag", "sandboxRef", "sampleRef"],
+                "additionalProperties": true
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "_tag": { "type": "string", "enum": ["awaitingRun"] },
+                  "sandboxRef": { "type": "string" },
+                  "scriptRef": { "type": "string" }
+                },
+                "required": ["_tag", "sandboxRef", "scriptRef"],
+                "additionalProperties": true
+              }
+            ]
+          },
+          "definitions": {}
+        }
+      },
       "steps": {
         "prepare": {
           "dialect": "draft-2020-12",
@@ -419,6 +523,77 @@
         "reproduce.confirming",
         "reproduce.finished"
       ],
+      "stateInputs": {
+        "reproduce.capturing": {
+          "dialect": "draft-2020-12",
+          "schema": {
+            "type": "object",
+            "properties": { "sandboxRef": { "type": "string" } },
+            "required": ["sandboxRef"],
+            "additionalProperties": true
+          },
+          "definitions": {}
+        },
+        "reproduce.confirming": {
+          "dialect": "draft-2020-12",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "workItemId": { "type": "string" },
+              "sandboxRef": { "type": "string" },
+              "reproductionRef": { "type": "string" }
+            },
+            "required": ["workItemId", "sandboxRef", "reproductionRef"],
+            "additionalProperties": true
+          },
+          "definitions": {}
+        },
+        "reproduce.finished": {
+          "dialect": "draft-2020-12",
+          "schema": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "_tag": { "type": "string", "enum": ["reproduced"] },
+                  "reproductionRef": { "type": "string" }
+                },
+                "required": ["_tag", "reproductionRef"],
+                "additionalProperties": true
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "_tag": { "type": "string", "enum": ["needsSample"] },
+                  "sampleRequest": { "type": "string" }
+                },
+                "required": ["_tag", "sampleRequest"],
+                "additionalProperties": true
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "_tag": { "type": "string", "enum": ["cannotReproduce"] },
+                  "reason": { "type": "string" }
+                },
+                "required": ["_tag", "reason"],
+                "additionalProperties": true
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "_tag": { "type": "string", "enum": ["checkPassed"] },
+                  "reproductionRef": { "type": "string" },
+                  "output": { "type": "string" }
+                },
+                "required": ["_tag", "reproductionRef", "output"],
+                "additionalProperties": true
+              }
+            ]
+          },
+          "definitions": {}
+        }
+      },
       "steps": {
         "capture": {
           "dialect": "draft-2020-12",
@@ -539,6 +714,61 @@
         "definitions": {}
       },
       "states": ["plan", "plan.preparing", "plan.asking", "plan.finished"],
+      "stateInputs": {
+        "plan.asking": {
+          "dialect": "draft-2020-12",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "task": {
+                "type": "object",
+                "properties": {
+                  "workItemId": { "type": "string" },
+                  "feedback": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "issueRef": { "type": "string" },
+                  "kind": {
+                    "anyOf": [{ "type": "string", "enum": ["bug", "feature"] }, { "type": "null" }]
+                  },
+                  "specRef": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "sandboxRef": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "sampleRef": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "reproductionRef": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "previousPlanRef": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                },
+                "required": [
+                  "workItemId",
+                  "feedback",
+                  "issueRef",
+                  "kind",
+                  "specRef",
+                  "sandboxRef",
+                  "sampleRef",
+                  "reproductionRef",
+                  "previousPlanRef"
+                ],
+                "additionalProperties": true
+              }
+            },
+            "required": ["task"],
+            "additionalProperties": true
+          },
+          "definitions": {}
+        },
+        "plan.finished": {
+          "dialect": "draft-2020-12",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "_tag": { "type": "string", "enum": ["planned"] },
+              "planRef": { "type": "string" },
+              "demo": { "type": "boolean" }
+            },
+            "required": ["_tag", "planRef", "demo"],
+            "additionalProperties": true
+          },
+          "definitions": {}
+        }
+      },
       "steps": {
         "ask": {
           "dialect": "draft-2020-12",
@@ -689,6 +919,32 @@
         "build.fixing",
         "build.built"
       ],
+      "stateInputs": {
+        "build.checkingReproduction": {
+          "dialect": "draft-2020-12",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "workItemId": { "type": "string" },
+              "sandboxRef": { "type": "string" },
+              "reproductionRef": { "type": "string" }
+            },
+            "required": ["workItemId", "sandboxRef", "reproductionRef"],
+            "additionalProperties": true
+          },
+          "definitions": {}
+        },
+        "build.fixing": {
+          "dialect": "draft-2020-12",
+          "schema": {
+            "type": "object",
+            "properties": { "failures": { "type": "string" } },
+            "required": ["failures"],
+            "additionalProperties": true
+          },
+          "definitions": {}
+        }
+      },
       "steps": {
         "implement": {
           "dialect": "draft-2020-12",
@@ -885,6 +1141,60 @@
         "definitions": {}
       },
       "states": ["demo", "demo.preparing", "demo.asking", "demo.finished"],
+      "stateInputs": {
+        "demo.asking": {
+          "dialect": "draft-2020-12",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "task": {
+                "type": "object",
+                "properties": {
+                  "workItemId": { "type": "string" },
+                  "feedback": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "issueRef": { "type": "string" },
+                  "kind": {
+                    "anyOf": [{ "type": "string", "enum": ["bug", "feature"] }, { "type": "null" }]
+                  },
+                  "specRef": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "planRef": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "sandboxRef": { "type": "string" },
+                  "reproductionRef": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "previousDemoRef": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                },
+                "required": [
+                  "workItemId",
+                  "feedback",
+                  "issueRef",
+                  "kind",
+                  "specRef",
+                  "planRef",
+                  "sandboxRef",
+                  "reproductionRef",
+                  "previousDemoRef"
+                ],
+                "additionalProperties": true
+              }
+            },
+            "required": ["task"],
+            "additionalProperties": true
+          },
+          "definitions": {}
+        },
+        "demo.finished": {
+          "dialect": "draft-2020-12",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "_tag": { "type": "string", "enum": ["demonstrated"] },
+              "demoRef": { "type": "string" }
+            },
+            "required": ["_tag", "demoRef"],
+            "additionalProperties": true
+          },
+          "definitions": {}
+        }
+      },
       "steps": {
         "ask": {
           "dialect": "draft-2020-12",
@@ -995,6 +1305,103 @@
         "definitions": {}
       },
       "states": ["review", "review.preparing", "review.asking", "review.finished"],
+      "stateInputs": {
+        "review.asking": {
+          "dialect": "draft-2020-12",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "task": {
+                "type": "object",
+                "properties": {
+                  "workItemId": { "type": "string" },
+                  "feedback": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "issueRef": { "type": "string" },
+                  "kind": {
+                    "anyOf": [{ "type": "string", "enum": ["bug", "feature"] }, { "type": "null" }]
+                  },
+                  "specRef": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "planRef": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "sandboxRef": { "type": "string" },
+                  "reproductionRef": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "demoRef": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "changeRequest": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "from": { "type": "string", "enum": ["review"] },
+                          "text": { "type": "string" }
+                        },
+                        "required": ["from", "text"],
+                        "additionalProperties": true
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "from": { "type": "string", "enum": ["shipGate"] },
+                          "text": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                        },
+                        "required": ["from", "text"],
+                        "additionalProperties": true
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "from": { "type": "string", "enum": ["ship"] },
+                          "text": { "type": "string" }
+                        },
+                        "required": ["from", "text"],
+                        "additionalProperties": true
+                      },
+                      { "type": "null" }
+                    ]
+                  }
+                },
+                "required": [
+                  "workItemId",
+                  "feedback",
+                  "issueRef",
+                  "kind",
+                  "specRef",
+                  "planRef",
+                  "sandboxRef",
+                  "reproductionRef",
+                  "demoRef",
+                  "changeRequest"
+                ],
+                "additionalProperties": true
+              }
+            },
+            "required": ["task"],
+            "additionalProperties": true
+          },
+          "definitions": {}
+        },
+        "review.finished": {
+          "dialect": "draft-2020-12",
+          "schema": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": { "_tag": { "type": "string", "enum": ["approved"] } },
+                "required": ["_tag"],
+                "additionalProperties": true
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "_tag": { "type": "string", "enum": ["changesRequested"] },
+                  "feedback": { "type": "string" }
+                },
+                "required": ["_tag", "feedback"],
+                "additionalProperties": true
+              }
+            ]
+          },
+          "definitions": {}
+        }
+      },
       "steps": {
         "ask": {
           "dialect": "draft-2020-12",
@@ -1138,6 +1545,73 @@
         "definitions": {}
       },
       "states": ["ship", "ship.preparing", "ship.asking", "ship.finished"],
+      "stateInputs": {
+        "ship.asking": {
+          "dialect": "draft-2020-12",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "task": {
+                "type": "object",
+                "properties": {
+                  "workItemId": { "type": "string" },
+                  "feedback": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "issueRef": { "type": "string" },
+                  "kind": {
+                    "anyOf": [{ "type": "string", "enum": ["bug", "feature"] }, { "type": "null" }]
+                  },
+                  "specRef": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "planRef": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "sandboxRef": { "type": "string" },
+                  "reproductionRef": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "demoRef": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                },
+                "required": [
+                  "workItemId",
+                  "feedback",
+                  "issueRef",
+                  "kind",
+                  "specRef",
+                  "planRef",
+                  "sandboxRef",
+                  "reproductionRef",
+                  "demoRef"
+                ],
+                "additionalProperties": true
+              }
+            },
+            "required": ["task"],
+            "additionalProperties": true
+          },
+          "definitions": {}
+        },
+        "ship.finished": {
+          "dialect": "draft-2020-12",
+          "schema": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "_tag": { "type": "string", "enum": ["shipped"] },
+                  "deliveryRef": { "type": "string" }
+                },
+                "required": ["_tag", "deliveryRef"],
+                "additionalProperties": true
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "_tag": { "type": "string", "enum": ["needsRebuild"] },
+                  "feedback": { "type": "string" }
+                },
+                "required": ["_tag", "feedback"],
+                "additionalProperties": true
+              }
+            ]
+          },
+          "definitions": {}
+        }
+      },
       "steps": {
         "ask": {
           "dialect": "draft-2020-12",
