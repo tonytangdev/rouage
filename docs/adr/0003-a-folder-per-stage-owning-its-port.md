@@ -20,5 +20,5 @@ Dependencies run one way. Stages import the lifecycle's stage contract (`StageIn
 
 ## Consequences
 
-- Adding a stage implementation means adding one folder. `src/lifecycle/` changes only when the stage's outcome does, or when the outcome brings a new fact for the work item to keep: a field in `StageFacts` with its empty value in `noFactsYet`, and one `learned` call where the lifecycle routes the outcome.
+- Adding a stage implementation means adding one folder. `src/lifecycle/` changes only when the stage's outcome does, or when the outcome brings a new fact for the work item to keep: a field in `StageFacts` with its empty value in `noFactsYet`, and its entry in the lifecycle's table of the facts each outcome teaches (`src/lifecycle/facts.ts`).
 - `src/plugins/` is reserved for real adapters that fill ports, such as a Claude Code plugin. It does not exist until the first one does.
