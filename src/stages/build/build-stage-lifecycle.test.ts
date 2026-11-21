@@ -3,7 +3,13 @@ import { Effect } from "effect";
 
 import { restoredWorkItem, startWorkItem, throughJson } from "../../lifecycle/lifecycle-harness.ts";
 import { describePortStageInLifecycle } from "../port-stage-lifecycle-contract.ts";
-import { buildUnderTest, firstImplement, testsFailed, testsPassed } from "./build-harness.ts";
+import {
+  buildUnderTest,
+  firstImplement,
+  reproductionPassed,
+  testsFailed,
+  testsPassed,
+} from "./build-harness.ts";
 
 describe("a work item in the Build stage", () => {
   it.effect("moves on to Review once Build's tests pass", () =>
@@ -31,6 +37,27 @@ describe("a work item in the Build stage", () => {
       });
       yield* workItem.reaches("review");
       expect(after.fake.steps()).toStrictEqual(["test", "fix", "test"]);
+    }),
+  );
+
+  it.effect("runs a bug's reproduction check again when restored mid-check", () =>
+    Effect.gen(function* () {
+      const before = yield* buildUnderTest.scripted({
+        testReports: [testsPassed],
+        misbehaving: { step: "checkReproduction", as: "hanging" },
+      });
+      const original = yield* startWorkItem({ stages: { build: before.stage } });
+      original.advanceTo("build", { kind: "bug" });
+      yield* before.fake.started("checkReproduction");
+      const after = yield* buildUnderTest.scripted({
+        testReports: [],
+        reproductionChecks: [reproductionPassed],
+      });
+      const workItem = yield* restoredWorkItem(throughJson(original.save()), {
+        stages: { build: after.stage },
+      });
+      yield* workItem.reaches("review");
+      expect(after.fake.steps()).toStrictEqual(["checkReproduction"]);
     }),
   );
 

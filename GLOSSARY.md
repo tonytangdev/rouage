@@ -75,7 +75,7 @@ The most times a work item may go around one loop of the lifecycle, such as Revi
 ### Evidence
 
 **Reproduction**:
-Evidence, captured before any change, that a bug exists: a check that can be run again and fails while the bug exists, such as a failing test or a script. Mandatory for every bug, and confirmed failing before the work item moves on.
+Evidence, captured before any change, that a bug exists: a check that can be run again and fails while the bug exists, such as a failing test or a script. Mandatory for every bug, confirmed failing before the work item moves on, and confirmed passing before Build finishes.
 _Avoid_: Repro case, failing example
 
 **Demo**:

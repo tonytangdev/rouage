@@ -37,9 +37,9 @@ const itGivesARetrysCommentToItsFirstStep = <
 
 /**
  * Declares the tests every port stage must pass inside the default
- * lifecycle: any of its ports giving up blocks the work item on the stage
- * with that port's reason, cancelling a work item interrupts the step any of
- * its ports is running, a retry's comment reaches its first step as feedback,
+ * lifecycle: any of its steps giving up blocks the work item on the stage
+ * with its port's reason, cancelling a work item interrupts whichever step
+ * is running, a retry's comment reaches its first step as feedback,
  * and a work item restored mid-first-step runs that step again with the same
  * task and moves on.
  */
@@ -53,30 +53,32 @@ export const describePortStageInLifecycle = <
   const { firstStep } = stage;
 
   describe(`port stage contract in the lifecycle, ${stage.name}`, () => {
-    for (const port of stage.ports) {
-      it.effect(`blocks the work item on the stage when the ${port.port} gives up`, () =>
-        Effect.gen(function* () {
-          const { stage: machine } = yield* stage.scripted(port.misbehaving("failing"));
-          const workItem = yield* startWorkItem({ stages: lifecycleWith(stage.name, machine) });
-          yield* port.reach(workItem);
-          yield* workItem.reaches("blocked");
-          expect(workItem.context().blocked).toStrictEqual({
-            from: stage.name,
-            reason: port.gaveUp,
-          });
-        }),
+    for (const step of stage.steps) {
+      it.effect(
+        `blocks the work item on the stage when the ${step.port} gives up during ${step.step}`,
+        () =>
+          Effect.gen(function* () {
+            const { stage: machine } = yield* stage.scripted(step.misbehaving("failing"));
+            const workItem = yield* startWorkItem({ stages: lifecycleWith(stage.name, machine) });
+            yield* step.reach(workItem);
+            yield* workItem.reaches("blocked");
+            expect(workItem.context().blocked).toStrictEqual({
+              from: stage.name,
+              reason: step.gaveUp,
+            });
+          }),
       );
 
-      it.effect(`interrupts the ${port.port}'s running step when the work item is cancelled`, () =>
+      it.effect(`interrupts the ${step.port}'s ${step.step} when the work item is cancelled`, () =>
         Effect.gen(function* () {
-          const scripted = yield* stage.scripted(port.misbehaving("hanging"));
+          const scripted = yield* stage.scripted(step.misbehaving("hanging"));
           const workItem = yield* startWorkItem({
             stages: lifecycleWith(stage.name, scripted.stage),
           });
-          yield* port.reach(workItem);
-          yield* port.started(scripted);
+          yield* step.reach(workItem);
+          yield* step.started(scripted);
           workItem.send({ type: "cancel", ...reviewer });
-          yield* port.interrupted(scripted);
+          yield* step.interrupted(scripted);
           expect(workItem.state()).toStrictEqual("cancelled");
         }),
       );

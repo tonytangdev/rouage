@@ -28,9 +28,10 @@ const portAdapter = <Step extends string, Script, Scripted extends ScriptedPortS
 
 /**
  * Declares the tests every port stage must pass run alone: the stage
- * contract, that every later port fails and crashes the stage as its first
- * port does, and that its first step is asked the same task as when the
- * lifecycle reaches the stage.
+ * contract, that every step after the first fails and crashes the stage as
+ * the first does, that its first step is asked the same task as when the
+ * lifecycle reaches the stage, and that its declared steps match its ports'
+ * steps and what its passing script reaches.
  */
 export const describePortStage = <
   Step extends string,
@@ -52,20 +53,38 @@ export const describePortStage = <
       }),
     );
 
-    for (const port of stage.ports.slice(1)) {
-      it.effect(`fails with the ${port.port}'s reason when the ${port.port} gives up`, () =>
+    it.effect("reaches exactly the steps it declares its passing script reaches", () =>
+      Effect.gen(function* () {
+        const { fake } = yield* stage.run(stage.passing());
+        expect(new Set(fake.calls().map((call) => call.step))).toStrictEqual(
+          new Set(stage.passingReaches),
+        );
+      }),
+    );
+
+    it.effect("declares every step of every port it calls", () =>
+      Effect.sync(() => {
+        for (const port of stage.ports) {
+          const declared = stage.steps.filter((step) => step.port === port.port);
+          expect(declared.map((step) => step.step).toSorted()).toStrictEqual(port.steps.toSorted());
+        }
+      }),
+    );
+
+    for (const step of stage.steps.slice(1)) {
+      it.effect(`fails with the ${step.port}'s reason when it gives up during ${step.step}`, () =>
         Effect.gen(function* () {
-          const { settled } = yield* stage.run(port.misbehaving("failing"), port.input);
-          expect(failureReasonOf(settled.error)).toStrictEqual(port.gaveUp);
+          const { settled } = yield* stage.run(step.misbehaving("failing"), step.input);
+          expect(failureReasonOf(settled.error)).toStrictEqual(step.gaveUp);
         }),
       );
 
-      it.effect(`counts the ${port.port} dying as a crash`, () =>
+      it.effect(`counts the ${step.port} dying during ${step.step} as a crash`, () =>
         Effect.gen(function* () {
-          const { settled } = yield* stage.run(port.misbehaving("crashing"), port.input);
+          const { settled } = yield* stage.run(step.misbehaving("crashing"), step.input);
           expect(failureReasonOf(settled.error)).toStrictEqual({
             tag: "StageCrashed",
-            message: port.crashMessage,
+            message: step.crashMessage,
           });
         }),
       );

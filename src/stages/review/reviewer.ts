@@ -17,9 +17,10 @@ export class ReviewerGaveUp extends Data.TaggedError("ReviewerGaveUp")<{
 /**
  * The port the Review stage judges a built change through: it reviews the
  * change in the work item's sandbox against its spec, plan and evidence, and
- * gives a verdict. A restart runs `review` again for the same task, so the
- * reviewer must replace whatever it stored or posted for that task rather
- * than add to it. Usually filled by an Agent plugin.
+ * gives a verdict. For a bug, Build has confirmed the reproduction passes
+ * before Review starts (ADR 0010). A restart runs `review` again for the same
+ * task, so the reviewer must replace whatever it stored or posted for that
+ * task rather than add to it. Usually filled by an Agent plugin.
  */
 export class Reviewer extends Context.Service<
   Reviewer,

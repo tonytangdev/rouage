@@ -34,4 +34,5 @@ export const reproduceUnderTest = portStageUnderTest({
   outcome: { _tag: "reproduced", reproductionRef: captured.reproductionRef },
   route: { kind: "bug" },
   firstTask: firstCapture,
+  reached: ["capture", "confirm"],
 });
