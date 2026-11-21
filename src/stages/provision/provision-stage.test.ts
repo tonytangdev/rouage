@@ -1,8 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { failureReasonOf } from "../../lifecycle/stage.ts";
-import { gaveUpMessage } from "../fake-script.ts";
 import { describePortStage } from "../port-stage-contract.ts";
 import {
   awaitingRun,
@@ -58,22 +56,6 @@ describe("provision stage", () => {
         _tag: "awaitingRun",
         sandboxRef: "box-1",
         scriptRef: "script-1",
-      });
-    }),
-  );
-
-  it.effect("fails with the sampler's reason when the sampler gives up", () =>
-    Effect.gen(function* () {
-      const { settled } = yield* provisionUnderTest.run(
-        {
-          provisioner: { results: [sandbox] },
-          sampler: { results: [], misbehaving: { step: "sample", as: "failing" } },
-        },
-        sampleRequestedInput,
-      );
-      expect(failureReasonOf(settled.error)).toStrictEqual({
-        tag: "SamplerGaveUp",
-        message: gaveUpMessage("sampler", "sample"),
       });
     }),
   );

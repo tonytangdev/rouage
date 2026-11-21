@@ -1,12 +1,12 @@
 import { Effect, Layer } from "effect";
 
-import { goldenRefs } from "../../lifecycle/golden-route.ts";
+import { goldenRefs, inputOnReaching } from "../../lifecycle/golden-route.ts";
 import type { StageInput } from "../../lifecycle/stage.ts";
 import { portStageUnderTest } from "../port-stage-under-test.ts";
 import type { FakeProvisionerScript } from "./fake-provisioner.ts";
 import { fakeProvisioner, provisionerPort } from "./fake-provisioner.ts";
 import type { FakeSamplerScript } from "./fake-sampler.ts";
-import { fakeSampler } from "./fake-sampler.ts";
+import { fakeSampler, samplerPort } from "./fake-sampler.ts";
 import { provisionStage } from "./provision-stage.ts";
 
 export const sandbox = { sandboxRef: "box-1" } as const;
@@ -31,30 +31,48 @@ export const firstSample = {
   feedback: null,
 } as const;
 
+/** The input of a Provision run Reproduce sent back for a sample. */
+export const sampleRequestedInput: StageInput = {
+  ...inputOnReaching("provision"),
+  sandboxRef: goldenRefs.sandboxRef,
+  sampleRequest: "orders over 100",
+};
+
 export interface ProvisionScript {
   readonly provisioner: FakeProvisionerScript;
   readonly sampler?: FakeSamplerScript;
 }
 
-export const provisionUnderTest = portStageUnderTest({
-  name: "provision",
-  port: provisionerPort,
-  scripted: Effect.fnUntraced(function* (script: ProvisionScript) {
-    const fake = yield* fakeProvisioner(script.provisioner);
-    const sampler = yield* fakeSampler(script.sampler ?? { results: [] });
-    const stage = yield* provisionStage.pipe(
-      Effect.provide(Layer.merge(fake.layer, sampler.layer)),
-    );
-    return { fake, sampler, stage };
-  }),
-  passing: (misbehaving) => ({ provisioner: { results: [sandbox], misbehaving } }),
-  outcome: { _tag: "provisioned", ...sandbox, sampleRef: null },
-  firstTask: firstProvision,
-});
-
-/** The input of a Provision run Reproduce sent back for a sample. */
-export const sampleRequestedInput: StageInput = {
-  ...provisionUnderTest.input,
-  sandboxRef: goldenRefs.sandboxRef,
-  sampleRequest: "orders over 100",
-};
+export const provisionUnderTest = portStageUnderTest(
+  {
+    name: "provision",
+    port: provisionerPort,
+    scripted: Effect.fnUntraced(function* (script: ProvisionScript) {
+      const fake = yield* fakeProvisioner(script.provisioner);
+      const sampler = yield* fakeSampler(script.sampler ?? { results: [] });
+      const stage = yield* provisionStage.pipe(
+        Effect.provide(Layer.merge(fake.layer, sampler.layer)),
+      );
+      return { fake, sampler, stage };
+    }),
+    passing: (misbehaving) => ({ provisioner: { results: [sandbox], misbehaving } }),
+    outcome: { _tag: "provisioned", ...sandbox, sampleRef: null },
+    firstTask: firstProvision,
+  },
+  (laterPort) => [
+    laterPort({
+      port: samplerPort,
+      fake: ({ sampler }) => sampler,
+      misbehaving: (as) => ({
+        provisioner: { results: [sandbox, sandbox] },
+        sampler: { results: [], misbehaving: { step: "sample", as } },
+      }),
+      input: sampleRequestedInput,
+      reach: Effect.fnUntraced(function* (workItem) {
+        workItem.advanceTo("provision", { kind: "bug" });
+        yield* workItem.reaches("reproduce");
+        workItem.finish("reproduce", { _tag: "needsSample", sampleRequest: "orders over 100" });
+      }),
+    }),
+  ],
+);

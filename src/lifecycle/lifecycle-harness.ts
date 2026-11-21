@@ -43,6 +43,9 @@ const drive = (workItem: WorkItem, running: Running, sandbox: FakeSandboxTeardow
   };
 };
 
+/** A test work item: a work item plus the controls that drive its stub stages. */
+export type TestWorkItem = ReturnType<typeof drive>;
+
 /** Round-trips a saved work item through JSON, as a store that keeps it as text would. */
 export const throughJson = (persisted: unknown): unknown => JSON.parse(JSON.stringify(persisted));
 
