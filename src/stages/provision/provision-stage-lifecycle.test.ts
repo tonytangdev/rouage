@@ -26,7 +26,7 @@ describe("a work item in the Provision stage", () => {
       const workItem = yield* startWorkItem({ provision: stage });
       workItem.advanceTo("provision", { kind: "feature" });
       yield* workItem.reaches("plan");
-      expect(workItem.context().facts.sandboxRef).toStrictEqual("box-1");
+      expect(workItem.context().facts.sandboxRef).toStrictEqual(sandbox.sandboxRef);
     }),
   );
 

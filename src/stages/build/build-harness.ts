@@ -1,5 +1,6 @@
 import { Effect } from "effect";
 
+import { goldenRefs } from "../../lifecycle/lifecycle-harness.ts";
 import { portStageUnderTest } from "../port-stage-under-test.ts";
 import type { BuildOptions } from "./build-stage.ts";
 import { buildStage } from "./build-stage.ts";
@@ -10,7 +11,11 @@ export const testsPassed = { _tag: "passed" } as const;
 export const testsFailed = { _tag: "failed", failures: "1 test failed: totals add VAT" } as const;
 
 /** What the builder is asked to implement on a feature's first build. */
-export const firstImplement = { workItemId: "wi-1", planRef: "plan-1", feedback: null } as const;
+export const firstImplement = {
+  workItemId: goldenRefs.workItemId,
+  planRef: goldenRefs.planRef,
+  feedback: null,
+} as const;
 
 /** The builder's script, with the Build options the stage is made with. */
 export type BuildScript = FakeBuilderScript & BuildOptions;

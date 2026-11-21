@@ -1,5 +1,6 @@
 import { Effect } from "effect";
 
+import { goldenRefs } from "../../lifecycle/lifecycle-harness.ts";
 import { portStageUnderTest } from "../port-stage-under-test.ts";
 import type { FakeReproducerScript } from "./fake-reproducer.ts";
 import { fakeReproducer, reproducerPort } from "./fake-reproducer.ts";
@@ -11,10 +12,10 @@ export const checkPassed = { _tag: "passed", output: "1 test passed: totals add 
 
 /** What the reproducer is asked on a bug's first capture. */
 export const firstCapture = {
-  workItemId: "wi-1",
-  issueRef: "#1",
-  specRef: "spec-1",
-  sandboxRef: "box-1",
+  workItemId: goldenRefs.workItemId,
+  issueRef: goldenRefs.issueRef,
+  specRef: goldenRefs.specRef,
+  sandboxRef: goldenRefs.sandboxRef,
   sampleRef: null,
   sampleRequest: null,
   previousReproductionRef: null,
@@ -22,9 +23,9 @@ export const firstCapture = {
 
 /** What the reproducer is asked to confirm after the first capture. */
 export const firstConfirm = {
-  workItemId: "wi-1",
-  sandboxRef: "box-1",
-  reproductionRef: "repro-1",
+  workItemId: goldenRefs.workItemId,
+  sandboxRef: goldenRefs.sandboxRef,
+  reproductionRef: captured.reproductionRef,
 } as const;
 
 export const reproduceUnderTest = portStageUnderTest({
@@ -35,7 +36,7 @@ export const reproduceUnderTest = portStageUnderTest({
     return { fake, stage: yield* reproduceStage.pipe(Effect.provide(fake.layer)) };
   }),
   passing: (misbehaving) => ({ captures: [captured], confirmations: [checkFailed], misbehaving }),
-  outcome: { _tag: "reproduced", reproductionRef: "repro-1" },
+  outcome: { _tag: "reproduced", reproductionRef: captured.reproductionRef },
   route: { kind: "bug" },
   next: "plan",
   firstTask: firstCapture,

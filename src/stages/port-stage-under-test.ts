@@ -1,15 +1,15 @@
-import { Effect } from "effect";
+import { Effect, Function } from "effect";
 import type { Scope } from "effect";
-import type { AnyStateMachine } from "xstate";
-import { createActor } from "xstate";
+import type { Actor, AnyActorLogic, AnyStateMachine, OutputFrom } from "xstate";
+import { createActor, toPromise } from "xstate";
 
 import type { Route, Waypoint } from "../lifecycle/lifecycle-harness.ts";
 import { inputOnReaching } from "../lifecycle/lifecycle-harness.ts";
 import type { Settled } from "../lifecycle/stage-contract.ts";
-import type { StageInput, StageName } from "../lifecycle/stage.ts";
+import type { FailureReason, StageInput, StageName } from "../lifecycle/stage.ts";
 import type { Fake, FakePort, Misbehaving } from "./fake-script.ts";
+import { crashMessage, gaveUpMessage } from "./fake-script.ts";
 import type { PortGaveUp } from "./port-stage.ts";
-import { runAlone } from "./stage-harness.ts";
 
 /** A port stage built with a fresh fake for the port the stage runs first, plus any other fakes it needs. */
 export interface ScriptedPortStage<Step extends string> {
@@ -46,12 +46,34 @@ export interface PortStageUnderTest<
 > extends PortStageDeclaration<Step, Script, Scripted> {
   /** The input the stage receives when the work item first reaches it along `route`. */
   readonly input: StageInput;
+  /** The step the stage asks its port first, which the contract suites make misbehave. */
+  readonly firstStep: Step;
+  /** The reason the stage fails with when its port gives up during `firstStep`. */
+  readonly gaveUp: FailureReason;
+  /** The message the stage crashes with when its port dies during `firstStep`. */
+  readonly crashMessage: string;
   /** Runs the stage outside any lifecycle until it finishes or fails, starting from `input` unless given another. */
   readonly run: (
     script: Script,
     input?: StageInput,
   ) => Effect.Effect<Scripted & { readonly settled: Settled<unknown> }, unknown, Scope.Scope>;
 }
+
+/** Starts a stage actor outside any lifecycle and waits until it finishes or fails; the actor stops when the test's scope closes. */
+const runAlone = Effect.fnUntraced(function* <Logic extends AnyActorLogic>(actor: Actor<Logic>) {
+  // A root actor's error with no error observer is reported to the host as unhandled.
+  actor.subscribe({ error: Function.constVoid });
+  yield* Effect.acquireRelease(
+    Effect.sync(() => actor.start()),
+    (running) => Effect.sync(() => running.stop()),
+  );
+  return yield* Effect.promise((): Promise<Settled<OutputFrom<Actor<Logic>>>> =>
+    toPromise(actor).then(
+      (output) => ({ output, error: undefined }),
+      (error: unknown) => ({ output: undefined, error }),
+    ),
+  );
+});
 
 /** Completes a stage folder's declaration with the input its stage is reached with and a runner from that input. */
 export const portStageUnderTest = <
@@ -62,9 +84,15 @@ export const portStageUnderTest = <
   declaration: PortStageDeclaration<Step, Script, Scripted>,
 ): PortStageUnderTest<Step, Script, Scripted> => {
   const input = inputOnReaching(declaration.name, declaration.route);
+  const { port } = declaration;
+  const [firstStep] = port.steps;
+  const gaveUp = port.gaveUp(gaveUpMessage(port.port, firstStep));
   return {
     ...declaration,
     input,
+    firstStep,
+    gaveUp: { tag: gaveUp._tag, message: gaveUp.message },
+    crashMessage: crashMessage(port.port, firstStep),
     run: Effect.fnUntraced(function* (script: Script, from: StageInput = input) {
       const scripted = yield* declaration.scripted(script);
       const settled = yield* runAlone(createActor(scripted.stage, { input: from }));

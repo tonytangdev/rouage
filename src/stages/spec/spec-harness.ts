@@ -1,5 +1,6 @@
 import { Effect } from "effect";
 
+import { goldenRefs } from "../../lifecycle/lifecycle-harness.ts";
 import { portStageUnderTest } from "../port-stage-under-test.ts";
 import type { FakeSpecWriterScript } from "./fake-spec-writer.ts";
 import { fakeSpecWriter, specWriterPort } from "./fake-spec-writer.ts";
@@ -13,8 +14,8 @@ export const unclearIssue = {
 
 /** What the writer is asked on a classified bug's first write. */
 export const firstWrite = {
-  workItemId: "wi-1",
-  issueRef: "#1",
+  workItemId: goldenRefs.workItemId,
+  issueRef: goldenRefs.issueRef,
   kind: "bug",
   feedback: null,
   previousSpecRef: null,
@@ -28,7 +29,7 @@ export const specUnderTest = portStageUnderTest({
     return { fake, stage: yield* specStage.pipe(Effect.provide(fake.layer)) };
   }),
   passing: (misbehaving) => ({ results: [writtenSpec], misbehaving }),
-  outcome: { _tag: "written", specRef: "spec-1" },
+  outcome: writtenSpec,
   route: { kind: "bug" },
   next: "specGate",
   firstTask: firstWrite,

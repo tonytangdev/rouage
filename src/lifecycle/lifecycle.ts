@@ -1,4 +1,5 @@
 import { blockedOn, stageErrored } from "./blocked.ts";
+import { stageFinished } from "./facts.ts";
 import { lifecycleSetup } from "./lifecycle-setup.ts";
 import { goneAround, loopExhausted, loopLimitReached, noLoopsYet } from "./loops.ts";
 import { noFactsYet, stageInput } from "./stage.ts";
@@ -49,7 +50,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             input: stageInput,
             onDone: ({ context, event: { output } }) => ({
               target: "spec",
-              context: learned(context, { kind: output.kind }),
+              context: stageFinished(context, "intake", output),
             }),
           },
         },
@@ -60,7 +61,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             input: stageInput,
             onDone: ({ context, event: { output } }) => ({
               target: "specGate",
-              context: learned(context, { feedback: null, specRef: output.specRef }),
+              context: stageFinished(context, "spec", output),
             }),
           },
         },
@@ -82,10 +83,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             src: "provision",
             input: stageInput,
             onDone: ({ context, event: { output } }) => {
-              const prepared = learned(context, {
-                sandboxRef: output.sandboxRef,
-                sampleRef: output.sampleRef,
-              });
+              const prepared = stageFinished(context, "provision", output);
               return context.facts.kind === "bug"
                 ? { target: "reproduce", context: prepared }
                 : { target: "plan", context: prepared };
@@ -101,7 +99,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
               if (output._tag === "reproduced") {
                 return {
                   target: "plan",
-                  context: learned(context, { reproductionRef: output.reproductionRef }),
+                  context: stageFinished(context, "reproduce", output),
                 };
               }
               if (output._tag === "cannotReproduce") {
@@ -119,7 +117,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
               return {
                 target: "provision",
                 context: {
-                  ...learned(context, { sampleRequest: output.sampleRequest }),
+                  ...stageFinished(context, "reproduce", output),
                   ...goneAround(context, "reproduce"),
                 },
               };
@@ -133,7 +131,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             input: stageInput,
             onDone: ({ context, event: { output } }) => ({
               target: "build",
-              context: learned(context, { planRef: output.planRef, demoPlanned: output.demo }),
+              context: stageFinished(context, "plan", output),
             }),
           },
         },
@@ -142,10 +140,12 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             id: "build",
             src: "build",
             input: stageInput,
-            onDone: ({ context }) =>
-              context.facts.demoPlanned === true
-                ? { target: "demo", context: learned(context, { feedback: null }) }
-                : { target: "review", context: learned(context, { feedback: null }) },
+            onDone: ({ context, event: { output } }) => {
+              const built = stageFinished(context, "build", output);
+              return context.facts.demoPlanned === true
+                ? { target: "demo", context: built }
+                : { target: "review", context: built };
+            },
           },
         },
         demo: {
@@ -155,7 +155,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             input: stageInput,
             onDone: ({ context, event: { output } }) => ({
               target: "review",
-              context: learned(context, { demoRef: output.demoRef }),
+              context: stageFinished(context, "demo", output),
             }),
           },
         },
@@ -166,7 +166,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             input: stageInput,
             onDone: ({ context, event: { output } }) => {
               if (output._tag === "approved") {
-                return { target: "shipGate" };
+                return { target: "shipGate", context: stageFinished(context, "review", output) };
               }
               if (loopExhausted(context, "review")) {
                 return { target: "#blocked", context: loopLimitReached(context, "review") };
@@ -174,7 +174,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
               return {
                 target: "build",
                 context: {
-                  ...learned(context, { feedback: output.feedback }),
+                  ...stageFinished(context, "review", output),
                   ...goneAround(context, "review"),
                 },
               };

@@ -20,6 +20,18 @@ describe("lifecycle", () => {
     }),
   );
 
+  it.effect(
+    "gives a comment sent back from Blocked to an unclassified work item to Intake only",
+    () =>
+      Effect.gen(function* () {
+        const workItem = yield* startWorkItem();
+        workItem.fail("intake", { tag: "ClassifierGaveUp", message: "unclear issue" });
+        workItem.send({ type: "backToSpec", ...reviewer, comment: "It is a feature" });
+        workItem.finish("intake", { _tag: "classified", kind: "feature" });
+        expect(workItem.stageInput("spec")).toStrictEqual(inputAfter("intake"));
+      }),
+  );
+
   it.effect("waits at the spec gate until a human approves, and records the decision", () =>
     Effect.gen(function* () {
       const workItem = yield* startAt("specGate", { kind: "bug" });

@@ -31,7 +31,7 @@ export const failureReasonOf = (error: unknown): FailureReason => {
 export interface StageFacts {
   readonly issueRef: string;
   readonly kind: Kind | null;
-  /** A human's comment for the stage the work item returns to, set by a rejection or a return from Blocked. */
+  /** A comment for the next stage to finish, set by a rejection, a return from Blocked or Review's requested changes, and cleared when any stage finishes. */
   readonly feedback: string | null;
   /** The reference to the latest written spec, opaque to Rouage; only the next written spec replaces it (ADR 0004). */
   readonly specRef: string | null;

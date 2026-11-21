@@ -7,7 +7,9 @@ import type { StageName } from "./stage.ts";
 import type { HumanDecision, WorkItemContext, WorkItemInput } from "./work-item.ts";
 
 // XState needs each stage slot as its own key, and the compiler only checks
-// those keys against `StageName` through `satisfies`.
+// those keys against `StageName` through `satisfies`. Written out rather than
+// built from `StageName`, because an object built at runtime widens to one
+// union value type, and only an assertion would restore each key's own type.
 const stages = {
   intake: stageSlot("intake"),
   spec: stageSlot("spec"),

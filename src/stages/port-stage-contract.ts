@@ -4,7 +4,6 @@ import { Effect } from "effect";
 import type { StageAdapter } from "../lifecycle/stage-contract.ts";
 import { describeStageContract } from "../lifecycle/stage-contract.ts";
 import type { Misbehaving } from "./fake-script.ts";
-import { crashMessage, gaveUpMessage } from "./fake-script.ts";
 import type { PortStageUnderTest, ScriptedPortStage } from "./port-stage-under-test.ts";
 
 // A stage that runs its steps through a port fails and crashes the way its
@@ -12,8 +11,7 @@ import type { PortStageUnderTest, ScriptedPortStage } from "./port-stage-under-t
 const portAdapter = <Step extends string, Script, Scripted extends ScriptedPortStage<Step>>(
   stage: PortStageUnderTest<Step, Script, Scripted>,
 ): StageAdapter => {
-  const [firstStep] = stage.port.steps;
-  const gaveUp = stage.port.gaveUp(gaveUpMessage(stage.port.port, firstStep));
+  const { firstStep } = stage;
   const settled = (misbehaving?: Misbehaving<Step>) =>
     Effect.map(stage.run(stage.passing(misbehaving)), (run) => run.settled);
   return {
@@ -21,9 +19,9 @@ const portAdapter = <Step extends string, Script, Scripted extends ScriptedPortS
     finished: settled(),
     outcome: stage.outcome,
     failed: settled({ step: firstStep, as: "failing" }),
-    failure: { tag: gaveUp._tag, message: gaveUp.message },
+    failure: stage.gaveUp,
     crashed: settled({ step: firstStep, as: "crashing" }),
-    crashMessage: crashMessage(stage.port.port, firstStep),
+    crashMessage: stage.crashMessage,
   };
 };
 
@@ -46,7 +44,7 @@ export const describePortStage = <
       Effect.gen(function* () {
         const { fake } = yield* stage.run(stage.passing());
         expect(fake.calls()[0]).toStrictEqual({
-          step: stage.port.steps[0],
+          step: stage.firstStep,
           task: stage.firstTask,
         });
       }),
