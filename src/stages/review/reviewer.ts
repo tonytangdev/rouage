@@ -6,7 +6,7 @@ import type { OutcomeOf } from "../../lifecycle/stage.ts";
 import type { DemonstratedChange } from "../built-change.ts";
 
 export interface ReviewTask extends DemonstratedChange {
-  /** What the change was last sent back to Build to address, for the reviewer to check it was; `null` on a first review (ADR 0012). */
+  /** What the change was last sent back to Build to address, for the reviewer to check it was; `null` until the change is first sent back, and again after a return to Spec (ADR 0012). */
   readonly changeRequest: ChangeRequest | null;
 }
 

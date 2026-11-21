@@ -76,21 +76,25 @@ export const rejected = (context: WorkItemContext, gate: Gate, decision: HumanDe
 });
 
 /** The context change for a ship gate rejection: a gate rejection that also makes the comment, or its absence, the change request Review checks next (ADR 0012). */
-export const shipRejected = (context: WorkItemContext, decision: HumanDecision) => ({
-  ...learned(context, {
-    feedback: decision.comment ?? null,
-    ...requestedAtShipGate(decision.comment ?? null),
-  }),
-  decisions: recordDecision(context, "reject", "shipGate", decision),
+export const shipRejected = (context: WorkItemContext, decision: HumanDecision) => {
+  const gateRejected = rejected(context, "shipGate", decision);
+  return {
+    ...gateRejected,
+    facts: { ...gateRejected.facts, ...requestedAtShipGate(decision.comment ?? null) },
+  };
+};
+
+// A new spec leads to a new plan and a new change, so neither the human's demo
+// choice nor an earlier change request carries over (ADR 0011, ADR 0012).
+const returnedToSpec = (decision: HumanDecision) => ({
+  feedback: decision.comment ?? null,
+  ...demoOnReturnToSpec,
+  ...changeRequestOnReturnToSpec,
 });
 
 /** The context change for a spec gate rejection: a gate rejection that also returns the demo decision to the new spec's plan and drops the change request. */
 export const specRejected = (context: WorkItemContext, decision: HumanDecision) => ({
-  ...learned(context, {
-    feedback: decision.comment ?? null,
-    ...demoOnReturnToSpec,
-    ...changeRequestOnReturnToSpec,
-  }),
+  ...learned(context, returnedToSpec(decision)),
   decisions: recordDecision(context, "reject", "specGate", decision),
 });
 
@@ -115,11 +119,7 @@ export const retried = (context: WorkItemContext, decision: HumanDecision) => ({
  */
 export const sentBack = (context: WorkItemContext, decision: HumanDecision) => ({
   ...unblocked,
-  ...learned(context, {
-    feedback: decision.comment ?? null,
-    ...demoOnReturnToSpec,
-    ...changeRequestOnReturnToSpec,
-  }),
+  ...learned(context, returnedToSpec(decision)),
   decisions: recordDecision(context, "backToSpec", "blocked", decision),
 });
 
