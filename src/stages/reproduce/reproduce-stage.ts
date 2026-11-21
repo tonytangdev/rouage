@@ -8,7 +8,7 @@ import { portStage } from "../port-stage.ts";
 import { briefOf } from "../run-brief.ts";
 import { sandboxMissing } from "../sandbox-missing.ts";
 import type { CaptureTask, ConfirmTask } from "./reproducer.ts";
-import { Reproducer } from "./reproducer.ts";
+import { CaptureTaskSchema, ConfirmTaskSchema, Reproducer } from "./reproducer.ts";
 
 interface Sandboxed {
   readonly sandboxRef: string;
@@ -47,8 +47,8 @@ const reproduceSetup = (step: PortStep<Reproducer["Service"]>) =>
       output: types<OutcomeOf<"reproduce">>(),
     },
     actors: {
-      capture: step(capture),
-      confirm: step(confirm),
+      capture: step(CaptureTaskSchema, capture),
+      confirm: step(ConfirmTaskSchema, confirm),
     },
     states: {
       checkingSandbox: { type: "choice" },

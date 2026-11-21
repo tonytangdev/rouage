@@ -2,7 +2,7 @@ import type { StageInput } from "../../lifecycle/stage.ts";
 import { briefOf } from "../run-brief.ts";
 import { singleStepStage } from "../single-step-stage.ts";
 import type { PlanTask } from "./planner.ts";
-import { Planner } from "./planner.ts";
+import { PlanTaskSchema, Planner } from "./planner.ts";
 
 const planTask = (input: StageInput): PlanTask => ({
   ...briefOf(input),
@@ -24,6 +24,7 @@ const planTask = (input: StageInput): PlanTask => ({
 export const planStage = singleStepStage(Planner, {
   stage: "plan",
   task: planTask,
+  taskSchema: PlanTaskSchema,
   ask: (planner, task: PlanTask) => planner.plan(task),
   outcome: ({ planRef, demo }) => ({ _tag: "planned", planRef, demo }),
 });

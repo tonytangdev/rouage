@@ -1,15 +1,17 @@
 import type { Effect } from "effect";
-import { Context, Data } from "effect";
+import { Context, Data, Schema } from "effect";
 
-import type { Kind } from "../../lifecycle/kind.ts";
-import type { RunBrief } from "../run-brief.ts";
+import { KindSchema } from "../../lifecycle/kind.ts";
+import { RunBriefSchema } from "../run-brief.ts";
 
-export interface WriteTask extends RunBrief {
-  readonly issueRef: string;
-  readonly kind: Kind;
-  /** The reference to the spec written before, for the writer to revise; `null` on the first write. */
-  readonly previousSpecRef: string | null;
-}
+export const WriteTaskSchema = Schema.Struct({
+  ...RunBriefSchema.fields,
+  issueRef: Schema.String,
+  kind: KindSchema,
+  /** The reference to the spec written before, for the writer to revise; null on the first write. */
+  previousSpecRef: Schema.NullOr(Schema.String),
+});
+export type WriteTask = typeof WriteTaskSchema.Type;
 
 /** The writer's answer: a reference to the spec it stored, or `unclear` when the issue does not say what should happen. */
 export type Written =

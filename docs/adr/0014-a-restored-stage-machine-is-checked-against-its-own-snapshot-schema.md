@@ -8,11 +8,11 @@ For the check to mean anything a stage machine must declare its context as a run
 
 ## Considered Options
 
-- **Pin each stage's saved shape next to the lifecycle's (ADR 0002).** Rejected for now: Rouage's stage machines are built from their ports, so pinning them needs a port behind each, and a provided stage is not Rouage's to pin. The restore check covers every stage machine, provided or not.
+- **Pin each stage's saved shape next to the lifecycle's (ADR 0002) instead.** Rejected as a replacement: a provided stage is not Rouage's to pin, and the restore check covers every stage machine, provided or not. Rouage's own stage machines are now pinned as well, built on their fake ports (ADR 0016).
 - **Check only the stage input held in the stage's context.** Rejected: a stage keeps more than its input, such as Build's fix attempts, and the stage machine's own schema already describes all of it.
 
 ## Consequences
 
 - A stage machine that keeps its context in a TypeScript type only is restored unchecked; a provided stage machine declares a context Schema to be checked.
-- A port step running inside a stage restores with the task it was saved with, which the check does not cover beyond the stage machine's own children being sources it still has (#44).
-- A change to a Rouage stage machine's context is caught when a saved work item is restored, not by `pnpm check` (#43).
+- A port step running inside a stage restores with the task it was saved with, which is checked against the task's Schema (ADR 0016).
+- A change to a Rouage stage machine's context is caught by `pnpm check` too, through the pin of its saved shape (ADR 0016).

@@ -1,9 +1,10 @@
 import type { Effect } from "effect";
 import { Context, Data } from "effect";
 
-import type { DemonstratedChange } from "../built-change.ts";
+import { DemonstratedChangeSchema } from "../built-change.ts";
 
-export type ShipTask = DemonstratedChange;
+export const ShipTaskSchema = DemonstratedChangeSchema;
+export type ShipTask = typeof ShipTaskSchema.Type;
 
 /**
  * The shipper's answer: the change was delivered, with where, such as a pull

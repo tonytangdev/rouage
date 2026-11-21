@@ -9,6 +9,7 @@ import {
   startWorkItem,
   throughJson,
   withStageContext,
+  withStepTask,
 } from "../lifecycle/lifecycle-harness.ts";
 import type { StageName } from "../lifecycle/stage.ts";
 import type { PortStageUnderTest, ScriptedPortStage } from "./port-stage-under-test.ts";
@@ -81,6 +82,20 @@ const itRestoresMidFirstStep = <
       expect(after.fake.calls()).toStrictEqual([]);
     }),
   );
+
+  it.effect("refuses a work item saved mid-step whose task no longer fits", () =>
+    Effect.gen(function* () {
+      const saved = yield* savedMidFirstStep();
+      const after = yield* stage.scripted(stage.passing());
+      const persisted = withStepTask(saved, stage.name, { workItemId: 1 });
+      const error = yield* Effect.flip(
+        restoredWorkItem(persisted, { stages: lifecycleWith(stage.name, after.stage) }),
+      );
+      expect(error._tag).toStrictEqual("UnreadableSnapshot");
+      expect(error.message).toContain(`The task of the saved ${stage.name} stage's`);
+      expect(after.fake.calls()).toStrictEqual([]);
+    }),
+  );
 };
 
 /**
@@ -89,8 +104,8 @@ const itRestoresMidFirstStep = <
  * with its port's reason, cancelling a work item interrupts whichever step
  * is running, a retry's comment reaches its first step as feedback,
  * a work item restored mid-first-step runs that step again with the same
- * task and moves on, and one whose saved stage context no longer fits the
- * stage machine is refused before any step runs.
+ * task and moves on, and one whose saved stage context, or the saved task of
+ * its running step, no longer fits is refused before any step runs.
  */
 export const describePortStageInLifecycle = <
   Step extends string,

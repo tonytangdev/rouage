@@ -51,14 +51,31 @@ export type TestWorkItem = ReturnType<typeof drive>;
 
 const objectIn = Schema.decodeUnknownSync(SavedWorkItemSchema);
 
-/** `persisted` with the saved context of its running `stage` replaced by `context`, as a stage machine whose context has changed since would find it; throws if `stage` is not running in it. */
-export const withStageContext = (persisted: unknown, stage: StageName, context: unknown) => {
+const withStageSnapshot = (
+  persisted: unknown,
+  stage: StageName,
+  change: (snapshot: Readonly<Record<string, unknown>>) => Readonly<Record<string, unknown>>,
+) => {
   const saved = objectIn(persisted);
   const children = objectIn(saved["children"]);
   const entry = objectIn(children[stage]);
-  const snapshot = { ...objectIn(entry["snapshot"]), context };
+  const snapshot = change(objectIn(entry["snapshot"]));
   return { ...saved, children: { ...children, [stage]: { ...entry, snapshot } } };
 };
+
+/** `persisted` with the saved context of its running `stage` replaced by `context`, as a stage machine whose context has changed since would find it; throws if `stage` is not running in it. */
+export const withStageContext = (persisted: unknown, stage: StageName, context: unknown) =>
+  withStageSnapshot(persisted, stage, (snapshot) => ({ ...snapshot, context }));
+
+/** `persisted` with the saved task of each step running in its `stage` replaced by `task`, as a port whose task has changed since would find it; throws if `stage` is not running in it. */
+export const withStepTask = (persisted: unknown, stage: StageName, task: unknown) =>
+  withStageSnapshot(persisted, stage, (snapshot) => {
+    const steps = Object.entries(objectIn(snapshot["children"])).map(([id, step]) => {
+      const entry = objectIn(step);
+      return [id, { ...entry, snapshot: { ...objectIn(entry["snapshot"]), input: task } }];
+    });
+    return { ...snapshot, children: Object.fromEntries(steps) };
+  });
 
 /** Round-trips a saved work item through JSON, as a store that keeps it as text would. */
 export const throughJson = (persisted: unknown): unknown => JSON.parse(JSON.stringify(persisted));

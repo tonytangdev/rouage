@@ -1,7 +1,7 @@
 import { builtChangeTask } from "../built-change.ts";
 import { singleStepStage } from "../single-step-stage.ts";
 import type { DemoTask } from "./demonstrator.ts";
-import { Demonstrator } from "./demonstrator.ts";
+import { DemoTaskSchema, Demonstrator } from "./demonstrator.ts";
 
 /**
  * The Demo stage machine: makes a demo of the built change with the
@@ -12,6 +12,7 @@ import { Demonstrator } from "./demonstrator.ts";
 export const demoStage = singleStepStage(Demonstrator, {
   stage: "demo",
   task: (input) => builtChangeTask("Demo", input, { previousDemoRef: input.demoRef }),
+  taskSchema: DemoTaskSchema,
   ask: (demonstrator, task: DemoTask) => demonstrator.demonstrate(task),
   outcome: ({ demoRef }) => ({ _tag: "demonstrated", demoRef }),
 });

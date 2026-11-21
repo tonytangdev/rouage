@@ -1,17 +1,19 @@
 import type { Effect } from "effect";
 import { Context, Data, Schema } from "effect";
 
-import type { ChangeRequest } from "../../lifecycle/change-request.ts";
-import type { RunBrief } from "../run-brief.ts";
+import { ChangeRequestSchema } from "../../lifecycle/change-request.ts";
+import { RunBriefSchema } from "../run-brief.ts";
 
-export interface BuildTask extends RunBrief {
-  /** The plan to follow, or `null` when the lifecycle runs no Plan before Build. */
-  readonly planRef: string | null;
-  /** The bug's reproduction, confirmed failing before the change; `null` for a feature. */
-  readonly reproductionRef: string | null;
-  /** What the change was last sent back to address, which outlives this run's feedback (ADR 0012); `null` until the change is first sent back, and again after a return to Spec. When it comes `from: "ship"`, the builder brings the change up to date with its target first (ADR 0013). */
-  readonly changeRequest: ChangeRequest | null;
-}
+export const BuildTaskSchema = Schema.Struct({
+  ...RunBriefSchema.fields,
+  /** The plan to follow, or null when the lifecycle runs no Plan before Build. */
+  planRef: Schema.NullOr(Schema.String),
+  /** The bug's reproduction, confirmed failing before the change; null for a feature. */
+  reproductionRef: Schema.NullOr(Schema.String),
+  /** What the change was last sent back to address, which outlives this run's feedback (ADR 0012); null until the change is first sent back, and again after a return to Spec. When it comes `from: "ship"`, the builder brings the change up to date with its target first (ADR 0013). */
+  changeRequest: Schema.NullOr(ChangeRequestSchema),
+});
+export type BuildTask = typeof BuildTaskSchema.Type;
 
 /** A bug's reproduction to run in the sandbox holding the change. */
 export const ReproductionCheckTaskSchema = Schema.Struct({
@@ -21,10 +23,8 @@ export const ReproductionCheckTaskSchema = Schema.Struct({
 });
 export type ReproductionCheckTask = typeof ReproductionCheckTaskSchema.Type;
 
-export interface FixTask {
-  readonly workItemId: string;
-  readonly failures: string;
-}
+export const FixTaskSchema = Schema.Struct({ workItemId: Schema.String, failures: Schema.String });
+export type FixTask = typeof FixTaskSchema.Type;
 
 export type TestReport =
   | { readonly _tag: "passed" }

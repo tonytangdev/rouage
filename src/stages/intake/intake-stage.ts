@@ -3,7 +3,7 @@ import { StageFailure } from "../../lifecycle/stage.ts";
 import { briefOf } from "../run-brief.ts";
 import { singleStepStage } from "../single-step-stage.ts";
 import type { Classification, ClassifyTask } from "./classifier.ts";
-import { Classifier } from "./classifier.ts";
+import { Classifier, ClassifyTaskSchema } from "./classifier.ts";
 
 const classifyTask = (input: StageInput): ClassifyTask => ({
   ...briefOf(input),
@@ -23,6 +23,7 @@ const classified = (classification: Classification): OutcomeOf<"intake"> | Stage
 export const intakeStage = singleStepStage(Classifier, {
   stage: "intake",
   task: classifyTask,
+  taskSchema: ClassifyTaskSchema,
   ask: (classifier, task: ClassifyTask) => classifier.classify(task),
   outcome: classified,
 });

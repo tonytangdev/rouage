@@ -20,7 +20,7 @@ _Avoid_: Schema version, release
 
 **Work item**:
 One unit of software work travelling through the lifecycle, usually originating from an issue.
-_Avoid_: Ticket, task, job
+_Avoid_: Ticket, job
 
 **Bug**:
 A work item kind: existing behaviour is wrong and must be reproduced before it is fixed.
@@ -99,6 +99,10 @@ _Avoid_: App, integration, extension
 **Port**:
 The interface a stage machine, or the lifecycle itself, runs its steps through, named for the job it asks for, such as Builder or Classifier. A plugin fills a port, and one plugin may fill several. A port that cannot carry out a step gives up, and the stage fails with the port's reason.
 _Avoid_: Service
+
+**Task**:
+What a stage asks a port to do in one step, as plain data; a work item has many over its lifecycle. A step that was running when its work item was saved runs again with the same task when the work item is restored.
+_Avoid_: Job, request, command
 
 **Agent**:
 A plugin kind that does work using AI, such as Claude Code.
