@@ -1,14 +1,14 @@
 import type { FakePort, Misbehaving } from "../fake-script.ts";
-import { fakePort } from "../fake-script.ts";
+import { everyStep, fakePort } from "../fake-script.ts";
 import type { ReproductionCheck, TestReport } from "./builder.ts";
 import { Builder, BuilderGaveUp } from "./builder.ts";
 
-export type BuildStep = "implement" | "test" | "fix" | "checkReproduction";
+export type BuildStep = keyof Builder["Service"];
 
 /** The builder as its fake and the stage contract suite know it. */
 export const builderPort: FakePort<BuildStep, BuilderGaveUp> = {
   port: "builder",
-  steps: ["implement", "test", "fix", "checkReproduction"],
+  steps: everyStep<BuildStep>()(["implement", "test", "fix", "checkReproduction"]),
   gaveUp: (message) => new BuilderGaveUp({ message }),
 };
 

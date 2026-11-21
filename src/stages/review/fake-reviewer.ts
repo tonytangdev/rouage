@@ -1,14 +1,14 @@
 import type { FakePort, Misbehaving } from "../fake-script.ts";
-import { fakePort } from "../fake-script.ts";
+import { everyStep, fakePort } from "../fake-script.ts";
 import type { Verdict } from "./reviewer.ts";
 import { Reviewer, ReviewerGaveUp } from "./reviewer.ts";
 
-export type ReviewStep = "review";
+export type ReviewStep = keyof Reviewer["Service"];
 
 /** The reviewer as its fake and the stage contract suite know it. */
 export const reviewerPort: FakePort<ReviewStep, ReviewerGaveUp> = {
   port: "reviewer",
-  steps: ["review"],
+  steps: everyStep<ReviewStep>()(["review"]),
   gaveUp: (message) => new ReviewerGaveUp({ message }),
 };
 

@@ -1,14 +1,14 @@
 import type { FakePort, Misbehaving } from "../fake-script.ts";
-import { fakePort } from "../fake-script.ts";
+import { everyStep, fakePort } from "../fake-script.ts";
 import type { Planned } from "./planner.ts";
 import { Planner, PlannerGaveUp } from "./planner.ts";
 
-export type PlanStep = "plan";
+export type PlanStep = keyof Planner["Service"];
 
 /** The planner as its fake and the stage contract suite know it. */
 export const plannerPort: FakePort<PlanStep, PlannerGaveUp> = {
   port: "planner",
-  steps: ["plan"],
+  steps: everyStep<PlanStep>()(["plan"]),
   gaveUp: (message) => new PlannerGaveUp({ message }),
 };
 
