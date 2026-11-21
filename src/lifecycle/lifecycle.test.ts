@@ -426,6 +426,7 @@ describe("lifecycle", () => {
           reproductionRef: "repro-1",
           planRef: "plan-1",
           demoPlanned: false,
+          demoOutdated: true,
         }),
       );
     }),

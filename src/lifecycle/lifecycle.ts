@@ -4,7 +4,7 @@ import { reproduceBlocked, stageErrored } from "./blocked.ts";
 import { soleOutcomeFinished, stageFinished } from "./facts.ts";
 import { lifecycleSetup } from "./lifecycle-setup.ts";
 import { loopExhausted, loopLimitReached, noLoopsYet, wentAround } from "./loops.ts";
-import { demoCalledFor, noFactsYet, stageInput } from "./stage.ts";
+import { demoCalledFor, demoStageInput, noFactsYet, stageInput } from "./stage.ts";
 import { innermostState } from "./state-value.ts";
 import {
   approved,
@@ -12,6 +12,7 @@ import {
   demoSkipped,
   recordDecision,
   rejected,
+  specRejected,
   retried,
   sentBack,
 } from "./work-item.ts";
@@ -89,7 +90,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             }),
             reject: ({ context, event }) => ({
               target: "spec",
-              context: rejected(context, "specGate", event),
+              context: specRejected(context, event),
             }),
           },
         },
@@ -189,7 +190,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           invoke: {
             id: "demo",
             src: "demo",
-            input: stageInput,
+            input: demoStageInput,
             onDone: ({ context, event: { output } }) => ({
               target: "review",
               context: soleOutcomeFinished(context, "demo", output),

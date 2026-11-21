@@ -109,8 +109,11 @@ const goldenPath = (route: Route): { readonly [Stage in StageName]: GoldenStep<S
     },
     reproduce: { outcome: { _tag: "reproduced", reproductionRef }, teaches: { reproductionRef } },
     plan: { outcome: { _tag: "planned", planRef, demo }, teaches: { planRef, demoPlanned: demo } },
-    build: { outcome: { _tag: "built" }, teaches: {} },
-    demo: { outcome: { _tag: "demonstrated", demoRef }, teaches: { demoRef } },
+    build: { outcome: { _tag: "built" }, teaches: { demoOutdated: true } },
+    demo: {
+      outcome: { _tag: "demonstrated", demoRef },
+      teaches: { demoRef, demoOutdated: false },
+    },
     review: { outcome: { _tag: "approved" }, teaches: {} },
     ship: { outcome: { _tag: "shipped", deliveryRef }, teaches: { deliveryRef } },
   };

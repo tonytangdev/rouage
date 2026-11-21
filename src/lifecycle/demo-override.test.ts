@@ -135,4 +135,37 @@ describe("demo override", () => {
       expect(workItem.state()).toStrictEqual("demo");
     }),
   );
+
+  it.effect("shows Ship no demo made before the latest build", () =>
+    Effect.gen(function* () {
+      const workItem = yield* startWorkItemAt("review", { demo: true });
+      workItem.send({ type: "skipDemo", ...reviewer });
+      workItem.finish("review", { _tag: "changesRequested", feedback: "rename it" });
+      workItem.finish("build", { _tag: "built" });
+      workItem.finish("review", { _tag: "approved" });
+      workItem.send({ type: "requireDemo", ...reviewer });
+      workItem.send({ type: "approve", ...reviewer });
+      expect(workItem.stageInput("ship")?.demoRef).toBeNull();
+    }),
+  );
+
+  it.effect("drops a human's override when the spec gate rejects the spec", () =>
+    Effect.gen(function* () {
+      const workItem = yield* startWorkItemAt("specGate", { demo: true });
+      workItem.send({ type: "skipDemo", ...reviewer });
+      workItem.send({ type: "reject", ...reviewer, comment: "wrong scope" });
+      workItem.advanceTo("build", { demo: true });
+      workItem.finish("build", { _tag: "built" });
+      expect(workItem.state()).toStrictEqual("demo");
+    }),
+  );
+
+  it.effect("gives Demo its outdated demo to revise after another build", () =>
+    Effect.gen(function* () {
+      const workItem = yield* startWorkItemAt("review", { demo: true });
+      workItem.finish("review", { _tag: "changesRequested", feedback: "rename it" });
+      workItem.finish("build", { _tag: "built" });
+      expect(workItem.stageInput("demo")?.demoRef).toStrictEqual("demo-1");
+    }),
+  );
 });

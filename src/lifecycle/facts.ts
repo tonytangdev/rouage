@@ -39,8 +39,11 @@ const factsTaught: FactsTaught = {
     Match.valueTags(outcome, {
       planned: ({ planRef, demo }) => ({ planRef, demoPlanned: demo }),
     }),
-  build: (outcome) => Match.valueTags(outcome, { built: nothing }),
-  demo: (outcome) => Match.valueTags(outcome, { demonstrated: ({ demoRef }) => ({ demoRef }) }),
+  build: (outcome) => Match.valueTags(outcome, { built: () => ({ demoOutdated: true }) }),
+  demo: (outcome) =>
+    Match.valueTags(outcome, {
+      demonstrated: ({ demoRef }) => ({ demoRef, demoOutdated: false }),
+    }),
   review: (outcome) =>
     Match.valueTags(outcome, {
       approved: nothing,

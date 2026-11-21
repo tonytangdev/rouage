@@ -79,7 +79,7 @@ Evidence, captured before any change, that a bug exists: a check that can be run
 _Avoid_: Repro case, failing example
 
 **Demo**:
-Evidence, captured after a change, that it works, for whoever reviews the change to see. Its form, such as a screenshot or a recording, is the plugin's choice. Optional, decided during Plan; a human may require or skip it until the work item is shipped, and that choice stands over any later plan until the work item is sent back to Spec. Once required, a demo that cannot be made blocks the work item.
+Evidence, captured after a change, that it works, for whoever reviews the change to see. Its form, such as a screenshot or a recording, is the plugin's choice. Optional, decided during Plan; a human may require or skip it until the work item is shipped, and that choice stands over any later plan until the spec is sent back to be rewritten. A demo made before the latest build no longer shows the change. Once required, a demo that cannot be made blocks the work item.
 _Avoid_: Showcase, proof
 
 ### Plugins

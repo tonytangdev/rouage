@@ -68,6 +68,8 @@ export const StageFactsSchema = Schema.Struct({
   demoOverride: Schema.NullOr(Schema.Boolean),
   /** The reference to the latest demo, opaque to Rouage; only the next demo replaces it (ADR 0004). */
   demoRef: Reference,
+  /** Whether Build has finished since the latest demo was made, so the demo no longer shows the change (ADR 0011). */
+  demoOutdated: Schema.Boolean,
   /** The reference to where Ship delivered the change, opaque to Rouage (ADR 0004); `null` until shipped. */
   deliveryRef: Reference,
 });
@@ -87,13 +89,14 @@ export const noFactsYet: Omit<StageFacts, "issueRef"> = {
   demoPlanned: null,
   demoOverride: null,
   demoRef: null,
+  demoOutdated: false,
   deliveryRef: null,
 };
 
 /** What the lifecycle passes to every stage machine it starts. */
 export interface StageInput extends StageFacts {
   readonly workItemId: string;
-  /** The demo of the current change, or `null` when the work item calls for none, because a demo made for an earlier plan, or one a human skipped, does not show the change. */
+  /** The demo of the current change, or `null` when the work item calls for none or the demo is outdated, because a demo made for an earlier plan or build, or one a human skipped, does not show the change. */
   readonly demoRef: string | null;
 }
 
@@ -109,7 +112,13 @@ export const stageInput = ({
 }): StageInput => ({
   workItemId: id,
   ...facts,
-  demoRef: demoCalledFor(facts) ? facts.demoRef : null,
+  demoRef: demoCalledFor(facts) && !facts.demoOutdated ? facts.demoRef : null,
+});
+
+/** `stageInput` for Demo, which gets the latest demo even when it is outdated, so the plugin revises it rather than starting over (ADR 0004). */
+export const demoStageInput = (argument: Parameters<typeof stageInput>[0]): StageInput => ({
+  ...stageInput(argument),
+  demoRef: argument.context.facts.demoRef,
 });
 
 /**

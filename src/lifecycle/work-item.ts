@@ -73,6 +73,12 @@ export const rejected = (context: WorkItemContext, gate: Gate, decision: HumanDe
   decisions: recordDecision(context, "reject", gate, decision),
 });
 
+/** The context change for a spec gate rejection: a gate rejection that also drops the demo override, because the rewritten spec's plan makes a demo decision the human has not yet seen (ADR 0011). */
+export const specRejected = (context: WorkItemContext, decision: HumanDecision) => ({
+  ...learned(context, { feedback: decision.comment ?? null, demoOverride: null }),
+  decisions: recordDecision(context, "reject", "specGate", decision),
+});
+
 const unblocked = { blocked: null, counters: noLoopsYet };
 
 /**
