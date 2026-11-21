@@ -42,19 +42,49 @@ export const bugImplement = {
 /** The builder's script, with the Build options the stage is made with. */
 export type BuildScript = FakeBuilderScript & BuildOptions;
 
-export const buildUnderTest = portStageUnderTest({
-  name: "build",
-  port: builderPort,
-  scripted: Effect.fnUntraced(function* ({ fixAttempts, ...script }: BuildScript) {
-    const fake = yield* fakeBuilder(script);
-    const options = fixAttempts === undefined ? {} : { fixAttempts };
-    return { fake, stage: yield* buildStage(options).pipe(Effect.provide(fake.layer)) };
-  }),
-  passing: (misbehaving) => ({
-    testReports: [testsPassed],
-    reproductionChecks: [reproductionPassed],
-    misbehaving,
-  }),
-  outcome: { _tag: "built" },
-  firstTask: firstImplement,
-});
+export const buildUnderTest = portStageUnderTest(
+  {
+    name: "build",
+    port: builderPort,
+    scripted: Effect.fnUntraced(function* ({ fixAttempts, ...script }: BuildScript) {
+      const fake = yield* fakeBuilder(script);
+      const options = fixAttempts === undefined ? {} : { fixAttempts };
+      return { fake, stage: yield* buildStage(options).pipe(Effect.provide(fake.layer)) };
+    }),
+    passing: (misbehaving) => ({
+      testReports: [testsPassed],
+      reproductionChecks: [reproductionPassed],
+      misbehaving,
+    }),
+    outcome: { _tag: "built" },
+    firstTask: firstImplement,
+    reached: ["implement", "test"],
+  },
+  (declare) => [
+    declare({
+      port: builderPort,
+      step: "fix",
+      fake: ({ fake }) => fake,
+      misbehaving: (as) => ({ testReports: [testsFailed], misbehaving: { step: "fix", as } }),
+      input: inputOnReaching("build"),
+      reach: (workItem) =>
+        Effect.sync(() => {
+          workItem.advanceTo("build");
+        }),
+    }),
+    declare({
+      port: builderPort,
+      step: "checkReproduction",
+      fake: ({ fake }) => fake,
+      misbehaving: (as) => ({
+        testReports: [testsPassed],
+        misbehaving: { step: "checkReproduction", as },
+      }),
+      input: bugInput,
+      reach: (workItem) =>
+        Effect.sync(() => {
+          workItem.advanceTo("build", { kind: "bug" });
+        }),
+    }),
+  ],
+);

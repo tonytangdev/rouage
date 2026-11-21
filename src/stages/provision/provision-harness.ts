@@ -60,9 +60,10 @@ export const provisionUnderTest = portStageUnderTest(
     outcome: { _tag: "provisioned", ...sandbox, sampleRef: null },
     firstTask: firstProvision,
   },
-  (laterPort) => [
-    laterPort({
+  (declare) => [
+    declare({
       port: samplerPort,
+      step: "sample",
       fake: ({ sampler }) => sampler,
       misbehaving: (as) => ({
         provisioner: { results: [sandbox, sandbox] },
