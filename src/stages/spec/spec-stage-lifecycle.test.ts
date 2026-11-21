@@ -18,7 +18,7 @@ describe("a work item in the Spec stage", () => {
       const workItem = yield* startWorkItem({ spec });
       workItem.advanceTo("spec", { kind: "bug" });
       yield* workItem.reaches("specGate");
-      expect(workItem.context().specRef).toStrictEqual("spec-1");
+      expect(workItem.context().facts.specRef).toStrictEqual("spec-1");
     }),
   );
 
@@ -30,7 +30,7 @@ describe("a work item in the Spec stage", () => {
       yield* workItem.reaches("specGate");
       workItem.send({ type: "reject", ...reviewer, comment: "Cover the empty cart" });
       yield* workItem.reaches("specGate");
-      expect(workItem.context().specRef).toStrictEqual("spec-2");
+      expect(workItem.context().facts.specRef).toStrictEqual("spec-2");
       expect(specWriter.tasks()).toStrictEqual([
         firstWrite,
         { ...firstWrite, feedback: "Cover the empty cart", previousSpecRef: "spec-1" },

@@ -23,7 +23,7 @@ describe("a work item in the Reproduce stage", () => {
       const workItem = yield* startWorkItem({ reproduce });
       workItem.advanceTo("reproduce", { kind: "bug" });
       yield* workItem.reaches("plan");
-      expect(workItem.context().reproductionRef).toStrictEqual("repro-1");
+      expect(workItem.context().facts.reproductionRef).toStrictEqual("repro-1");
     }),
   );
 
@@ -109,7 +109,7 @@ describe("a work item in the Reproduce stage", () => {
         });
         yield* workItem.reaches("plan");
         expect(after.reproducer.calls()).toStrictEqual([{ step: "confirm", task: firstConfirm }]);
-        expect(workItem.context().reproductionRef).toStrictEqual("repro-1");
+        expect(workItem.context().facts.reproductionRef).toStrictEqual("repro-1");
       }),
   );
 });

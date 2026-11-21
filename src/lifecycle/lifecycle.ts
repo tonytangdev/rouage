@@ -3,7 +3,7 @@ import { lifecycleSetup } from "./lifecycle-setup.ts";
 import { goneAround, loopExhausted, loopLimitReached, noLoopsYet } from "./loops.ts";
 import { noFactsYet, stageInput } from "./stage.ts";
 import { innermostState } from "./state-value.ts";
-import { approved, recordDecision, rejected } from "./work-item.ts";
+import { approved, learned, recordDecision, rejected } from "./work-item.ts";
 
 // Every transition names its target as a literal, even where a helper could
 // compute it, so Stately's editor can draw every arrow (ADR 0002).
@@ -12,8 +12,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
   version: "1",
   context: ({ input }) => ({
     id: input.id,
-    issueRef: input.issueRef,
-    ...noFactsYet,
+    facts: { issueRef: input.issueRef, ...noFactsYet },
     limits: input.limits,
     counters: noLoopsYet,
     demoPlanned: false,
@@ -49,7 +48,10 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             id: "intake",
             src: "intake",
             input: stageInput,
-            onDone: ({ event: { output } }) => ({ target: "spec", context: { kind: output.kind } }),
+            onDone: ({ context, event: { output } }) => ({
+              target: "spec",
+              context: learned(context, { kind: output.kind }),
+            }),
           },
         },
         spec: {
@@ -57,9 +59,9 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             id: "spec",
             src: "spec",
             input: stageInput,
-            onDone: ({ event: { output } }) => ({
+            onDone: ({ context, event: { output } }) => ({
               target: "specGate",
-              context: { feedback: null, specRef: output.specRef },
+              context: learned(context, { feedback: null, specRef: output.specRef }),
             }),
           },
         },
@@ -81,8 +83,11 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             src: "provision",
             input: stageInput,
             onDone: ({ context, event: { output } }) => {
-              const prepared = { sandboxRef: output.sandboxRef, sampleRef: output.sampleRef };
-              return context.kind === "bug"
+              const prepared = learned(context, {
+                sandboxRef: output.sandboxRef,
+                sampleRef: output.sampleRef,
+              });
+              return context.facts.kind === "bug"
                 ? { target: "reproduce", context: prepared }
                 : { target: "plan", context: prepared };
             },
@@ -95,7 +100,10 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             input: stageInput,
             onDone: ({ context, event: { output } }) => {
               if (output._tag === "reproduced") {
-                return { target: "plan", context: { reproductionRef: output.reproductionRef } };
+                return {
+                  target: "plan",
+                  context: learned(context, { reproductionRef: output.reproductionRef }),
+                };
               }
               if (output._tag === "cannotReproduce") {
                 return {
@@ -112,7 +120,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
               return {
                 target: "provision",
                 context: {
-                  sampleRequest: output.sampleRequest,
+                  ...learned(context, { sampleRequest: output.sampleRequest }),
                   ...goneAround(context, "reproduce"),
                 },
               };
@@ -137,8 +145,8 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             input: stageInput,
             onDone: ({ context }) =>
               context.demoPlanned
-                ? { target: "demo", context: { feedback: null } }
-                : { target: "review", context: { feedback: null } },
+                ? { target: "demo", context: learned(context, { feedback: null }) }
+                : { target: "review", context: learned(context, { feedback: null }) },
           },
         },
         demo: {
@@ -158,7 +166,10 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
               }
               return {
                 target: "build",
-                context: { feedback: output.feedback, ...goneAround(context, "review") },
+                context: {
+                  ...learned(context, { feedback: output.feedback }),
+                  ...goneAround(context, "review"),
+                },
               };
             },
           },
@@ -196,11 +207,11 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           const restart = {
             blocked: null,
             counters: noLoopsYet,
-            feedback: event.comment ?? null,
+            ...learned(context, { feedback: event.comment ?? null }),
             decisions: recordDecision(context, "backToSpec", "blocked", event),
           };
           // An unclassified work item would reach Provision without a kind and be routed as a feature.
-          return context.kind === null
+          return context.facts.kind === null
             ? { target: "working.intake", context: restart }
             : { target: "working.spec", context: restart };
         },

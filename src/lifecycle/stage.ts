@@ -63,30 +63,10 @@ export interface StageInput extends StageFacts {
 
 /** Builds a stage's input from the work item; takes XState's input-function argument so it can be passed as is. */
 export const stageInput = ({
-  context: {
-    id,
-    issueRef,
-    kind,
-    feedback,
-    specRef,
-    sandboxRef,
-    sampleRequest,
-    sampleRef,
-    reproductionRef,
-  },
+  context: { id, facts },
 }: {
-  readonly context: StageFacts & { readonly id: string };
-}): StageInput => ({
-  workItemId: id,
-  issueRef,
-  kind,
-  feedback,
-  specRef,
-  sandboxRef,
-  sampleRequest,
-  sampleRef,
-  reproductionRef,
-});
+  readonly context: { readonly id: string; readonly facts: StageFacts };
+}): StageInput => ({ workItemId: id, ...facts });
 
 /**
  * Each stage of the default lifecycle and the outcome its stage machine

@@ -25,7 +25,7 @@ describe("a work item in the Provision stage", () => {
       const workItem = yield* startWorkItem({ provision });
       workItem.advanceTo("provision", { kind: "feature" });
       yield* workItem.reaches("plan");
-      expect(workItem.context().sandboxRef).toStrictEqual("box-1");
+      expect(workItem.context().facts.sandboxRef).toStrictEqual("box-1");
     }),
   );
 
@@ -71,7 +71,7 @@ describe("a work item in the Provision stage", () => {
       });
       workItem.send({ type: "retry", ...reviewer });
       yield* workItem.reaches("reproduce");
-      expect(workItem.context().sampleRef).toStrictEqual("sample-1");
+      expect(workItem.context().facts.sampleRef).toStrictEqual("sample-1");
       expect(sampler.tasks()).toStrictEqual([firstSample, firstSample]);
     }),
   );
@@ -120,7 +120,7 @@ describe("a work item in the Provision stage", () => {
         expect(after.provisioner.calls()).toStrictEqual([
           { step: "provision", task: { ...firstProvision, previousSandboxRef: "box-1" } },
         ]);
-        expect(workItem.context().sampleRef).toStrictEqual("sample-1");
+        expect(workItem.context().facts.sampleRef).toStrictEqual("sample-1");
       }),
   );
 });

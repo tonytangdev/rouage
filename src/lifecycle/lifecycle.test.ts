@@ -16,7 +16,7 @@ describe("lifecycle", () => {
       const workItem = yield* startWorkItem();
       workItem.finish("intake", { _tag: "classified", kind: "bug" });
       expect(workItem.stage()).toStrictEqual("spec");
-      expect(workItem.context().kind).toStrictEqual("bug");
+      expect(workItem.context().facts.kind).toStrictEqual("bug");
     }),
   );
 
@@ -233,6 +233,22 @@ describe("lifecycle", () => {
           },
         });
       }),
+  );
+
+  it.effect("keeps a bug's references when a later decision sets other facts", () =>
+    Effect.gen(function* () {
+      const workItem = yield* startAt("shipGate", { kind: "bug" });
+      workItem.send({ type: "reject", ...reviewer, comment: "the flag is still on" });
+      expect(workItem.stageInput("build")).toStrictEqual(
+        stageInputWith({
+          kind: "bug",
+          feedback: "the flag is still on",
+          specRef: "spec-1",
+          sandboxRef: "box-1",
+          reproductionRef: "repro-1",
+        }),
+      );
+    }),
   );
 
   it.effect("ships an approved change once a human approves the ship gate", () =>

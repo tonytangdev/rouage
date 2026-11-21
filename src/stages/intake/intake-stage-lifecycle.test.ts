@@ -15,7 +15,7 @@ describe("a work item in the Intake stage", () => {
       const { intake } = yield* scriptedIntake({ results: [isBug] });
       const workItem = yield* startWorkItem({ intake });
       yield* workItem.reaches("spec");
-      expect(workItem.context().kind).toStrictEqual("bug");
+      expect(workItem.context().facts.kind).toStrictEqual("bug");
     }),
   );
 

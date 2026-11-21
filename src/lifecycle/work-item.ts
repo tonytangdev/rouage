@@ -25,8 +25,10 @@ export interface Decision {
   readonly comment: string | null;
 }
 
-export interface WorkItemContext extends StageFacts {
+export interface WorkItemContext {
   readonly id: string;
+  /** What every stage sees, changed only through `learned`. */
+  readonly facts: StageFacts;
   readonly limits: LoopLimits;
   readonly counters: LoopCounts;
   readonly demoPlanned: boolean;
@@ -49,8 +51,17 @@ export const approved = (context: WorkItemContext, gate: string, decision: Human
   decisions: recordDecision(context, "approve", gate, decision),
 });
 
+/**
+ * The context change when an outcome or a human's decision sets some of the
+ * work item's facts. Every fact not in `learnt` keeps its value, so a
+ * reference is only ever replaced by a newer one (ADR 0004).
+ */
+export const learned = (context: WorkItemContext, learnt: Partial<StageFacts>) => ({
+  facts: { ...context.facts, ...learnt },
+});
+
 /** The context change for a gate rejection: the comment becomes the feedback for the stage it returns to. */
 export const rejected = (context: WorkItemContext, gate: string, decision: HumanDecision) => ({
-  feedback: decision.comment ?? null,
+  ...learned(context, { feedback: decision.comment ?? null }),
   decisions: recordDecision(context, "reject", gate, decision),
 });
