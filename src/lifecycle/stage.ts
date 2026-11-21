@@ -1,4 +1,13 @@
-import { Data, Predicate, Schema } from "effect";
+import { Data, Predicate, Schema, Struct } from "effect";
+
+import type { DemoFacts } from "./demo-decision.ts";
+import {
+  DemoFactsSchema,
+  demoFactNames,
+  demoShown,
+  demoToRevise,
+  noDemoYet,
+} from "./demo-decision.ts";
 
 export const KindSchema = Schema.Literals(["bug", "feature"]);
 export type Kind = typeof KindSchema.Type;
@@ -42,7 +51,7 @@ export const failureReasonOf = (error: unknown): FailureReason => {
 
 const Reference = Schema.NullOr(Schema.String);
 
-/** What the work item holds that every stage sees. */
+/** What the work item holds that every stage sees, except the demo facts, which stages see only through `StageInput.demoRef`. */
 export const StageFactsSchema = Schema.Struct({
   issueRef: Schema.String,
   kind: Schema.NullOr(KindSchema),
@@ -62,14 +71,7 @@ export const StageFactsSchema = Schema.Struct({
   reproductionRef: Reference,
   /** The reference to the latest plan, opaque to Rouage; only the next plan replaces it (ADR 0004). */
   planRef: Reference,
-  /** Whether the latest plan calls for a demo, or `null` before Plan has run. */
-  demoPlanned: Schema.NullOr(Schema.Boolean),
-  /** Whether a human required a demo, over any plan, or `null` when no human has decided since the last return to Spec (ADR 0011). */
-  demoOverride: Schema.NullOr(Schema.Boolean),
-  /** The reference to the latest demo, opaque to Rouage; only the next demo replaces it (ADR 0004). */
-  demoRef: Reference,
-  /** Whether Build has finished since the latest demo was made, so the demo no longer shows the change (ADR 0011). */
-  demoOutdated: Schema.Boolean,
+  ...DemoFactsSchema.fields,
   /** The reference to where Ship delivered the change, opaque to Rouage (ADR 0004); `null` until shipped. */
   deliveryRef: Reference,
 });
@@ -86,40 +88,42 @@ export const noFactsYet: Omit<StageFacts, "issueRef"> = {
   scriptRef: null,
   reproductionRef: null,
   planRef: null,
-  demoPlanned: null,
-  demoOverride: null,
-  demoRef: null,
-  demoOutdated: false,
+  ...noDemoYet,
   deliveryRef: null,
 };
 
-/** What the lifecycle passes to every stage machine it starts. */
-export interface StageInput extends StageFacts {
+/**
+ * What the lifecycle passes to every stage machine it starts: the work item's
+ * facts, with the demo decision reduced to the one demo the stage may see,
+ * because a stage reading the raw demo facts could disagree with the lifecycle
+ * on whether a demo is called for (ADR 0011).
+ */
+export interface StageInput extends Omit<StageFacts, keyof DemoFacts> {
   readonly workItemId: string;
-  /** The demo of the current change, or `null` when the work item calls for none or the demo is outdated, because a demo made for an earlier plan or build, or one a human skipped, does not show the change. */
+  /** The demo of the current change, or `null` when there is none to show. */
   readonly demoRef: string | null;
 }
 
-/** Whether the work item calls for a demo: a human's override when there is one, else the latest plan's decision (ADR 0011). */
-export const demoCalledFor = (facts: StageFacts): boolean =>
-  (facts.demoOverride ?? facts.demoPlanned) === true;
+interface InputArgument {
+  readonly context: { readonly id: string; readonly facts: StageFacts };
+}
+
+const inputWith = (
+  { context: { id, facts } }: InputArgument,
+  demoRef: string | null,
+): StageInput => ({
+  workItemId: id,
+  ...Struct.omit(facts, demoFactNames),
+  demoRef,
+});
 
 /** Builds a stage's input from the work item; takes XState's input-function argument so it can be passed as is. */
-export const stageInput = ({
-  context: { id, facts },
-}: {
-  readonly context: { readonly id: string; readonly facts: StageFacts };
-}): StageInput => ({
-  workItemId: id,
-  ...facts,
-  demoRef: demoCalledFor(facts) && !facts.demoOutdated ? facts.demoRef : null,
-});
+export const stageInput = (argument: InputArgument): StageInput =>
+  inputWith(argument, demoShown(argument.context.facts));
 
-/** `stageInput` for Demo, which gets the latest demo even when it is outdated, so the plugin revises it rather than starting over (ADR 0004). */
-export const demoStageInput = (argument: Parameters<typeof stageInput>[0]): StageInput => ({
-  ...stageInput(argument),
-  demoRef: argument.context.facts.demoRef,
-});
+/** `stageInput` for Demo, which gets the demo to revise. */
+export const demoStageInput = (argument: InputArgument): StageInput =>
+  inputWith(argument, demoToRevise(argument.context.facts));
 
 /**
  * Each stage of the default lifecycle and the outcome its stage machine

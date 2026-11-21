@@ -332,7 +332,7 @@ describe("lifecycle", () => {
     }),
   );
 
-  it.effect("passes the plan and its demo decision on to Build", () =>
+  it.effect("passes the plan on to Build", () =>
     Effect.gen(function* () {
       const workItem = yield* startWorkItemAt("plan", { kind: "feature" });
       workItem.finish("plan", { _tag: "planned", planRef: "plan-1", demo: true });
@@ -342,7 +342,6 @@ describe("lifecycle", () => {
           specRef: "spec-1",
           sandboxRef: "box-1",
           planRef: "plan-1",
-          demoPlanned: true,
         }),
       );
     }),
@@ -369,7 +368,6 @@ describe("lifecycle", () => {
           specRef: "spec-1",
           sandboxRef: "box-1",
           planRef: "plan-1",
-          demoPlanned: true,
           demoRef: "demo-1",
         }),
       );
@@ -425,8 +423,6 @@ describe("lifecycle", () => {
           sandboxRef: "box-1",
           reproductionRef: "repro-1",
           planRef: "plan-1",
-          demoPlanned: false,
-          demoOutdated: true,
         }),
       );
     }),

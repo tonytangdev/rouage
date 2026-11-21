@@ -1,10 +1,11 @@
 import { absurd } from "effect/Function";
 
 import { reproduceBlocked, stageErrored } from "./blocked.ts";
+import { demoCalledFor, retrySkipsDemo } from "./demo-decision.ts";
 import { soleOutcomeFinished, stageFinished } from "./facts.ts";
 import { lifecycleSetup } from "./lifecycle-setup.ts";
 import { loopExhausted, loopLimitReached, noLoopsYet, wentAround } from "./loops.ts";
-import { demoCalledFor, demoStageInput, noFactsYet, stageInput } from "./stage.ts";
+import { demoStageInput, noFactsYet, stageInput } from "./stage.ts";
 import { innermostState } from "./state-value.ts";
 import {
   approved,
@@ -256,8 +257,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
       id: "blocked",
       on: {
         retry: ({ context, event }) =>
-          // Not back to Demo, because that would make the demo a human skipped while it was blocked (ADR 0011).
-          context.blocked.from === "demo" && !demoCalledFor(context.facts)
+          retrySkipsDemo(context.blocked.from, context.facts)
             ? { target: "working.review", context: retried(context, event) }
             : { target: "working.lastStage", context: retried(context, event) },
         backToSpec: ({ context, event }) =>

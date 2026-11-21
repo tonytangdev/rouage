@@ -1,7 +1,8 @@
-import { Data, Schema } from "effect";
+import { Data, Schema, Struct } from "effect";
 import type { AnyActorRef, AnyStateMachine, EventFrom } from "xstate";
 import { createActor } from "xstate";
 
+import { demoFactNames } from "./demo-decision.ts";
 import { defaultLifecycle } from "./lifecycle.ts";
 import { perLoop } from "./loops.ts";
 import type { Gate, Place } from "./place.ts";
@@ -42,12 +43,15 @@ export const stubController = (real: RealStages) => {
   };
 };
 
-/** The input a stage of the test work item receives: no facts yet except `facts`. */
-export const stageInputWith = (facts: Partial<StageFacts> = {}): StageInput => ({
+/** The input a stage of the test work item receives: no facts yet and no demo to see, except `fields`. */
+export const stageInputWith = (
+  fields: Partial<Omit<StageInput, "workItemId">> = {},
+): StageInput => ({
   workItemId: goldenRefs.workItemId,
   issueRef: goldenRefs.issueRef,
-  ...noFactsYet,
-  ...facts,
+  ...Struct.omit(noFactsYet, demoFactNames),
+  demoRef: null,
+  ...fields,
 });
 
 /** A human deciding at a gate or for a blocked work item, as tests send them. */
@@ -215,5 +219,7 @@ const inputFrom = (
   for (const stage of passed) {
     Object.assign(learnt, path[stage].teaches);
   }
-  return stageInputWith({ ...learnt, ...changes });
+  // Golden routes in these helpers never show a stage a demo, so the demo facts
+  // drop out rather than restating the lifecycle's own demo rule.
+  return stageInputWith({ ...Struct.omit({ ...learnt, ...changes }, demoFactNames) });
 };
