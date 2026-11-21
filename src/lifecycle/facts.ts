@@ -26,6 +26,7 @@ const factsTaught: FactsTaught = {
   provision: (outcome) =>
     Match.valueTags(outcome, {
       provisioned: ({ sandboxRef, sampleRef }) => ({ sandboxRef, sampleRef }),
+      awaitingRun: ({ sandboxRef, scriptRef }) => ({ sandboxRef, scriptRef }),
     }),
   reproduce: (outcome) =>
     Match.valueTags(outcome, {

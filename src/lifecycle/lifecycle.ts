@@ -86,10 +86,25 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             input: stageInput,
             onDone: ({ context, event: { output } }) => {
               const prepared = stageFinished(context, "provision", output);
+              if (output._tag === "awaitingRun") {
+                return { target: "sampleGate", context: prepared };
+              }
               return context.facts.kind === "bug"
                 ? { target: "reproduce", context: prepared }
                 : { target: "plan", context: prepared };
             },
+          },
+        },
+        sampleGate: {
+          on: {
+            approve: ({ context, event }) => ({
+              target: "provision",
+              context: approved(context, "sampleGate", event),
+            }),
+            reject: ({ context, event }) => ({
+              target: "provision",
+              context: rejected(context, "sampleGate", event),
+            }),
           },
         },
         reproduce: {

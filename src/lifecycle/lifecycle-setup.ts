@@ -59,6 +59,7 @@ export const lifecycleSetup = setup({
         spec: {},
         specGate: {},
         provision: {},
+        sampleGate: {},
         reproduce: {},
         plan: {},
         build: {},

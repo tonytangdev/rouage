@@ -8,6 +8,10 @@ export interface SampleTask {
   readonly sampleRequest: string;
   /** The sample taken before, which may still be in the sandbox; `null` on the first sample. */
   readonly previousSampleRef: string | null;
+  /** The extraction script the user was last asked to run; they ran it unless `feedback` says why they rejected it. `null` before any. */
+  readonly previousScriptRef: string | null;
+  /** Why the user rejected the previous extraction script, for the next one to address; `null` when they did not. */
+  readonly feedback: string | null;
 }
 
 /**
@@ -19,7 +23,7 @@ export type Sampled =
   | { readonly _tag: "sampled"; readonly sampleRef: string }
   | { readonly _tag: "awaitingRun"; readonly scriptRef: string };
 
-/** The sampler could not reach the data source or write a sample at all. */
+/** The sampler could not reach the data source, write a sample, or find a usable sample after the user ran its extraction script. */
 export class SamplerGaveUp extends Data.TaggedError("SamplerGaveUp")<{
   readonly message: string;
 }> {}

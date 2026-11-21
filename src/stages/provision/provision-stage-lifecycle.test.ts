@@ -3,6 +3,7 @@ import { Effect } from "effect";
 
 import { reviewer } from "../../lifecycle/golden-route.ts";
 import { restoredWorkItem, startWorkItem, throughJson } from "../../lifecycle/lifecycle-harness.ts";
+import { gaveUpMessage } from "../fake-script.ts";
 import { describePortStageInLifecycle } from "../port-stage-lifecycle-contract.ts";
 import {
   awaitingRun,
@@ -48,28 +49,109 @@ describe("a work item in the Provision stage", () => {
     }),
   );
 
-  it.effect("blocks until the user runs the extraction script, then samples on retry", () =>
+  it.effect(
+    "waits at the sample gate until the user runs the extraction script, then samples",
+    () =>
+      Effect.gen(function* () {
+        const { sampler, stage } = yield* provisionUnderTest.scripted({
+          provisioner: { results: [sandbox, sandbox, sandbox] },
+          sampler: { results: [awaitingRun, sample] },
+        });
+        const workItem = yield* startWorkItem({ stages: { provision: stage } });
+        workItem.advanceTo("provision", { kind: "bug" });
+        yield* workItem.reaches("reproduce");
+        workItem.finish("reproduce", askForSample);
+        yield* workItem.reaches("sampleGate");
+        expect(workItem.context().facts).toMatchObject({
+          sandboxRef: "box-1",
+          scriptRef: "script-1",
+        });
+        workItem.send({ type: "approve", ...reviewer });
+        yield* workItem.reaches("reproduce");
+        expect(workItem.context().facts.sampleRef).toStrictEqual("sample-1");
+        expect(workItem.context().counters.reproduce).toStrictEqual(1);
+        expect(sampler.tasks()).toStrictEqual([
+          firstSample,
+          { ...firstSample, previousScriptRef: "script-1" },
+        ]);
+      }),
+  );
+
+  it.effect(
+    "asks the sampler for a new extraction script with the comment the user rejected it with",
+    () =>
+      Effect.gen(function* () {
+        const { sampler, stage } = yield* provisionUnderTest.scripted({
+          provisioner: { results: [sandbox, sandbox, sandbox] },
+          sampler: { results: [awaitingRun, awaitingRun] },
+        });
+        const workItem = yield* startWorkItem({ stages: { provision: stage } });
+        workItem.advanceTo("provision", { kind: "bug" });
+        yield* workItem.reaches("reproduce");
+        workItem.finish("reproduce", askForSample);
+        yield* workItem.reaches("sampleGate");
+        workItem.send({ type: "reject", ...reviewer, comment: "leave out the emails" });
+        yield* workItem.reaches("sampleGate");
+        expect(sampler.tasks().at(-1)).toStrictEqual({
+          ...firstSample,
+          previousScriptRef: "script-1",
+          feedback: "leave out the emails",
+        });
+        expect(workItem.context().facts.feedback).toBeNull();
+      }),
+  );
+
+  it.effect("still waits at the sample gate when restored there, and samples once approved", () =>
     Effect.gen(function* () {
-      const { sampler, stage } = yield* provisionUnderTest.scripted({
-        provisioner: { results: [sandbox, sandbox, sandbox] },
-        sampler: { results: [awaitingRun, sample] },
+      const before = yield* provisionUnderTest.scripted({
+        provisioner: { results: [sandbox, sandbox] },
+        sampler: { results: [awaitingRun] },
       });
-      const workItem = yield* startWorkItem({ stages: { provision: stage } });
-      workItem.advanceTo("provision", { kind: "bug" });
+      const original = yield* startWorkItem({ stages: { provision: before.stage } });
+      original.advanceTo("provision", { kind: "bug" });
+      yield* original.reaches("reproduce");
+      original.finish("reproduce", askForSample);
+      yield* original.reaches("sampleGate");
+      const after = yield* provisionUnderTest.scripted({
+        provisioner: { results: [sandbox] },
+        sampler: { results: [sample] },
+      });
+      const workItem = yield* restoredWorkItem(throughJson(original.save()), {
+        stages: { provision: after.stage },
+      });
+      expect(workItem.state()).toStrictEqual("sampleGate");
+      workItem.send({ type: "approve", ...reviewer });
       yield* workItem.reaches("reproduce");
-      workItem.finish("reproduce", askForSample);
+      expect(after.sampler.tasks()).toStrictEqual([
+        { ...firstSample, previousScriptRef: "script-1" },
+      ]);
+    }),
+  );
+
+  it.effect("blocks when the sampler finds no usable sample after the user ran the script", () =>
+    Effect.gen(function* () {
+      const before = yield* provisionUnderTest.scripted({
+        provisioner: { results: [sandbox, sandbox] },
+        sampler: { results: [awaitingRun] },
+      });
+      const original = yield* startWorkItem({ stages: { provision: before.stage } });
+      original.advanceTo("provision", { kind: "bug" });
+      yield* original.reaches("reproduce");
+      original.finish("reproduce", askForSample);
+      yield* original.reaches("sampleGate");
+      const after = yield* provisionUnderTest.scripted({
+        provisioner: { results: [sandbox] },
+        sampler: { results: [], misbehaving: { step: "sample", as: "failing" } },
+      });
+      const workItem = yield* restoredWorkItem(throughJson(original.save()), {
+        stages: { provision: after.stage },
+      });
+      workItem.send({ type: "approve", ...reviewer });
       yield* workItem.reaches("blocked");
       expect(workItem.context().blocked).toStrictEqual({
         from: "provision",
-        reason: {
-          tag: "SampleAwaitingRun",
-          message: "Review and run the extraction script script-1, then retry",
-        },
+        reason: { tag: "SamplerGaveUp", message: gaveUpMessage("sampler", "sample") },
       });
-      workItem.send({ type: "retry", ...reviewer });
-      yield* workItem.reaches("reproduce");
-      expect(workItem.context().facts.sampleRef).toStrictEqual("sample-1");
-      expect(sampler.tasks()).toStrictEqual([firstSample, firstSample]);
     }),
   );
 

@@ -2,7 +2,6 @@ import { Effect } from "effect";
 import { setup, types } from "xstate";
 
 import type { OutcomeOf, StageInput } from "../../lifecycle/stage.ts";
-import { StageFailure } from "../../lifecycle/stage.ts";
 import type { PortStep } from "../port-stage.ts";
 import { portStage } from "../port-stage.ts";
 import { Provisioner } from "./provisioner.ts";
@@ -14,14 +13,6 @@ interface Prepared {
   /** The sampler's answer, or `null` when no sample was requested. */
   readonly sampled: Sampled | null;
 }
-
-const sampleAwaitingRun = (scriptRef: string) =>
-  new StageFailure({
-    reason: {
-      tag: "SampleAwaitingRun",
-      message: `Review and run the extraction script ${scriptRef}, then retry`,
-    },
-  });
 
 // Provisioning and sampling are one step, because a step restored mid-way
 // runs again from its start: a sample is then taken into a sandbox that is
@@ -42,9 +33,16 @@ const prepare = (provisioner: Provisioner["Service"], sampler: Sampler["Service"
       sandboxRef,
       sampleRequest: input.sampleRequest,
       previousSampleRef: input.sampleRef,
+      previousScriptRef: input.scriptRef,
+      feedback: input.feedback,
     });
     return { sandboxRef, sampled } satisfies Prepared;
   });
+
+const outcomeOf = ({ sandboxRef, sampled }: Prepared): OutcomeOf<"provision"> =>
+  sampled?._tag === "awaitingRun"
+    ? { _tag: "awaitingRun", sandboxRef, scriptRef: sampled.scriptRef }
+    : { _tag: "provisioned", sandboxRef, sampleRef: sampled?.sampleRef ?? null };
 
 const provisionSetup = (step: PortStep<Provisioner["Service"]>, sampler: Sampler["Service"]) =>
   setup({
@@ -58,7 +56,7 @@ const provisionSetup = (step: PortStep<Provisioner["Service"]>, sampler: Sampler
     },
     states: {
       preparing: {},
-      provisioned: { type: "final", schemas: { input: types<OutcomeOf<"provision">>() } },
+      prepared: { type: "final", schemas: { input: types<OutcomeOf<"provision">>() } },
     },
   });
 
@@ -74,22 +72,13 @@ const provisionMachine =
             id: "prepare",
             src: "prepare",
             input: ({ context }) => context,
-            onDone: ({ event: { output } }) => {
-              if (output.sampled?._tag === "awaitingRun") {
-                throw sampleAwaitingRun(output.sampled.scriptRef);
-              }
-              return {
-                target: "provisioned",
-                input: {
-                  _tag: "provisioned",
-                  sandboxRef: output.sandboxRef,
-                  sampleRef: output.sampled?.sampleRef ?? null,
-                },
-              };
-            },
+            onDone: ({ event: { output } }) => ({
+              target: "prepared",
+              input: outcomeOf(output),
+            }),
           },
         },
-        provisioned: { type: "final", output: ({ input }) => input },
+        prepared: { type: "final", output: ({ input }) => input },
       },
     });
 
@@ -97,8 +86,9 @@ const provisionMachine =
  * The Provision stage machine: prepares the work item's sandbox with the
  * `Provisioner` in context, then, when Reproduce asked for one, takes a
  * sample into it with the `Sampler` in context. Finishes with references to
- * both. Fails with a `StageFailure` when the user must run an extraction
- * script first (ADR 0005), or when either port cannot finish.
+ * both, or with `awaitingRun` and the extraction script the user must run
+ * first under schema access (ADR 0008). Fails, blocking the work item, when
+ * either port cannot finish.
  */
 export const provisionStage = Effect.gen(function* () {
   const sampler = yield* Sampler;

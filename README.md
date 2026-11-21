@@ -48,6 +48,7 @@ stateDiagram-v2
     Spec --> Provision: 🚦 spec approved
     Provision --> Reproduce: bug
     Provision --> Plan: feature
+    Provision --> Provision: 🚦 extraction script run
     Reproduce --> Plan: reproduced
     Reproduce --> Provision: needs a sample
     Reproduce --> Blocked: cannot reproduce

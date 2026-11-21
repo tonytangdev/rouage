@@ -27,6 +27,8 @@ export const firstSample = {
   sandboxRef: goldenRefs.sandboxRef,
   sampleRequest: "orders over 100",
   previousSampleRef: null,
+  previousScriptRef: null,
+  feedback: null,
 } as const;
 
 export interface ProvisionScript {

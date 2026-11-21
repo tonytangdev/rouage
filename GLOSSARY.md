@@ -107,11 +107,14 @@ A plugin kind that gives access to a user's real data, such as a database.
 ### Data
 
 **Sample**:
-A subset of real data, taken from a data source to reproduce a bug against the exact data that triggers it. Reproduce asks for one with a sample request, and Provision takes it into the sandbox.
+A subset of real data, taken from a data source to reproduce a bug against the exact data that triggers it. Reproduce asks for one with a sample request, and Provision takes it into the sandbox. Under schema access, the work item waits at the sample gate until the user has run the extraction script.
 _Avoid_: Dump, snapshot, fixture
 
 **Sample request**:
 Reproduce's description of the data a bug needs, which sends the work item back to Provision to take a sample.
+
+**Extraction script**:
+The script a plugin writes under schema access to take a sample, which the user reviews and runs, so only sanitized rows reach the sandbox.
 
 **Schema access**:
 The default access level to a data source: the agent sees its structure but no rows.
