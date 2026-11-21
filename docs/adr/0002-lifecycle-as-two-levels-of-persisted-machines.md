@@ -9,7 +9,9 @@ There are exactly two levels of machines:
 
 Below the stage machines, work is Effect programs, not machines. Machines never perform side effects: a state declares what must run, the runtime runs it as an Effect program through the plugin services, and the result comes back to the machine as an event. Retries, timeouts and sandbox cleanup are Effect's job.
 
-Each persisted snapshot carries the lifecycle machine's `id` and `version`. Restoring a snapshot under a different version fails with a tagged `LifecycleVersionMismatch` error instead of guessing.
+Each persisted snapshot carries the lifecycle machine's `id` and `version`. Restoring a snapshot under a different version fails with a tagged `LifecycleVersionMismatch` error instead of guessing, unless a migration leads from it to the current version (ADR 0015).
+
+The version is an opaque counter, independent of the package version. From the first release on, meaning the first npm publish, it is bumped by every change that could make a saved work item restore wrongly or not at all: a change to the context Schema, to the state tree, or to what a value means under an unchanged shape. Until then it stays `"1"`, because no released work item exists to strand. Rouage keeps this rule for the default lifecycle; a custom lifecycle, and a provided stage machine, own their id and version. A test pins the default lifecycle's saved shape, the JSON Schema of its context and every state id, to `src/lifecycle/saved-shape.v<version>.json`, so a change to either fails `pnpm check` until the version is bumped and a new pin written; a change of meaning under an unchanged shape stays a written rule (#29).
 
 ## Considered Options
 
@@ -25,5 +27,5 @@ Each persisted snapshot carries the lifecycle machine's `id` and `version`. Rest
 - Values that must not change mid-flight, such as loop limits read from configuration, are resolved by Effect when the work item is created and stored in its context.
 - Transitions read no clock: events that record a decision carry their own timestamp.
 - Every transition names its target as a literal, and helpers return only context changes, because Stately's editor cannot draw a target that a helper computes. Retrying a blocked work item targets a history state of the working stages rather than a target computed from context, for the same reason.
-- The work item's context is declared as an Effect Schema and given to XState as its context schema, so restoring a snapshot whose context does not match it, such as one saved before a fact existed, fails with a tagged `UnreadableSnapshot` error.
-- Migrating snapshots between lifecycle versions is not supported yet; a version change strands in-flight work items until a migration exists.
+- The work item's context is declared as an Effect Schema and given to XState as its context schema, so restoring a snapshot whose context does not match it, such as one saved before a fact existed, fails with a tagged `UnreadableSnapshot` error. Each stage machine running in the snapshot is checked against its own snapshot schema the same way (ADR 0014).
+- A work item saved under an older version is restored only once migrations move it, one version at a time, to the current one (ADR 0015).

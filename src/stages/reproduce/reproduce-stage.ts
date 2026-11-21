@@ -2,6 +2,7 @@ import { Effect } from "effect";
 import { setup, types } from "xstate";
 
 import type { OutcomeOf, StageInput } from "../../lifecycle/stage.ts";
+import { stageInputContext } from "../../lifecycle/stage.ts";
 import type { PortStep } from "../port-stage.ts";
 import { portStage } from "../port-stage.ts";
 import { briefOf } from "../run-brief.ts";
@@ -42,7 +43,7 @@ const reproduceSetup = (step: PortStep<Reproducer["Service"]>) =>
   setup({
     schemas: {
       input: types<StageInput>(),
-      context: types<StageInput>(),
+      context: stageInputContext,
       output: types<OutcomeOf<"reproduce">>(),
     },
     actors: {

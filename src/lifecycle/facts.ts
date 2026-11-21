@@ -3,8 +3,8 @@ import { Record, Schema } from "effect";
 import { changeRequestFact } from "./change-request.ts";
 import { demoFact } from "./demo-decision.ts";
 import { feedbackFact } from "./feedback.ts";
+import { KindSchema } from "./kind.ts";
 import type { Teaching } from "./outcome-teaching.ts";
-import { KindSchema } from "./stage.ts";
 import type { Transition } from "./transition.ts";
 
 /**

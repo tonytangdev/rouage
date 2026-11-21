@@ -1,21 +1,23 @@
-import { Config, Effect } from "effect";
+import { Config, Effect, Schema } from "effect";
 import { setup, types } from "xstate";
 
 import type { OutcomeOf, StageInput } from "../../lifecycle/stage.ts";
-import { StageFailure } from "../../lifecycle/stage.ts";
+import { StageFailure, StageInputSchema } from "../../lifecycle/stage.ts";
 import type { PortStep } from "../port-stage.ts";
 import { portStage } from "../port-stage.ts";
 import { briefOf } from "../run-brief.ts";
 import { sandboxMissing } from "../sandbox-missing.ts";
 import type { BuildTask, FixTask, ReproductionCheckTask } from "./builder.ts";
-import { Builder } from "./builder.ts";
+import { Builder, ReproductionCheckTaskSchema } from "./builder.ts";
 
-interface BuildContext {
-  readonly input: StageInput;
-  readonly fixAttempts: number;
-  readonly fixesMade: number;
-  readonly reproductionCheck: ReproductionCheckTask | null;
-}
+// A Schema, so a Build restored mid-run with a context saved before it changed fails to restore (ADR 0014).
+const BuildContextSchema = Schema.Struct({
+  input: StageInputSchema,
+  fixAttempts: Schema.Int,
+  fixesMade: Schema.Int,
+  reproductionCheck: Schema.NullOr(ReproductionCheckTaskSchema),
+});
+type BuildContext = typeof BuildContextSchema.Type;
 
 export interface BuildOptions {
   /** How many times the builder may fix failing tests or a failing reproduction before Build fails. */
@@ -95,7 +97,7 @@ const buildSetup = (step: PortStep<Builder["Service"]>) =>
   setup({
     schemas: {
       input: types<StageInput>(),
-      context: types<BuildContext>(),
+      context: Schema.toStandardSchemaV1(BuildContextSchema),
       output: types<OutcomeOf<"build">>(),
     },
     actors: {

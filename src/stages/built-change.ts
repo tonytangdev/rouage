@@ -1,4 +1,5 @@
-import type { Kind, StageFailure, StageInput } from "../lifecycle/stage.ts";
+import type { Kind } from "../lifecycle/kind.ts";
+import type { StageFailure, StageInput } from "../lifecycle/stage.ts";
 import type { RunBrief } from "./run-brief.ts";
 import { briefOf } from "./run-brief.ts";
 import { sandboxMissing } from "./sandbox-missing.ts";
