@@ -1,6 +1,7 @@
 import { Match, Schema } from "effect";
 
-import { stageFinished } from "./facts.ts";
+import { finished } from "./fact-event.ts";
+import { factsAfter } from "./facts.ts";
 import type { FailureReason, OutcomeOf, StageName } from "./stage.ts";
 import { FailureReasonSchema, StageNameSchema, failureReasonOf } from "./stage.ts";
 import type { WorkItemContext } from "./work-item.ts";
@@ -39,7 +40,7 @@ export const blockedOn = (from: StageName, reason: FailureReason) => ({
  * check passed for a retry to revise (ADR 0009), and the reason it blocks.
  */
 export const reproduceBlocked = (context: WorkItemContext, outcome: BlockingReproduceOutcome) => ({
-  ...stageFinished(context, "reproduce", outcome),
+  facts: factsAfter(context.facts, finished(outcome)),
   ...blockedOn("reproduce", reasonFor(outcome)),
 });
 

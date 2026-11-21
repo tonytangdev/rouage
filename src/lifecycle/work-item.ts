@@ -1,9 +1,8 @@
 import { Schema } from "effect";
 
 import { BlockedSchema } from "./blocked.ts";
-import { changeRequestOnReturnToSpec, requestedAtShipGate } from "./change-request.ts";
-import { demoOnReturnToSpec, demoRequiredByHuman, demoSkippedByHuman } from "./demo-decision.ts";
-import { learned } from "./facts.ts";
+import type { RejectingGate } from "./fact-event.ts";
+import { factsAfter } from "./facts.ts";
 import type { LoopLimits } from "./loops.ts";
 import { PerLoopCount, noLoopsYet } from "./loops.ts";
 import type { Gate } from "./place.ts";
@@ -45,7 +44,7 @@ export type Decision = typeof DecisionSchema.Type;
 /** Everything a work item saves, checked against this Schema when it is restored (ADR 0002). */
 export const WorkItemContextSchema = Schema.Struct({
   id: Schema.String,
-  /** What stages are given to work from, changed only through `learned`. */
+  /** What stages are given to work from, changed only through `factsAfter`. */
   facts: StageFactsSchema,
   limits: PerLoopCount,
   counters: PerLoopCount,
@@ -69,71 +68,62 @@ export const approved = (context: WorkItemContext, gate: Gate, decision: HumanDe
   decisions: recordDecision(context, "approve", gate, decision),
 });
 
-/** The context change for a gate rejection: the comment becomes the feedback for the stage it returns to. */
-export const rejected = (context: WorkItemContext, gate: Gate, decision: HumanDecision) => ({
-  ...learned(context, { feedback: decision.comment ?? null }),
+/**
+ * The context change for a rejection at the sample or ship gate: the comment
+ * becomes the feedback for the stage it returns to, and at the ship gate the
+ * change request Review checks next (ADR 0012).
+ */
+export const rejected = (
+  context: WorkItemContext,
+  gate: RejectingGate,
+  decision: HumanDecision,
+) => ({
+  facts: factsAfter(context.facts, {
+    _tag: "gateRejected",
+    gate,
+    comment: decision.comment ?? null,
+  }),
   decisions: recordDecision(context, "reject", gate, decision),
 });
 
-/** The context change for a ship gate rejection: a gate rejection that also makes the comment, or its absence, the change request Review checks next (ADR 0012). */
-export const shipRejected = (context: WorkItemContext, decision: HumanDecision) => {
-  const gateRejected = rejected(context, "shipGate", decision);
-  return {
-    ...gateRejected,
-    facts: { ...gateRejected.facts, ...requestedAtShipGate(decision.comment ?? null) },
-  };
-};
-
-// A new spec leads to a new plan and a new change, so neither the human's demo
-// choice nor an earlier change request carries over (ADR 0011, ADR 0012).
-const returnedToSpec = (decision: HumanDecision) => ({
-  feedback: decision.comment ?? null,
-  ...demoOnReturnToSpec,
-  ...changeRequestOnReturnToSpec,
+const returnedToSpec = (context: WorkItemContext, decision: HumanDecision) => ({
+  facts: factsAfter(context.facts, { _tag: "returnedToSpec", comment: decision.comment ?? null }),
 });
 
-/** The context change for a spec gate rejection: a gate rejection that also returns the demo decision to the new spec's plan and drops the change request. */
+/** The context change for a spec gate rejection: the comment as feedback for the new spec. */
 export const specRejected = (context: WorkItemContext, decision: HumanDecision) => ({
-  ...learned(context, returnedToSpec(decision)),
+  ...returnedToSpec(context, decision),
   decisions: recordDecision(context, "reject", "specGate", decision),
 });
 
 const unblocked = { blocked: null, counters: noLoopsYet };
 
-/**
- * The context change for a retry from Blocked: unblocked with fresh loop
- * counters, and the comment, when there is one, as the feedback for the stage
- * it re-runs. Without a comment the feedback stays, because the stage that
- * failed never acted on it.
- */
+/** The context change for a retry from Blocked: unblocked with fresh loop counters, the comment, when there is one, as feedback for the stage it re-runs. */
 export const retried = (context: WorkItemContext, decision: HumanDecision) => ({
   ...unblocked,
-  ...(decision.comment === undefined ? {} : learned(context, { feedback: decision.comment })),
+  facts: factsAfter(context.facts, { _tag: "retried", comment: decision.comment ?? null }),
   decisions: recordDecision(context, "retry", "blocked", decision),
 });
 
-/**
- * The context change for sending a blocked work item back to Spec: unblocked
- * with fresh loop counters, the comment as the only feedback, the demo
- * decision returned to the new spec's plan, and no change request.
- */
+/** The context change for sending a blocked work item back to Spec: unblocked with fresh loop counters, and the comment as feedback for the new spec. */
 export const sentBack = (context: WorkItemContext, decision: HumanDecision) => ({
   ...unblocked,
-  ...learned(context, returnedToSpec(decision)),
+  ...returnedToSpec(context, decision),
   decisions: recordDecision(context, "backToSpec", "blocked", decision),
 });
 
-// An override's comment is recorded but is not feedback, so it never displaces
-// what the next stage must address (ADR 0011).
+const overridden = (context: WorkItemContext, demo: boolean) => ({
+  facts: factsAfter(context.facts, { _tag: "demoOverridden", demo }),
+});
 
 /** The context change when a human requires a demo in `state`: the requirement stands over any later plan. */
 export const demoRequired = (context: WorkItemContext, state: string, decision: HumanDecision) => ({
-  ...learned(context, demoRequiredByHuman),
+  ...overridden(context, true),
   decisions: recordDecision(context, "requireDemo", state, decision),
 });
 
 /** The context change when a human skips a demo in `state`: the skip stands over any later plan. */
 export const demoSkipped = (context: WorkItemContext, state: string, decision: HumanDecision) => ({
-  ...learned(context, demoSkippedByHuman),
+  ...overridden(context, false),
   decisions: recordDecision(context, "skipDemo", state, decision),
 });

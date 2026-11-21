@@ -1,7 +1,8 @@
 import { Config, Effect, Schema } from "effect";
 
 import { blockedOn } from "./blocked.ts";
-import { stageFinished } from "./facts.ts";
+import { finished, loopExhausted } from "./fact-event.ts";
+import { factsAfter } from "./facts.ts";
 import type { OutcomeOf } from "./stage.ts";
 import type { WorkItemContext } from "./work-item.ts";
 
@@ -76,30 +77,30 @@ export const resolveLoopLimits = Effect.fnUntraced(function* (overrides: Partial
  * exhausted, so the transition picks its target literal (ADR 0002). Either
  * way the facts the outcome teaches are kept, as a block keeps a reproduction
  * (ADR 0009). Below the limit one more trip is counted; at the limit the work
- * item is blocked with no feedback, because a retry re-runs the looping stage
- * itself, so what it asked for goes to the human in the block's message. For
- * the same reason the change request stays the one Build last addressed
- * (ADR 0012).
+ * item is blocked, and what the outcome asked for goes to the human in the
+ * block's message.
  */
 export const aroundLoop = <Name extends LoopName>(
   context: WorkItemContext,
   loop: Name,
   outcome: LoopingOutcome<Name>,
 ) => {
-  const taught = stageFinished(context, loop, outcome);
   const allowed = context.limits[loop];
   if (context.counters[loop] >= allowed) {
     const reason = { tag: "LoopLimitReached", message: loops[loop].describe(allowed, outcome) };
     return {
       exhausted: true as const,
       context: {
-        facts: { ...taught.facts, feedback: null, changeRequest: context.facts.changeRequest },
+        facts: factsAfter(context.facts, loopExhausted(loop, outcome)),
         ...blockedOn(loop, reason),
       },
     };
   }
   return {
     exhausted: false as const,
-    context: { ...taught, counters: { ...context.counters, [loop]: context.counters[loop] + 1 } },
+    context: {
+      facts: factsAfter(context.facts, finished(outcome)),
+      counters: { ...context.counters, [loop]: context.counters[loop] + 1 },
+    },
   };
 };

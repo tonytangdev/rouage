@@ -1,4 +1,6 @@
-import { Schema } from "effect";
+import { Match, Schema } from "effect";
+
+import type { AnyOutcome, FactEvent } from "./fact-event.ts";
 
 /** What the work item holds to decide whether a demo is made and which demo a stage sees (ADR 0011). */
 export const DemoFactsSchema = Schema.Struct({
@@ -12,8 +14,6 @@ export const DemoFactsSchema = Schema.Struct({
   demoOutdated: Schema.Boolean,
 });
 export type DemoFacts = typeof DemoFactsSchema.Type;
-
-type DemoChange = Partial<DemoFacts>;
 
 /** The names of the demo facts, which no stage reads directly. */
 export const demoFactNames = [
@@ -46,20 +46,31 @@ export const demoToRevise = (facts: DemoFacts): string | null => facts.demoRef;
 export const retrySkipsDemo = (blockedFrom: string, facts: DemoFacts): boolean =>
   blockedFrom === "demo" && !demoCalledFor(facts);
 
-/** What a plan teaches: its demo decision. */
-export const demoPlannedBy = (demo: boolean): DemoChange => ({ demoPlanned: demo });
+const demoTaughtBy = (facts: DemoFacts, outcome: AnyOutcome): DemoFacts => {
+  if (outcome._tag === "planned") {
+    return { ...facts, demoPlanned: outcome.demo };
+  }
+  // A demo made before the latest build no longer shows the change.
+  if (outcome._tag === "built") {
+    return { ...facts, demoOutdated: true };
+  }
+  if (outcome._tag === "demonstrated") {
+    return { ...facts, demoRef: outcome.demoRef, demoOutdated: false };
+  }
+  return facts;
+};
 
-/** What a finished build teaches: the latest demo no longer shows the change. */
-export const demoOutdatedByBuild: DemoChange = { demoOutdated: true };
-
-/** What a finished demo teaches: the new demo, which shows the latest build. */
-export const demoMade = (demoRef: string): DemoChange => ({ demoRef, demoOutdated: false });
-
-/** A human requiring a demo, which stands over any later plan. */
-export const demoRequiredByHuman: DemoChange = { demoOverride: true };
-
-/** A human skipping a demo, which stands over any later plan. */
-export const demoSkippedByHuman: DemoChange = { demoOverride: false };
-
-/** Returning to Spec drops a human's override, because the new spec's plan makes a demo decision the human has not yet seen. */
-export const demoOnReturnToSpec: DemoChange = { demoOverride: null };
+/**
+ * The demo facts after `event`. A human's override stands over any later plan
+ * and is dropped only on return to Spec, because the new spec's plan makes a
+ * demo decision the human has not yet seen (ADR 0011).
+ */
+export const demoFactsAfter = (facts: DemoFacts, event: FactEvent): DemoFacts =>
+  Match.valueTags(event, {
+    stageFinished: ({ outcome }) => demoTaughtBy(facts, outcome),
+    loopExhausted: ({ outcome }) => demoTaughtBy(facts, outcome),
+    gateRejected: () => facts,
+    returnedToSpec: () => ({ ...facts, demoOverride: null }),
+    retried: () => facts,
+    demoOverridden: ({ demo }) => ({ ...facts, demoOverride: demo }),
+  });
