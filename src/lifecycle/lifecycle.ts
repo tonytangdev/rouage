@@ -194,7 +194,15 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           },
         },
         ship: {
-          invoke: { id: "ship", src: "ship", input: stageInput, onDone: { target: "#shipped" } },
+          invoke: {
+            id: "ship",
+            src: "ship",
+            input: stageInput,
+            onDone: ({ context, event: { output } }) => ({
+              target: "#shipped",
+              context: stageFinished(context, "ship", output),
+            }),
+          },
         },
         lastStage: { type: "history", target: "intake" },
       },

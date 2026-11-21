@@ -20,7 +20,7 @@ const factsTaught: FactsTaught = {
   build: () => ({}),
   demo: ({ demoRef }) => ({ demoRef }),
   review: (outcome) => (outcome._tag === "changesRequested" ? { feedback: outcome.feedback } : {}),
-  ship: () => ({}),
+  ship: ({ deliveryRef }) => ({ deliveryRef }),
 };
 
 /**

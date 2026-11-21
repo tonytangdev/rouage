@@ -32,8 +32,8 @@ export interface PortStageDeclaration<
   readonly outcome: unknown;
   /** The route the work item takes to reach the stage; a feature with no demo unless set. */
   readonly route?: Route;
-  /** Where the work item goes once the stage finishes on `route`. */
-  readonly next: Waypoint;
+  /** Where the work item goes once the stage finishes on `route`: a waypoint, or `shipped` for the last stage. */
+  readonly next: Waypoint | "shipped";
   /** What the stage's first step is asked when it is reached along `route`. */
   readonly firstTask: unknown;
 }

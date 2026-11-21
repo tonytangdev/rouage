@@ -84,6 +84,7 @@ export const goldenRefs = {
   reproductionRef: "repro-1",
   planRef: "plan-1",
   demoRef: "demo-1",
+  deliveryRef: "delivery-1",
 } as const;
 
 interface GoldenStep<Stage extends StageName> {
@@ -98,7 +99,7 @@ const isStage = (waypoint: Waypoint): waypoint is StageName => !gates.has(waypoi
 const goldenPath = (route: Route): { readonly [Stage in StageName]: GoldenStep<Stage> } => {
   const kind = route.kind ?? "feature";
   const demo = route.demo ?? false;
-  const { specRef, sandboxRef, reproductionRef, planRef, demoRef } = goldenRefs;
+  const { specRef, sandboxRef, reproductionRef, planRef, demoRef, deliveryRef } = goldenRefs;
   return {
     intake: { outcome: { _tag: "classified", kind }, teaches: { kind } },
     spec: { outcome: { _tag: "written", specRef }, teaches: { specRef } },
@@ -111,7 +112,7 @@ const goldenPath = (route: Route): { readonly [Stage in StageName]: GoldenStep<S
     build: { outcome: { _tag: "built" }, teaches: {} },
     demo: { outcome: { _tag: "demonstrated", demoRef }, teaches: { demoRef } },
     review: { outcome: { _tag: "approved" }, teaches: {} },
-    ship: { outcome: { _tag: "shipped" }, teaches: {} },
+    ship: { outcome: { _tag: "shipped", deliveryRef }, teaches: { deliveryRef } },
   };
 };
 

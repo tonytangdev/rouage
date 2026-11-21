@@ -292,9 +292,10 @@ describe("lifecycle", () => {
       expect(workItem.stage()).toStrictEqual("shipGate");
       workItem.send({ type: "approve", ...reviewer });
       expect(workItem.stage()).toStrictEqual("ship");
-      workItem.finish("ship", { _tag: "shipped" });
+      workItem.finish("ship", { _tag: "shipped", deliveryRef: "pr-1" });
       expect(workItem.stage()).toStrictEqual("shipped");
       expect(workItem.status()).toStrictEqual("done");
+      expect(workItem.context().facts).toMatchObject({ deliveryRef: "pr-1" });
     }),
   );
 
