@@ -17,9 +17,13 @@ describe("loops", () => {
   it.effect("reads each limit from its environment variable", () =>
     Effect.gen(function* () {
       const resolved = yield* resolveLoopLimits().pipe(
-        withEnv({ ROUAGE_MAX_REVIEW_LOOPS: "5", ROUAGE_MAX_REPRODUCE_LOOPS: "1" }),
+        withEnv({
+          ROUAGE_MAX_REVIEW_LOOPS: "5",
+          ROUAGE_MAX_REPRODUCE_LOOPS: "1",
+          ROUAGE_MAX_SHIP_LOOPS: "2",
+        }),
       );
-      expect(resolved).toMatchObject({ review: 5, reproduce: 1 });
+      expect(resolved).toMatchObject({ review: 5, reproduce: 1, ship: 2 });
     }),
   );
 

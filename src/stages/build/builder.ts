@@ -9,7 +9,7 @@ export interface BuildTask extends RunBrief {
   readonly planRef: string | null;
   /** The bug's reproduction, confirmed failing before the change; `null` for a feature. */
   readonly reproductionRef: string | null;
-  /** What the change was last sent back to address, which outlives this run's feedback (ADR 0012); `null` until the change is first sent back, and again after a return to Spec. */
+  /** What the change was last sent back to address, which outlives this run's feedback (ADR 0012); `null` until the change is first sent back, and again after a return to Spec. When it comes `from: "ship"`, the builder brings the change up to date with its target first (ADR 0013). */
   readonly changeRequest: ChangeRequest | null;
 }
 

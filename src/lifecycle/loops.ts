@@ -32,6 +32,12 @@ const loops = {
     variable: "ROUAGE_MAX_REPRODUCE_LOOPS",
     describe: (limit) => `Reproduce went back to Provision ${limit} times`,
   }),
+  ship: loopOf<"ship">()({
+    tag: "needsRebuild",
+    variable: "ROUAGE_MAX_SHIP_LOOPS",
+    describe: (limit, { feedback }) =>
+      `Ship sent the change back to Build ${limit} times, and last asked: ${feedback}`,
+  }),
 };
 
 type Loops = typeof loops;

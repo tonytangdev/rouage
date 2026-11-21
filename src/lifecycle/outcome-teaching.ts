@@ -56,6 +56,8 @@ const teachings: [SharedOutcomeTag] extends [never] ? Teachings : never = {
   changesRequested: ({ feedback }) =>
     teaches({ feedback, changeRequest: { from: "review", text: feedback } }),
   shipped: ({ deliveryRef }) => teaches({ references: { deliveryRef } }),
+  needsRebuild: ({ feedback }) =>
+    teaches({ feedback, changeRequest: { from: "ship", text: feedback } }),
 };
 
 /** What `outcome` teaches the work item when its stage finishes with it. */

@@ -6,12 +6,14 @@ import { taughtBy } from "./outcome-teaching.ts";
 
 /**
  * What the change was last sent back to Build to address, and where that came
- * from: the changes Review requested, or a human's rejection at the ship gate,
- * whose `text` is `null` when it came without a comment (ADR 0012).
+ * from: the changes Review requested, a human's rejection at the ship gate,
+ * whose `text` is `null` when it came without a comment (ADR 0012), or what
+ * kept Ship from landing the change (ADR 0013).
  */
 export const ChangeRequestSchema = Schema.Union([
   Schema.Struct({ from: Schema.Literal("review"), text: Schema.String }),
   Schema.Struct({ from: Schema.Literal("shipGate"), text: Schema.NullOr(Schema.String) }),
+  Schema.Struct({ from: Schema.Literal("ship"), text: Schema.String }),
 ]);
 export type ChangeRequest = typeof ChangeRequestSchema.Type;
 
@@ -23,8 +25,9 @@ const changeRequestAfter = (
 ): ChangeRequest | null =>
   Match.valueTags(event, {
     stageFinished: ({ outcome }) => taughtBy(outcome).changeRequest ?? request,
-    // The change is not sent back to Build, and a retry re-runs Review on the
-    // change Build last made, so the request Build last addressed stands.
+    // The change is not sent back to Build, and a retry re-runs the looping
+    // stage on the change Build last made, so the request Build last
+    // addressed stands.
     loopExhausted: () => request,
     gateRejected: ({ gate, comment }): ChangeRequest | null =>
       gate === "shipGate" ? { from: "shipGate", text: comment } : request,

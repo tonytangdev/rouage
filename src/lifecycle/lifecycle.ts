@@ -248,10 +248,25 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             id: "ship",
             src: "ship",
             input: stageInput,
-            onDone: ({ context, event: { output } }) => ({
-              target: "#shipped",
-              context: { facts: factsAfter(context.facts, soleOutcome("ship", output)) },
-            }),
+            onDone: ({ context, event: { output } }) => {
+              switch (output._tag) {
+                case "shipped": {
+                  return {
+                    target: "#shipped",
+                    context: { facts: factsAfter(context.facts, finished(output)) },
+                  };
+                }
+                case "needsRebuild": {
+                  const trip = aroundLoop(context, "ship", output);
+                  return trip.exhausted
+                    ? { target: "#blocked", context: trip.context }
+                    : { target: "build", context: trip.context };
+                }
+                default: {
+                  return absurd(output);
+                }
+              }
+            },
           },
         },
         lastStage: { type: "history", target: "intake" },

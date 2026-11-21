@@ -103,7 +103,9 @@ export interface StageOutcomes {
   readonly review:
     | { readonly _tag: "approved" }
     | { readonly _tag: "changesRequested"; readonly feedback: string };
-  readonly ship: { readonly _tag: "shipped"; readonly deliveryRef: string };
+  readonly ship:
+    | { readonly _tag: "shipped"; readonly deliveryRef: string }
+    | { readonly _tag: "needsRebuild"; readonly feedback: string };
 }
 
 export type OutcomeOf<Stage extends StageName> = StageOutcomes[Stage];

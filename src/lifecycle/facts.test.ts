@@ -20,6 +20,11 @@ const sendingBackToBuild: readonly SentBack[] = [
     feedback: "rename totals",
     changeRequest: { from: "review", text: "rename totals" },
   },
+  {
+    outcome: { _tag: "needsRebuild", feedback: "conflicts in src/totals.ts" },
+    feedback: "conflicts in src/totals.ts",
+    changeRequest: { from: "ship", text: "conflicts in src/totals.ts" },
+  },
 ];
 
 const standing = {
