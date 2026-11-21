@@ -7,6 +7,8 @@ import {
   startWorkItem,
   throughJson,
 } from "../../lifecycle/lifecycle-harness.ts";
+import { describePortStageInLifecycle } from "../port-stage-lifecycle-contract.ts";
+import { provisionerPort } from "./fake-provisioner.ts";
 import {
   awaitingRun,
   firstProvision,
@@ -76,25 +78,6 @@ describe("a work item in the Provision stage", () => {
     }),
   );
 
-  it.effect("provisions again when restored mid-provision", () =>
-    Effect.gen(function* () {
-      const before = yield* scriptedProvision({
-        provisioner: { results: [], misbehaving: { step: "provision", as: "hanging" } },
-      });
-      const original = yield* startWorkItem({ provision: before.provision });
-      original.advanceTo("provision", { kind: "feature" });
-      yield* before.provisioner.started("provision");
-      const after = yield* scriptedProvision({ provisioner: { results: [sandbox] } });
-      const workItem = yield* restoredWorkItem(throughJson(original.save()), {
-        provision: after.provision,
-      });
-      yield* workItem.reaches("plan");
-      expect(after.provisioner.calls()).toStrictEqual([
-        { step: "provision", task: firstProvision },
-      ]);
-    }),
-  );
-
   it.effect(
     "provisions and samples again when restored mid-sampling, in case the sandbox was lost",
     () =>
@@ -123,4 +106,16 @@ describe("a work item in the Provision stage", () => {
         expect(workItem.context().facts.sampleRef).toStrictEqual("sample-1");
       }),
   );
+});
+
+describePortStageInLifecycle({
+  name: "provision",
+  port: provisionerPort,
+  scripted: (misbehaving) =>
+    Effect.map(
+      scriptedProvision({ provisioner: { results: [sandbox], misbehaving } }),
+      ({ provisioner, provision }) => ({ fake: provisioner, stage: provision }),
+    ),
+  next: "plan",
+  firstTask: firstProvision,
 });

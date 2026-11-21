@@ -7,7 +7,7 @@ Each stage implementation of the default lifecycle lives in its own folder under
 - the port's fake,
 - the stage's test harness and its tests.
 
-What every port stage shares sits at the root of `src/stages/`: the step helper that turns a port giving up into a `StageFailure`, the scripted-port workings behind every fake, and the runner for testing a stage alone.
+What every port stage shares sits at the root of `src/stages/`: the step helper that turns a port giving up into a `StageFailure`, the scripted-port workings behind every fake, the runner for testing a stage alone, and the contract every port stage passes inside the lifecycle (it blocks when its port gives up, and runs its first step again after a restore).
 
 A port belongs to its stage, because it is the interface that one stage needs from the outside world, written in that stage's terms (see "Port" in `GLOSSARY.md`). A plugin fills ports; it does not define them.
 

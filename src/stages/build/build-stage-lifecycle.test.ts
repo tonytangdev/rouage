@@ -2,7 +2,9 @@ import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
 import { restoredWorkItem, startWorkItem, throughJson } from "../../lifecycle/lifecycle-harness.ts";
+import { describePortStageInLifecycle } from "../port-stage-lifecycle-contract.ts";
 import { scriptedBuild, testsFailed, testsPassed } from "./build-harness.ts";
+import { builderPort } from "./fake-builder.ts";
 
 describe("a work item in the Build stage", () => {
   it.effect("moves on to Review once Build's tests pass", () =>
@@ -12,22 +14,6 @@ describe("a work item in the Build stage", () => {
       workItem.advanceTo("build");
       yield* workItem.reaches("review");
       expect(workItem.context().blocked).toBeNull();
-    }),
-  );
-
-  it.effect("becomes blocked on Build when Build fails", () =>
-    Effect.gen(function* () {
-      const { build } = yield* scriptedBuild({
-        testReports: [testsPassed],
-        misbehaving: { step: "implement", as: "failing" },
-      });
-      const workItem = yield* startWorkItem({ build });
-      workItem.advanceTo("build");
-      yield* workItem.reaches("blocked");
-      expect(workItem.context().blocked).toStrictEqual({
-        from: "build",
-        reason: { tag: "BuilderGaveUp", message: "The builder gave up during implement" },
-      });
     }),
   );
 
@@ -89,4 +75,19 @@ describe("a work item in the Build stage", () => {
         ]);
       }),
   );
+});
+
+describePortStageInLifecycle({
+  name: "build",
+  port: builderPort,
+  scripted: (misbehaving) =>
+    Effect.map(
+      scriptedBuild({ testReports: [testsPassed], misbehaving }),
+      ({ builder, build }) => ({
+        fake: builder,
+        stage: build,
+      }),
+    ),
+  next: "review",
+  firstTask: { workItemId: "wi-1", planRef: "plan-1", feedback: null },
 });

@@ -2,6 +2,8 @@ import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
 import { restoredWorkItem, startWorkItem, throughJson } from "../../lifecycle/lifecycle-harness.ts";
+import { describePortStageInLifecycle } from "../port-stage-lifecycle-contract.ts";
+import { reproducerPort } from "./fake-reproducer.ts";
 import {
   captured,
   checkFailed,
@@ -68,30 +70,6 @@ describe("a work item in the Reproduce stage", () => {
     }),
   );
 
-  it.effect("captures again when restored mid-capture", () =>
-    Effect.gen(function* () {
-      const before = yield* scriptedReproduce({
-        captures: [],
-        misbehaving: { step: "capture", as: "hanging" },
-      });
-      const original = yield* startWorkItem({ reproduce: before.reproduce });
-      original.advanceTo("reproduce", { kind: "bug" });
-      yield* before.reproducer.started("capture");
-      const after = yield* scriptedReproduce({
-        captures: [captured],
-        confirmations: [checkFailed],
-      });
-      const workItem = yield* restoredWorkItem(throughJson(original.save()), {
-        reproduce: after.reproduce,
-      });
-      yield* workItem.reaches("plan");
-      expect(after.reproducer.calls()).toStrictEqual([
-        { step: "capture", task: firstCapture },
-        { step: "confirm", task: firstConfirm },
-      ]);
-    }),
-  );
-
   it.effect(
     "confirms the captured reproduction without capturing again when restored mid-confirm",
     () =>
@@ -112,4 +90,17 @@ describe("a work item in the Reproduce stage", () => {
         expect(workItem.context().facts.reproductionRef).toStrictEqual("repro-1");
       }),
   );
+});
+
+describePortStageInLifecycle({
+  name: "reproduce",
+  port: reproducerPort,
+  scripted: (misbehaving) =>
+    Effect.map(
+      scriptedReproduce({ captures: [captured], confirmations: [checkFailed], misbehaving }),
+      ({ reproducer, reproduce }) => ({ fake: reproducer, stage: reproduce }),
+    ),
+  route: { kind: "bug" },
+  next: "plan",
+  firstTask: firstCapture,
 });
