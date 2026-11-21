@@ -1,3 +1,5 @@
+import { Match } from "effect";
+
 import type { OutcomeOf, StageFacts, StageName } from "./stage.ts";
 import type { WorkItemContext } from "./work-item.ts";
 
@@ -14,21 +16,35 @@ type FactsTaught = {
   readonly [Stage in StageName]: (outcome: OutcomeOf<Stage>) => Partial<StageFacts>;
 };
 
+const nothing = (): Partial<StageFacts> => ({});
+
+// Matched by tag, so an outcome added to a stage fails to compile here until
+// it says what it teaches, even when that is nothing.
 const factsTaught: FactsTaught = {
-  intake: ({ kind }) => ({ kind }),
-  spec: ({ specRef }) => ({ specRef }),
-  provision: ({ sandboxRef, sampleRef }) => ({ sandboxRef, sampleRef }),
-  reproduce: (outcome) => {
-    if (outcome._tag === "reproduced") {
-      return { reproductionRef: outcome.reproductionRef };
-    }
-    return outcome._tag === "needsSample" ? { sampleRequest: outcome.sampleRequest } : {};
-  },
-  plan: ({ planRef, demo }) => ({ planRef, demoPlanned: demo }),
-  build: () => ({}),
-  demo: ({ demoRef }) => ({ demoRef }),
-  review: (outcome) => (outcome._tag === "changesRequested" ? { feedback: outcome.feedback } : {}),
-  ship: ({ deliveryRef }) => ({ deliveryRef }),
+  intake: (outcome) => Match.valueTags(outcome, { classified: ({ kind }) => ({ kind }) }),
+  spec: (outcome) => Match.valueTags(outcome, { written: ({ specRef }) => ({ specRef }) }),
+  provision: (outcome) =>
+    Match.valueTags(outcome, {
+      provisioned: ({ sandboxRef, sampleRef }) => ({ sandboxRef, sampleRef }),
+    }),
+  reproduce: (outcome) =>
+    Match.valueTags(outcome, {
+      reproduced: ({ reproductionRef }) => ({ reproductionRef }),
+      needsSample: ({ sampleRequest }) => ({ sampleRequest }),
+      cannotReproduce: nothing,
+    }),
+  plan: (outcome) =>
+    Match.valueTags(outcome, {
+      planned: ({ planRef, demo }) => ({ planRef, demoPlanned: demo }),
+    }),
+  build: (outcome) => Match.valueTags(outcome, { built: nothing }),
+  demo: (outcome) => Match.valueTags(outcome, { demonstrated: ({ demoRef }) => ({ demoRef }) }),
+  review: (outcome) =>
+    Match.valueTags(outcome, {
+      approved: nothing,
+      changesRequested: ({ feedback }) => ({ feedback }),
+    }),
+  ship: (outcome) => Match.valueTags(outcome, { shipped: ({ deliveryRef }) => ({ deliveryRef }) }),
 };
 
 /**

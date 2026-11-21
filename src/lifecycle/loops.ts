@@ -8,6 +8,17 @@ import type { WorkItemContext } from "./work-item.ts";
 /** Each loop is named after the stage that sends the work item back around it. */
 export type LoopName = "review" | "reproduce";
 
+/** The tag of each loop's stage outcome that sends the work item back around it. */
+interface LoopingTags {
+  readonly review: "changesRequested";
+  readonly reproduce: "needsSample";
+}
+
+type LoopingOutcome<Name extends LoopName> = Extract<
+  OutcomeOf<Name>,
+  { readonly _tag: LoopingTags[Name] }
+>;
+
 export type LoopLimits = Readonly<Record<LoopName, number>>;
 
 /** How many times a work item has gone around each loop. */
@@ -74,7 +85,7 @@ export const loopExhausted = (state: LoopState, loop: LoopName) =>
 export const wentAround = <Name extends LoopName>(
   context: WorkItemContext,
   loop: Name,
-  outcome: OutcomeOf<Name>,
+  outcome: LoopingOutcome<Name>,
 ) => ({
   ...stageFinished(context, loop, outcome),
   counters: { ...context.counters, [loop]: context.counters[loop] + 1 },
