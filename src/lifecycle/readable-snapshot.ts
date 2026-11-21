@@ -1,10 +1,11 @@
 import { Data, Effect, Schema } from "effect";
-import type { StandardSchemaV1 } from "xstate";
+import type { AnyStateMachine, StandardSchemaV1 } from "xstate";
 import { StateMachine } from "xstate";
 import { snapshotSchema } from "xstate/persist";
 
 import type { LifecycleSources } from "./lifecycle-logic.ts";
 import { defaultLifecycle } from "./lifecycle.ts";
+import { stateInputSchemasOf } from "./state-nodes.ts";
 import { taskSchemaOf } from "./step-task.ts";
 
 export class UnreadableSnapshot extends Data.TaggedError("UnreadableSnapshot")<{
@@ -80,6 +81,34 @@ const checkSavedSteps = Effect.fnUntraced(function* (
   }
 });
 
+const SavedStateInputs = Schema.Struct({
+  stateInputs: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+});
+
+// XState's snapshotSchema checks a machine's context but not its state
+// inputs, so each saved input is checked against its state's input schema.
+// A state left since keeps no input, so only active states are checked.
+const checkSavedStateInputs = Effect.fnUntraced(function* (
+  stage: string,
+  machine: AnyStateMachine,
+  persisted: unknown,
+) {
+  const { stateInputs = {} } = yield* Schema.decodeUnknownEffect(SavedStateInputs)(persisted).pipe(
+    Effect.mapError((error) => unreadable(error.message)),
+  );
+  const declared = stateInputSchemasOf(machine.root);
+  for (const [id, input] of Object.entries(stateInputs)) {
+    const state = declared.get(id);
+    if (state !== undefined) {
+      yield* validated(
+        state.schema,
+        input,
+        `The input of the saved ${stage} stage's ${state.path} state`,
+      );
+    }
+  }
+});
+
 // XState checks neither a child's context against its machine's context
 // schema when it validates the parent snapshot, nor when it restores it, so
 // each running stage machine is checked against its own snapshot schema.
@@ -92,6 +121,7 @@ const checkSavedStages = Effect.fnUntraced(function* (
   for (const { id, source, snapshot } of yield* savedChildren(lifecycle, persisted)) {
     if (source instanceof StateMachine) {
       yield* validated(snapshotSchema(source), snapshot, `The saved ${id} stage`);
+      yield* checkSavedStateInputs(id, source, snapshot);
       yield* checkSavedSteps(id, source, snapshot);
     }
   }
@@ -99,9 +129,10 @@ const checkSavedStages = Effect.fnUntraced(function* (
 
 /**
  * The saved work item `persisted`, once its lifecycle context, its states,
- * the saved snapshot of each running stage machine and the task of each step
- * running in one fit what `lifecycle` runs now; fails with `UnreadableSnapshot`
- * naming what does not (ADR 0002, ADR 0014, ADR 0016).
+ * the saved snapshot of each running stage machine, the input of each of its
+ * active states and the task of each step running in one fit what
+ * `lifecycle` runs now; fails with `UnreadableSnapshot`
+ * naming what does not (ADR 0002, ADR 0014, ADR 0016, ADR 0017).
  */
 export const readableSnapshot = Effect.fnUntraced(function* (
   lifecycle: LifecycleSources,

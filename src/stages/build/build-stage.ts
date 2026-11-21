@@ -19,6 +19,9 @@ const BuildContextSchema = Schema.Struct({
 });
 type BuildContext = typeof BuildContextSchema.Type;
 
+// A Schema for the same reason as the context, for a Build restored mid-fix (ADR 0017).
+const FailuresSchema = Schema.Struct({ failures: Schema.String });
+
 export interface BuildOptions {
   /** How many times the builder may fix failing tests or a failing reproduction before Build fails. */
   readonly fixAttempts?: number;
@@ -36,7 +39,7 @@ const fixTask = ({
   input,
 }: {
   readonly context: BuildContext;
-  readonly input: { readonly failures: string };
+  readonly input: typeof FailuresSchema.Type;
 }): FixTask => ({ workItemId: context.input.workItemId, failures: input.failures });
 
 const reproductionMissing = new StageFailure({
@@ -112,8 +115,10 @@ const buildSetup = (step: PortStep<Builder["Service"]>) =>
       checkingPrerequisites: { type: "choice" },
       implementing: {},
       testing: {},
-      checkingReproduction: { schemas: { input: types<ReproductionCheckTask>() } },
-      fixing: { schemas: { input: types<{ readonly failures: string }>() } },
+      checkingReproduction: {
+        schemas: { input: Schema.toStandardSchemaV1(ReproductionCheckTaskSchema) },
+      },
+      fixing: { schemas: { input: Schema.toStandardSchemaV1(FailuresSchema) } },
       built: { type: "final" },
     },
   });

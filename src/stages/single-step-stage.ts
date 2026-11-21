@@ -1,8 +1,9 @@
 import type { Context, Effect } from "effect";
+import { Schema } from "effect";
 import { setup, types } from "xstate";
 
 import type { OutcomeOf, StageInput, StageName } from "../lifecycle/stage.ts";
-import { StageFailure, stageInputContext } from "../lifecycle/stage.ts";
+import { StageFailure, StageOutcomeSchemas, stageInputContext } from "../lifecycle/stage.ts";
 import type { TaskSchema } from "../lifecycle/step-task.ts";
 import type { PortGaveUp, PortStep } from "./port-stage.ts";
 import { portStage } from "./port-stage.ts";
@@ -39,10 +40,12 @@ const singleStepSetup = <Stage extends StageName, Port, Task, Answer>(
     actors: { ask: step(spec.taskSchema, spec.ask) },
     states: {
       preparing: { type: "choice" },
-      asking: { schemas: { input: types<{ readonly task: Task }>() } },
+      asking: {
+        schemas: { input: Schema.toStandardSchemaV1(Schema.Struct({ task: spec.taskSchema })) },
+      },
       finished: {
         type: "final",
-        schemas: { input: types<{ readonly outcome: OutcomeOf<Stage> }>() },
+        schemas: { input: Schema.toStandardSchemaV1(StageOutcomeSchemas[spec.stage]) },
       },
     },
   });
@@ -70,11 +73,11 @@ const singleStepMachine = <Stage extends StageName, Port, Task, Answer>(
           input: ({ input }) => input.task,
           onDone: ({ event: { output } }) => ({
             target: "finished",
-            input: { outcome: unlessFailure(spec.outcome(output)) },
+            input: unlessFailure(spec.outcome(output)),
           }),
         },
       },
-      finished: { type: "final", output: ({ input }) => input.outcome },
+      finished: { type: "final", output: ({ input }) => input },
     },
   });
 

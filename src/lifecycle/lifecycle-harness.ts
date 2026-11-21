@@ -77,6 +77,13 @@ export const withStepTask = (persisted: unknown, stage: StageName, task: unknown
     return { ...snapshot, children: Object.fromEntries(steps) };
   });
 
+/** `persisted` with the saved input of each state active in its running `stage` replaced by `input`, as a stage machine whose state input has changed since would find it; throws if `stage` is not running in it. */
+export const withStateInput = (persisted: unknown, stage: StageName, input: unknown) =>
+  withStageSnapshot(persisted, stage, (snapshot) => {
+    const states = Object.keys(objectIn(snapshot["stateInputs"]));
+    return { ...snapshot, stateInputs: Object.fromEntries(states.map((state) => [state, input])) };
+  });
+
 /** Round-trips a saved work item through JSON, as a store that keeps it as text would. */
 export const throughJson = (persisted: unknown): unknown => JSON.parse(JSON.stringify(persisted));
 

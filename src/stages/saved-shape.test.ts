@@ -25,12 +25,16 @@ describe("the saved shape of Rouage's stage machines", () => {
     }),
   );
 
-  // A context or task without an Effect Schema is pinned as null, which would hide its changes.
-  it.effect("declares every context and step task with an Effect Schema", () =>
+  // A context, state input or task without an Effect Schema is pinned as null, which would hide its changes.
+  it.effect("declares every context, state input and step task with an Effect Schema", () =>
     Effect.gen(function* () {
-      const undeclared = Object.entries(yield* savedShapes).flatMap(([stage, { context, steps }]) =>
+      const shapes = Object.entries(yield* savedShapes);
+      const undeclared = shapes.flatMap(([stage, { context, stateInputs, steps }]) =>
         [
           [`${stage} context`, context] as const,
+          ...Object.entries(stateInputs).map(
+            ([state, input]) => [`${stage} ${state} state input`, input] as const,
+          ),
           ...Object.entries(steps).map(([step, task]) => [`${stage} ${step} task`, task] as const),
         ].flatMap(([what, schema]) => (schema === null ? [what] : [])),
       );

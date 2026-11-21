@@ -1,8 +1,8 @@
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import { setup, types } from "xstate";
 
 import type { OutcomeOf, StageInput } from "../../lifecycle/stage.ts";
-import { stageInputContext } from "../../lifecycle/stage.ts";
+import { StageOutcomeSchemas, stageInputContext } from "../../lifecycle/stage.ts";
 import type { PortStep } from "../port-stage.ts";
 import { portStage } from "../port-stage.ts";
 import { briefOf } from "../run-brief.ts";
@@ -10,9 +10,10 @@ import { sandboxMissing } from "../sandbox-missing.ts";
 import type { CaptureTask, ConfirmTask } from "./reproducer.ts";
 import { CaptureTaskSchema, ConfirmTaskSchema, Reproducer } from "./reproducer.ts";
 
-interface Sandboxed {
-  readonly sandboxRef: string;
-}
+// Schemas, so a Reproduce restored mid-run with a state input saved before it changed fails to restore (ADR 0017).
+const SandboxedSchema = Schema.Struct({ sandboxRef: Schema.String });
+type Sandboxed = typeof SandboxedSchema.Type;
+const outcome = Schema.toStandardSchemaV1(StageOutcomeSchemas.reproduce);
 
 const captureTask = ({
   context,
@@ -52,9 +53,9 @@ const reproduceSetup = (step: PortStep<Reproducer["Service"]>) =>
     },
     states: {
       checkingSandbox: { type: "choice" },
-      capturing: { schemas: { input: types<Sandboxed>() } },
-      confirming: { schemas: { input: types<ConfirmTask>() } },
-      finished: { type: "final", schemas: { input: types<OutcomeOf<"reproduce">>() } },
+      capturing: { schemas: { input: Schema.toStandardSchemaV1(SandboxedSchema) } },
+      confirming: { schemas: { input: Schema.toStandardSchemaV1(ConfirmTaskSchema) } },
+      finished: { type: "final", schemas: { input: outcome } },
     },
   });
 

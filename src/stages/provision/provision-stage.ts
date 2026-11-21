@@ -1,8 +1,8 @@
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import { setup, types } from "xstate";
 
 import type { OutcomeOf, StageInput } from "../../lifecycle/stage.ts";
-import { StageInputSchema, stageInputContext } from "../../lifecycle/stage.ts";
+import { StageInputSchema, StageOutcomeSchemas, stageInputContext } from "../../lifecycle/stage.ts";
 import type { PortStep } from "../port-stage.ts";
 import { portStage } from "../port-stage.ts";
 import { briefOf } from "../run-brief.ts";
@@ -57,7 +57,10 @@ const provisionSetup = (step: PortStep<Provisioner["Service"]>, sampler: Sampler
     },
     states: {
       preparing: {},
-      prepared: { type: "final", schemas: { input: types<OutcomeOf<"provision">>() } },
+      prepared: {
+        type: "final",
+        schemas: { input: Schema.toStandardSchemaV1(StageOutcomeSchemas.provision) },
+      },
     },
   });
 
