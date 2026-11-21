@@ -1,16 +1,14 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { describeStageContract } from "../../lifecycle/stage-contract.ts";
 import { failureReasonOf } from "../../lifecycle/stage.ts";
 import { gaveUpMessage } from "../fake-script.ts";
-import { portAdapter } from "../port-stage-contract.ts";
-import { provisionerPort } from "./fake-provisioner.ts";
+import { describePortStage } from "../port-stage-contract.ts";
 import {
   awaitingRun,
   firstProvision,
   firstSample,
-  runProvision,
+  provisionUnderTest,
   sample,
   sampleRequestedInput,
   sandbox,
@@ -19,7 +17,7 @@ import {
 describe("provision stage", () => {
   it.effect("finishes with the sandbox it provisioned and no sample when none was requested", () =>
     Effect.gen(function* () {
-      const { settled, provisions, samples } = yield* runProvision({
+      const { settled, fake, sampler } = yield* provisionUnderTest.run({
         provisioner: { results: [sandbox] },
       });
       expect(settled.output).toStrictEqual({
@@ -27,14 +25,14 @@ describe("provision stage", () => {
         sandboxRef: "box-1",
         sampleRef: null,
       });
-      expect(provisions).toStrictEqual([{ step: "provision", task: firstProvision }]);
-      expect(samples).toStrictEqual([]);
+      expect(fake.calls()).toStrictEqual([{ step: "provision", task: firstProvision }]);
+      expect(sampler.tasks()).toStrictEqual([]);
     }),
   );
 
   it.effect("reuses the current sandbox and takes the requested sample into it", () =>
     Effect.gen(function* () {
-      const { settled, provisions, samples } = yield* runProvision(
+      const { settled, fake, sampler } = yield* provisionUnderTest.run(
         { provisioner: { results: [sandbox] }, sampler: { results: [sample] } },
         sampleRequestedInput,
       );
@@ -43,16 +41,16 @@ describe("provision stage", () => {
         sandboxRef: "box-1",
         sampleRef: "sample-1",
       });
-      expect(provisions).toStrictEqual([
+      expect(fake.calls()).toStrictEqual([
         { step: "provision", task: { ...firstProvision, previousSandboxRef: "box-1" } },
       ]);
-      expect(samples).toStrictEqual([firstSample]);
+      expect(sampler.tasks()).toStrictEqual([firstSample]);
     }),
   );
 
   it.effect("fails as SampleAwaitingRun when the user must run the extraction script first", () =>
     Effect.gen(function* () {
-      const { settled } = yield* runProvision(
+      const { settled } = yield* provisionUnderTest.run(
         { provisioner: { results: [sandbox] }, sampler: { results: [awaitingRun] } },
         sampleRequestedInput,
       );
@@ -65,7 +63,7 @@ describe("provision stage", () => {
 
   it.effect("fails with the sampler's reason when the sampler gives up", () =>
     Effect.gen(function* () {
-      const { settled } = yield* runProvision(
+      const { settled } = yield* provisionUnderTest.run(
         {
           provisioner: { results: [sandbox] },
           sampler: { results: [], misbehaving: { step: "sample", as: "failing" } },
@@ -80,11 +78,4 @@ describe("provision stage", () => {
   );
 });
 
-describeStageContract(
-  portAdapter({
-    name: "provision",
-    port: provisionerPort,
-    outcome: { _tag: "provisioned", sandboxRef: "box-1", sampleRef: null },
-    run: (misbehaving) => runProvision({ provisioner: { results: [sandbox], misbehaving } }),
-  }),
-);
+describePortStage(provisionUnderTest);

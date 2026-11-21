@@ -1,28 +1,18 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { describeStageContract } from "../../lifecycle/stage-contract.ts";
 import { failureReasonOf } from "../../lifecycle/stage.ts";
-import { portAdapter } from "../port-stage-contract.ts";
-import { builtFeature, firstDemo, firstDemoMade, runDemo } from "./demo-harness.ts";
-import { demonstratorPort } from "./fake-demonstrator.ts";
+import { describePortStage } from "../port-stage-contract.ts";
+import { demoUnderTest, firstDemo, firstDemoMade } from "./demo-harness.ts";
 
 describe("demo stage", () => {
-  it.effect("finishes with the demonstrator's demo", () =>
-    Effect.gen(function* () {
-      const { settled, tasks } = yield* runDemo({ demos: [firstDemoMade] });
-      expect(settled.output).toStrictEqual({ _tag: "demonstrated", demoRef: "demo-1" });
-      expect(tasks).toStrictEqual([firstDemo]);
-    }),
-  );
-
   it.effect("revises the previous demo, given the bug's reproduction", () =>
     Effect.gen(function* () {
-      const { tasks } = yield* runDemo(
+      const { fake } = yield* demoUnderTest.run(
         { demos: [{ demoRef: "demo-2" }] },
-        { ...builtFeature, kind: "bug", reproductionRef: "repro-1", demoRef: "demo-1" },
+        { ...demoUnderTest.input, kind: "bug", reproductionRef: "repro-1", demoRef: "demo-1" },
       );
-      expect(tasks).toStrictEqual([
+      expect(fake.tasks()).toStrictEqual([
         { ...firstDemo, kind: "bug", reproductionRef: "repro-1", previousDemoRef: "demo-1" },
       ]);
     }),
@@ -30,21 +20,14 @@ describe("demo stage", () => {
 
   it.effect("fails without asking the demonstrator when there is no sandbox", () =>
     Effect.gen(function* () {
-      const { settled, tasks } = yield* runDemo(
+      const { settled, fake } = yield* demoUnderTest.run(
         { demos: [firstDemoMade] },
-        { ...builtFeature, sandboxRef: null },
+        { ...demoUnderTest.input, sandboxRef: null },
       );
       expect(failureReasonOf(settled.error).tag).toStrictEqual("SandboxMissing");
-      expect(tasks).toStrictEqual([]);
+      expect(fake.tasks()).toStrictEqual([]);
     }),
   );
 });
 
-describeStageContract(
-  portAdapter({
-    name: "demo",
-    port: demonstratorPort,
-    outcome: { _tag: "demonstrated", demoRef: "demo-1" },
-    run: (misbehaving) => runDemo({ demos: [firstDemoMade], misbehaving }),
-  }),
-);
+describePortStage(demoUnderTest);

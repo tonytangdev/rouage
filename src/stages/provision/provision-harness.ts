@@ -1,10 +1,9 @@
 import { Effect, Layer } from "effect";
-import { createActor } from "xstate";
 
 import type { StageInput } from "../../lifecycle/stage.ts";
-import { aloneInput, runAlone } from "../stage-harness.ts";
+import { portStageUnderTest } from "../port-stage-under-test.ts";
 import type { FakeProvisionerScript } from "./fake-provisioner.ts";
-import { fakeProvisioner } from "./fake-provisioner.ts";
+import { fakeProvisioner, provisionerPort } from "./fake-provisioner.ts";
 import type { FakeSamplerScript } from "./fake-sampler.ts";
 import { fakeSampler } from "./fake-sampler.ts";
 import { provisionStage } from "./provision-stage.ts";
@@ -21,16 +20,6 @@ export const firstProvision = {
   previousSandboxRef: null,
 } as const;
 
-/** The input a Provision stage run alone starts with: an approved spec and no sandbox yet. */
-export const approvedInput: StageInput = { ...aloneInput, kind: "bug", specRef: "spec-1" };
-
-/** The input of a Provision run Reproduce sent back for a sample. */
-export const sampleRequestedInput: StageInput = {
-  ...approvedInput,
-  sandboxRef: "box-1",
-  sampleRequest: "orders over 100",
-};
-
 /** What the sampler is asked on a work item's first sample. */
 export const firstSample = {
   workItemId: "wi-1",
@@ -44,21 +33,26 @@ export interface ProvisionScript {
   readonly sampler?: FakeSamplerScript;
 }
 
-export const scriptedProvision = Effect.fnUntraced(function* (script: ProvisionScript) {
-  const provisioner = yield* fakeProvisioner(script.provisioner);
-  const sampler = yield* fakeSampler(script.sampler ?? { results: [] });
-  const provision = yield* provisionStage.pipe(
-    Effect.provide(Layer.merge(provisioner.layer, sampler.layer)),
-  );
-  return { provisioner, sampler, provision };
+export const provisionUnderTest = portStageUnderTest({
+  name: "provision",
+  port: provisionerPort,
+  scripted: Effect.fnUntraced(function* (script: ProvisionScript) {
+    const fake = yield* fakeProvisioner(script.provisioner);
+    const sampler = yield* fakeSampler(script.sampler ?? { results: [] });
+    const stage = yield* provisionStage.pipe(
+      Effect.provide(Layer.merge(fake.layer, sampler.layer)),
+    );
+    return { fake, sampler, stage };
+  }),
+  passing: (misbehaving) => ({ provisioner: { results: [sandbox], misbehaving } }),
+  outcome: { _tag: "provisioned", sandboxRef: "box-1", sampleRef: null },
+  next: "plan",
+  firstTask: firstProvision,
 });
 
-/** Runs a Provision stage outside any lifecycle until it finishes or fails. */
-export const runProvision = Effect.fnUntraced(function* (
-  script: ProvisionScript,
-  input: StageInput = approvedInput,
-) {
-  const { provisioner, sampler, provision } = yield* scriptedProvision(script);
-  const settled = yield* runAlone(createActor(provision, { input }));
-  return { settled, provisions: provisioner.calls(), samples: sampler.tasks() };
-});
+/** The input of a Provision run Reproduce sent back for a sample. */
+export const sampleRequestedInput: StageInput = {
+  ...provisionUnderTest.input,
+  sandboxRef: "box-1",
+  sampleRequest: "orders over 100",
+};

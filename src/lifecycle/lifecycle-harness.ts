@@ -114,9 +114,23 @@ export const inputAfter = (
   changes: Partial<StageFacts> = {},
 ): StageInput => {
   const stages = defaultPath(route).filter(isStage);
+  return inputFrom(stages.slice(0, stages.indexOf(lastPassed) + 1), route, changes);
+};
+
+/** The input `stage` receives when the work item first reaches it along `route`. */
+export const inputOnReaching = (stage: StageName, route: Route = {}): StageInput => {
+  const stages = defaultPath(route).filter(isStage);
+  return inputFrom(stages.slice(0, stages.indexOf(stage)), route, {});
+};
+
+const inputFrom = (
+  passed: readonly StageName[],
+  route: Route,
+  changes: Partial<StageFacts>,
+): StageInput => {
   const taught = factsTaught(route);
   const learnt: Partial<StageFacts> = {};
-  for (const stage of stages.slice(0, stages.indexOf(lastPassed) + 1)) {
+  for (const stage of passed) {
     Object.assign(learnt, taught[stage]);
   }
   return stageInputWith({ ...learnt, ...changes });

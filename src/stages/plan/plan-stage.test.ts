@@ -1,26 +1,16 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { describeStageContract } from "../../lifecycle/stage-contract.ts";
-import { portAdapter } from "../port-stage-contract.ts";
-import { plannerPort } from "./fake-planner.ts";
-import { firstPlan, plannedWithDemo, provisionedFeature, runPlan } from "./plan-harness.ts";
+import { describePortStage } from "../port-stage-contract.ts";
+import { firstPlan, planUnderTest } from "./plan-harness.ts";
 
 describe("plan stage", () => {
-  it.effect("finishes with the planner's plan and its demo decision", () =>
-    Effect.gen(function* () {
-      const { settled, tasks } = yield* runPlan({ plans: [plannedWithDemo] });
-      expect(settled.output).toStrictEqual({ _tag: "planned", planRef: "plan-1", demo: true });
-      expect(tasks).toStrictEqual([firstPlan]);
-    }),
-  );
-
   it.effect("revises the previous plan, given the bug's sample and reproduction", () =>
     Effect.gen(function* () {
-      const { tasks } = yield* runPlan(
+      const { fake } = yield* planUnderTest.run(
         { plans: [{ planRef: "plan-2", demo: false }] },
         {
-          ...provisionedFeature,
+          ...planUnderTest.input,
           kind: "bug",
           sampleRef: "sample-1",
           reproductionRef: "repro-1",
@@ -28,7 +18,7 @@ describe("plan stage", () => {
           demoPlanned: true,
         },
       );
-      expect(tasks).toStrictEqual([
+      expect(fake.tasks()).toStrictEqual([
         {
           ...firstPlan,
           kind: "bug",
@@ -41,11 +31,4 @@ describe("plan stage", () => {
   );
 });
 
-describeStageContract(
-  portAdapter({
-    name: "plan",
-    port: plannerPort,
-    outcome: { _tag: "planned", planRef: "plan-1", demo: true },
-    run: (misbehaving) => runPlan({ plans: [plannedWithDemo], misbehaving }),
-  }),
-);
+describePortStage(planUnderTest);
