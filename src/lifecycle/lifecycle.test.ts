@@ -405,7 +405,8 @@ describe("lifecycle", () => {
           from: "review",
           reason: {
             tag: "LoopLimitReached",
-            message: "Review sent the change back to Build 3 times",
+            message:
+              "Review sent the change back to Build 3 times, and last asked: rename the flag",
           },
         });
       }),

@@ -4,7 +4,7 @@ import { reproduceBlocked, stageErrored } from "./blocked.ts";
 import { demoCalledFor, retrySkipsDemo } from "./demo-decision.ts";
 import { soleOutcomeFinished, stageFinished } from "./facts.ts";
 import { lifecycleSetup } from "./lifecycle-setup.ts";
-import { loopExhausted, loopLimitReached, noLoopsYet, wentAround } from "./loops.ts";
+import { aroundLoop, noLoopsYet } from "./loops.ts";
 import { demoStageInput, noFactsYet, stageInput } from "./stage.ts";
 import { innermostState } from "./state-value.ts";
 import {
@@ -148,13 +148,10 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
                   return { target: "#blocked", context: reproduceBlocked(context, output) };
                 }
                 case "needsSample": {
-                  if (loopExhausted(context, "reproduce")) {
-                    return { target: "#blocked", context: loopLimitReached(context, "reproduce") };
-                  }
-                  return {
-                    target: "provision",
-                    context: wentAround(context, "reproduce", output),
-                  };
+                  const trip = aroundLoop(context, "reproduce", output);
+                  return trip.exhausted
+                    ? { target: "#blocked", context: trip.context }
+                    : { target: "provision", context: trip.context };
                 }
                 default: {
                   return absurd(output);
@@ -215,10 +212,10 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
                   return { target: "shipGate", context: stageFinished(context, "review", output) };
                 }
                 case "changesRequested": {
-                  if (loopExhausted(context, "review")) {
-                    return { target: "#blocked", context: loopLimitReached(context, "review") };
-                  }
-                  return { target: "build", context: wentAround(context, "review", output) };
+                  const trip = aroundLoop(context, "review", output);
+                  return trip.exhausted
+                    ? { target: "#blocked", context: trip.context }
+                    : { target: "build", context: trip.context };
                 }
                 default: {
                   return absurd(output);
