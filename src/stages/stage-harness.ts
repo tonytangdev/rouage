@@ -3,11 +3,6 @@ import type { Actor, AnyActorLogic, OutputFrom } from "xstate";
 import { toPromise } from "xstate";
 
 import type { Settled } from "../lifecycle/stage-contract.ts";
-import type { StageInput } from "../lifecycle/stage.ts";
-import { noFactsYet } from "../lifecycle/stage.ts";
-
-/** The input a stage run alone starts with. */
-export const aloneInput: StageInput = { workItemId: "wi-1", issueRef: "#1", ...noFactsYet };
 
 /** Starts a stage actor outside any lifecycle and waits until it finishes or fails; the actor stops when the test's scope closes. */
 export const runAlone = Effect.fnUntraced(function* <Logic extends AnyActorLogic>(

@@ -1,9 +1,8 @@
 import { Effect } from "effect";
-import { createActor } from "xstate";
 
-import { aloneInput, runAlone } from "../stage-harness.ts";
+import { portStageUnderTest } from "../port-stage-under-test.ts";
 import type { FakeClassifierScript } from "./fake-classifier.ts";
-import { fakeClassifier } from "./fake-classifier.ts";
+import { classifierPort, fakeClassifier } from "./fake-classifier.ts";
 import { intakeStage } from "./intake-stage.ts";
 
 export const isBug = { _tag: "classified", kind: "bug" } as const;
@@ -13,14 +12,18 @@ export const isUnclear = {
   reason: "The issue asks for a change without saying what is wrong today",
 } as const;
 
-export const scriptedIntake = Effect.fnUntraced(function* (script: FakeClassifierScript) {
-  const classifier = yield* fakeClassifier(script);
-  return { classifier, intake: yield* intakeStage.pipe(Effect.provide(classifier.layer)) };
-});
+/** What the classifier is asked on a work item's first classification. */
+export const firstClassify = { workItemId: "wi-1", issueRef: "#1", feedback: null } as const;
 
-/** Runs an Intake stage outside any lifecycle until it finishes or fails. */
-export const runIntake = Effect.fnUntraced(function* (script: FakeClassifierScript) {
-  const { classifier, intake } = yield* scriptedIntake(script);
-  const settled = yield* runAlone(createActor(intake, { input: aloneInput }));
-  return { settled, calls: classifier.tasks() };
+export const intakeUnderTest = portStageUnderTest({
+  name: "intake",
+  port: classifierPort,
+  scripted: Effect.fnUntraced(function* (script: FakeClassifierScript) {
+    const fake = yield* fakeClassifier(script);
+    return { fake, stage: yield* intakeStage.pipe(Effect.provide(fake.layer)) };
+  }),
+  passing: (misbehaving) => ({ results: [isBug], misbehaving }),
+  outcome: { _tag: "classified", kind: "bug" },
+  next: "spec",
+  firstTask: firstClassify,
 });

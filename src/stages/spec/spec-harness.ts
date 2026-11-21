@@ -1,10 +1,8 @@
 import { Effect } from "effect";
-import { createActor } from "xstate";
 
-import type { StageInput } from "../../lifecycle/stage.ts";
-import { aloneInput, runAlone } from "../stage-harness.ts";
+import { portStageUnderTest } from "../port-stage-under-test.ts";
 import type { FakeSpecWriterScript } from "./fake-spec-writer.ts";
-import { fakeSpecWriter } from "./fake-spec-writer.ts";
+import { fakeSpecWriter, specWriterPort } from "./fake-spec-writer.ts";
 import { specStage } from "./spec-stage.ts";
 
 export const writtenSpec = { _tag: "written", specRef: "spec-1" } as const;
@@ -22,20 +20,16 @@ export const firstWrite = {
   previousSpecRef: null,
 } as const;
 
-/** The input a Spec stage run alone starts with: a classified bug. */
-export const classifiedInput: StageInput = { ...aloneInput, kind: "bug" };
-
-export const scriptedSpec = Effect.fnUntraced(function* (script: FakeSpecWriterScript) {
-  const specWriter = yield* fakeSpecWriter(script);
-  return { specWriter, spec: yield* specStage.pipe(Effect.provide(specWriter.layer)) };
-});
-
-/** Runs a Spec stage outside any lifecycle until it finishes or fails. */
-export const runSpec = Effect.fnUntraced(function* (
-  script: FakeSpecWriterScript,
-  input: StageInput = classifiedInput,
-) {
-  const { specWriter, spec } = yield* scriptedSpec(script);
-  const settled = yield* runAlone(createActor(spec, { input }));
-  return { settled, calls: specWriter.tasks() };
+export const specUnderTest = portStageUnderTest({
+  name: "spec",
+  port: specWriterPort,
+  scripted: Effect.fnUntraced(function* (script: FakeSpecWriterScript) {
+    const fake = yield* fakeSpecWriter(script);
+    return { fake, stage: yield* specStage.pipe(Effect.provide(fake.layer)) };
+  }),
+  passing: (misbehaving) => ({ results: [writtenSpec], misbehaving }),
+  outcome: { _tag: "written", specRef: "spec-1" },
+  route: { kind: "bug" },
+  next: "specGate",
+  firstTask: firstWrite,
 });
