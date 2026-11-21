@@ -9,6 +9,7 @@ import { planUnderTest } from "./plan/plan-harness.ts";
 import { provisionUnderTest } from "./provision/provision-harness.ts";
 import { captured, reproduceUnderTest } from "./reproduce/reproduce-harness.ts";
 import { firstReview, reviewUnderTest } from "./review/review-harness.ts";
+import { delivered, shipUnderTest } from "./ship/ship-harness.ts";
 import { specUnderTest } from "./spec/spec-harness.ts";
 
 const realStages = Effect.fnUntraced(function* () {
@@ -24,12 +25,13 @@ const realStages = Effect.fnUntraced(function* () {
       build: (yield* buildUnderTest.scripted(buildUnderTest.passing())).stage,
       demo: (yield* demoUnderTest.scripted(demoUnderTest.passing())).stage,
       review: review.stage,
+      ship: (yield* shipUnderTest.scripted(shipUnderTest.passing())).stage,
     },
   };
 });
 
 describe("the default lifecycle with every real stage", () => {
-  it.effect("carries a bug with a demo from Intake to the ship gate", () =>
+  it.effect("carries a bug with a demo from Intake to shipped", () =>
     Effect.gen(function* () {
       const { review, stages } = yield* realStages();
       const workItem = yield* startWorkItem(stages);
@@ -44,6 +46,9 @@ describe("the default lifecycle with every real stage", () => {
           demoRef: firstDemoMade.demoRef,
         },
       ]);
+      workItem.send({ type: "approve", ...reviewer });
+      yield* workItem.reaches("shipped");
+      expect(workItem.context().facts).toMatchObject(delivered);
     }),
   );
 });

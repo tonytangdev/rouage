@@ -2,7 +2,15 @@ import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
 import type { Route, Waypoint } from "./lifecycle-harness.ts";
-import { inputAfter, reviewer, stageInputWith, startWorkItem } from "./lifecycle-harness.ts";
+import {
+  goldenRefs,
+  inputAfter,
+  reviewer,
+  stageInputWith,
+  startWorkItem,
+} from "./lifecycle-harness.ts";
+import { defaultLifecycle } from "./lifecycle.ts";
+import { createWorkItem } from "./work-item-actor.ts";
 
 const startAt = Effect.fnUntraced(function* (waypoint: Waypoint, route: Route = {}) {
   const workItem = yield* startWorkItem();
@@ -11,6 +19,20 @@ const startAt = Effect.fnUntraced(function* (waypoint: Waypoint, route: Route = 
 });
 
 describe("lifecycle", () => {
+  it.effect("blocks a work item on a stage nothing implements", () =>
+    Effect.gen(function* () {
+      const workItem = yield* createWorkItem(defaultLifecycle, {
+        id: goldenRefs.workItemId,
+        issueRef: goldenRefs.issueRef,
+      });
+      yield* workItem.reaches("blocked");
+      expect(workItem.context().blocked).toStrictEqual({
+        from: "intake",
+        reason: { tag: "StageNotProvided", message: "No implementation for the intake stage" },
+      });
+    }),
+  );
+
   it.effect("moves a classified work item from Intake to Spec", () =>
     Effect.gen(function* () {
       const workItem = yield* startWorkItem();
@@ -251,6 +273,7 @@ describe("lifecycle", () => {
         };
         requestChanges();
         expect(workItem.stage()).toStrictEqual("build");
+        expect(workItem.context().counters).toStrictEqual({ review: 1, reproduce: 0 });
         expect(workItem.stageInput("build")).toStrictEqual(
           inputAfter("review", {}, { feedback: "rename the flag" }),
         );
@@ -292,9 +315,28 @@ describe("lifecycle", () => {
       expect(workItem.stage()).toStrictEqual("shipGate");
       workItem.send({ type: "approve", ...reviewer });
       expect(workItem.stage()).toStrictEqual("ship");
-      workItem.finish("ship", { _tag: "shipped" });
+      workItem.finish("ship", { _tag: "shipped", deliveryRef: "pr-1" });
       expect(workItem.stage()).toStrictEqual("shipped");
       expect(workItem.status()).toStrictEqual("done");
+      expect(workItem.context().facts).toMatchObject({ deliveryRef: "pr-1" });
+    }),
+  );
+
+  it.effect("shows stages no demo once the latest plan calls for none, but keeps it", () =>
+    Effect.gen(function* () {
+      const workItem = yield* startAt("review", { demo: true });
+      workItem.fail("review", { tag: "ReviewerGaveUp", message: "plan is wrong" });
+      workItem.send({ type: "backToSpec", ...reviewer });
+      workItem.finish("spec", { _tag: "written", specRef: goldenRefs.specRef });
+      workItem.send({ type: "approve", ...reviewer });
+      workItem.finish("provision", {
+        _tag: "provisioned",
+        sandboxRef: goldenRefs.sandboxRef,
+        sampleRef: null,
+      });
+      workItem.finish("plan", { _tag: "planned", planRef: "plan-2", demo: false });
+      expect(workItem.stageInput("build")?.demoRef).toBeNull();
+      expect(workItem.context().facts.demoRef).toStrictEqual(goldenRefs.demoRef);
     }),
   );
 

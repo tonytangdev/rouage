@@ -54,6 +54,8 @@ export interface Fake<Id, Step extends string> {
   readonly steps: () => readonly Step[];
   /** Waits until `step` first starts, so a test can save the work item mid-step. */
   readonly started: (step: Step) => Effect.Effect<void>;
+  /** Waits until a running `step` is first interrupted, so a test can see a stopped stage stop its port. */
+  readonly interrupted: (step: Step) => Effect.Effect<void>;
 }
 
 const misbehave = <A, GaveUp extends PortGaveUp>(
@@ -71,7 +73,7 @@ const misbehave = <A, GaveUp extends PortGaveUp>(
   return mode === "hanging" ? Effect.never : answer;
 };
 
-const startSignals = Effect.fnUntraced(function* <Step extends string>(steps: readonly Step[]) {
+const stepSignals = Effect.fnUntraced(function* <Step extends string>(steps: readonly Step[]) {
   const begun = new Map<Step, Deferred.Deferred<boolean>>();
   for (const step of steps) {
     begun.set(step, yield* Deferred.make<boolean>());
@@ -94,8 +96,8 @@ const nextAnswer = <A>(answers: readonly A[], index: number, what: string) => {
 /**
  * Builds a fake for the port behind `key`: `implement` maps each of the
  * port's methods to `answer` or `perform`, and the fake records every call,
- * signals when each step first starts, and makes the step in `misbehaving`
- * go wrong every time it runs.
+ * signals when each step first starts and is first interrupted, and makes the
+ * step in `misbehaving` go wrong every time it runs.
  */
 export const fakePort = Effect.fnUntraced(function* <
   Id,
@@ -109,15 +111,20 @@ export const fakePort = Effect.fnUntraced(function* <
   implement: (steps: FakeSteps<Step, GaveUp>) => Service,
 ) {
   const calls: Array<FakeCall<Step>> = [];
-  const signal = yield* startSignals(port.steps);
+  const start = yield* stepSignals(port.steps);
+  const interruption = yield* stepSignals(port.steps);
+  const raise = (signal: typeof start, step: Step) =>
+    signal(step).pipe(Effect.flatMap((deferred) => Deferred.succeed(deferred, true)));
+  const awaitSignal = (signal: typeof start, step: Step) =>
+    signal(step).pipe(Effect.flatMap(Deferred.await), Effect.asVoid);
   const record = <A>(step: Step, task: unknown, answer: Effect.Effect<A>) =>
     Effect.suspend(() => {
       calls.push({ step, task });
-      return signal(step).pipe(
-        Effect.flatMap((deferred) => Deferred.succeed(deferred, true)),
+      return raise(start, step).pipe(
         Effect.andThen(
           misbehave(port, step, misbehaving?.step === step ? misbehaving.as : undefined, answer),
         ),
+        Effect.onInterrupt(() => raise(interruption, step)),
       );
     });
   const answered = (step: Step) => calls.filter((call) => call.step === step).length;
@@ -133,6 +140,7 @@ export const fakePort = Effect.fnUntraced(function* <
     calls: () => calls,
     tasks: () => calls.map((call) => call.task),
     steps: () => calls.map((call) => call.step),
-    started: (step) => signal(step).pipe(Effect.flatMap(Deferred.await), Effect.asVoid),
+    started: (step) => awaitSignal(start, step),
+    interrupted: (step) => awaitSignal(interruption, step),
   } satisfies Fake<Id, Step>;
 });

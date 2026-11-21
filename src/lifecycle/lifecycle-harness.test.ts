@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { StageNotRunning, startWorkItem } from "./lifecycle-harness.ts";
+import { StageNotRunning, WaypointNotOnRoute, startWorkItem } from "./lifecycle-harness.ts";
 
 describe("lifecycle harness", () => {
   it.effect("fails at once when a test finishes a stage the work item is not in", () =>
@@ -32,6 +32,15 @@ describe("lifecycle harness", () => {
       const workItem = yield* startWorkItem();
       workItem.advanceTo("plan", { kind: "feature" });
       expect(workItem.stage()).toStrictEqual("plan");
+    }),
+  );
+
+  it.effect("fails when a test advances to a waypoint its route never passes", () =>
+    Effect.gen(function* () {
+      const workItem = yield* startWorkItem();
+      expect(() => {
+        workItem.advanceTo("demo", { demo: false });
+      }).toThrow(WaypointNotOnRoute);
     }),
   );
 });

@@ -11,10 +11,7 @@ import { Reviewer } from "./reviewer.ts";
  */
 export const reviewStage = singleStepStage(Reviewer, {
   stage: "review",
-  task: (input) =>
-    builtChangeTask("Review", input, {
-      demoRef: input.demoPlanned === true ? input.demoRef : null,
-    }),
+  task: (input) => builtChangeTask("Review", input, { demoRef: input.demoRef }),
   ask: (reviewer, task: ReviewTask) => reviewer.review(task),
   outcome: (verdict: Verdict) => verdict,
 });

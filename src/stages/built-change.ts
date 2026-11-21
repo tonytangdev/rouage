@@ -37,3 +37,9 @@ export const builtChangeTask = <Extra extends object>(
         reproductionRef: input.reproductionRef,
         ...extra,
       };
+
+/** What a stage that judges or delivers the finished change is given: the built change and the demo of it. */
+export interface DemonstratedChange extends BuiltChange {
+  /** The demo of the change, or `null` when the latest plan calls for none. */
+  readonly demoRef: string | null;
+}

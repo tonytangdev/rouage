@@ -2,12 +2,9 @@ import type { Effect } from "effect";
 import { Context, Data } from "effect";
 
 import type { OutcomeOf } from "../../lifecycle/stage.ts";
-import type { BuiltChange } from "../built-change.ts";
+import type { DemonstratedChange } from "../built-change.ts";
 
-export interface ReviewTask extends BuiltChange {
-  /** The demo of the change, or `null` when the latest plan calls for none. */
-  readonly demoRef: string | null;
-}
+export type ReviewTask = DemonstratedChange;
 
 /** The reviewer's verdict: approve the change, or request changes with feedback for Build. */
 export type Verdict = OutcomeOf<"review">;

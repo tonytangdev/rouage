@@ -73,4 +73,15 @@ describe("work item persistence", () => {
       expect(error._tag).toStrictEqual("UnreadableSnapshot");
     }),
   );
+
+  it.effect("refuses a snapshot whose work item lacks a fact", () =>
+    Effect.gen(function* () {
+      const original = yield* startWorkItem();
+      const context = original.context();
+      const olderFacts = { ...context.facts, deliveryRef: undefined };
+      const persisted = { ...original.save(), context: { ...context, facts: olderFacts } };
+      const error = yield* Effect.flip(restoredWorkItem(throughJson(persisted)));
+      expect(error._tag).toStrictEqual("UnreadableSnapshot");
+    }),
+  );
 });

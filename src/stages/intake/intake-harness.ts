@@ -29,6 +29,5 @@ export const intakeUnderTest = portStageUnderTest({
   }),
   passing: (misbehaving) => ({ results: [isBug], misbehaving }),
   outcome: { _tag: "classified", kind: "bug" },
-  next: "spec",
   firstTask: firstClassify,
 });

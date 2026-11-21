@@ -1,6 +1,14 @@
 import type { OutcomeOf, StageFacts, StageName } from "./stage.ts";
 import type { WorkItemContext } from "./work-item.ts";
-import { learned } from "./work-item.ts";
+
+/**
+ * The context change when an outcome or a human's decision sets some of the
+ * work item's facts. Every fact not in `learnt` keeps its value, so a
+ * reference is only ever replaced by a newer one (ADR 0004).
+ */
+export const learned = (context: WorkItemContext, learnt: Partial<StageFacts>) => ({
+  facts: { ...context.facts, ...learnt },
+});
 
 type FactsTaught = {
   readonly [Stage in StageName]: (outcome: OutcomeOf<Stage>) => Partial<StageFacts>;
@@ -20,7 +28,7 @@ const factsTaught: FactsTaught = {
   build: () => ({}),
   demo: ({ demoRef }) => ({ demoRef }),
   review: (outcome) => (outcome._tag === "changesRequested" ? { feedback: outcome.feedback } : {}),
-  ship: () => ({}),
+  ship: ({ deliveryRef }) => ({ deliveryRef }),
 };
 
 /**

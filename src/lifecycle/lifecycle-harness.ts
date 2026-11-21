@@ -1,9 +1,12 @@
-import { Data, Effect } from "effect";
-import type { AnyActorRef, AnyStateMachine } from "xstate";
+import { Data, Effect, Schema } from "effect";
+import type { AnyActorRef, AnyStateMachine, EventFrom } from "xstate";
+import { createActor } from "xstate";
 
 import { defaultLifecycle } from "./lifecycle.ts";
+import { perLoop } from "./loops.ts";
 import type { FailureReason, Kind, OutcomeOf, StageFacts, StageInput, StageName } from "./stage.ts";
-import { noFactsYet } from "./stage.ts";
+import { StageNameSchema, noFactsYet } from "./stage.ts";
+import { innermostState } from "./state-value.ts";
 import type { AttachStub } from "./stub-stage.ts";
 import { stubStages } from "./stub-stage.ts";
 import type { WorkItem } from "./work-item-actor.ts";
@@ -50,32 +53,26 @@ export const stageInputWith = (facts: Partial<StageFacts> = {}): StageInput => (
 /** A human deciding at a gate or for a blocked work item, as tests send them. */
 export const reviewer = { by: "ada", at: "2026-11-19T10:00:00.000Z" } as const;
 
-/** A place on the default path a test can advance a work item to: a stage or a gate. */
+/** A place in the default lifecycle a test can advance a work item to: a stage or a gate. */
 export type Waypoint = StageName | "specGate" | "shipGate";
 
-/** How a work item routes along the default path; a feature with no demo unless set. */
+/** How the golden outcomes route a work item through the default lifecycle; a feature with no demo unless set. */
 export interface Route {
   readonly kind?: Kind;
   readonly demo?: boolean;
 }
 
-const gates: ReadonlySet<Waypoint> = new Set(["specGate", "shipGate"]);
+/** Thrown when a test advances a work item to a waypoint it never reaches on its route, such as Demo when no demo is planned. */
+export class WaypointNotOnRoute extends Data.TaggedError("WaypointNotOnRoute")<{
+  readonly waypoint: Waypoint;
+  readonly actual: string;
+}> {}
 
-const defaultPath = ({ kind = "feature", demo = false }: Route): readonly Waypoint[] => [
-  "intake",
-  "spec",
-  "specGate",
-  "provision",
-  ...(kind === "bug" ? ["reproduce" as const] : []),
-  "plan",
-  "build",
-  ...(demo ? ["demo" as const] : []),
-  "review",
-  "shipGate",
-  "ship",
-];
+const gates: ReadonlySet<string> = new Set(["specGate", "shipGate"]);
 
-/** The test work item's ID and issue, and the references its stages produce along the default path, named so fixtures need not retype them. */
+const isStageName = Schema.is(StageNameSchema);
+
+/** The test work item's ID and issue, and the references its stages produce with their golden outcomes, named so fixtures need not retype them. */
 export const goldenRefs = {
   workItemId: "wi-1",
   issueRef: "#1",
@@ -84,21 +81,27 @@ export const goldenRefs = {
   reproductionRef: "repro-1",
   planRef: "plan-1",
   demoRef: "demo-1",
+  deliveryRef: "delivery-1",
 } as const;
+
+/** The test work item as it is created: loop limits of 3, whatever the environment says. */
+const newWorkItem = {
+  id: goldenRefs.workItemId,
+  issueRef: goldenRefs.issueRef,
+  limits: perLoop(() => 3),
+};
 
 interface GoldenStep<Stage extends StageName> {
   readonly outcome: OutcomeOf<Stage>;
   readonly teaches: Partial<StageFacts>;
 }
 
-const isStage = (waypoint: Waypoint): waypoint is StageName => !gates.has(waypoint);
-
 // `teaches` is written out rather than derived from `outcome`, because a
 // derivation would repeat the lifecycle's own mapping and agree with it by construction.
 const goldenPath = (route: Route): { readonly [Stage in StageName]: GoldenStep<Stage> } => {
   const kind = route.kind ?? "feature";
   const demo = route.demo ?? false;
-  const { specRef, sandboxRef, reproductionRef, planRef, demoRef } = goldenRefs;
+  const { specRef, sandboxRef, reproductionRef, planRef, demoRef, deliveryRef } = goldenRefs;
   return {
     intake: { outcome: { _tag: "classified", kind }, teaches: { kind } },
     spec: { outcome: { _tag: "written", specRef }, teaches: { specRef } },
@@ -111,8 +114,53 @@ const goldenPath = (route: Route): { readonly [Stage in StageName]: GoldenStep<S
     build: { outcome: { _tag: "built" }, teaches: {} },
     demo: { outcome: { _tag: "demonstrated", demoRef }, teaches: { demoRef } },
     review: { outcome: { _tag: "approved" }, teaches: {} },
-    ship: { outcome: { _tag: "shipped" }, teaches: {} },
+    ship: { outcome: { _tag: "shipped", deliveryRef }, teaches: { deliveryRef } },
   };
+};
+
+type Running = ReadonlyMap<StageName, RunningStub>;
+
+interface Steerable {
+  readonly state: () => string;
+  readonly send: (event: EventFrom<typeof defaultLifecycle>) => void;
+}
+
+const finishGolden = (running: Running, stage: StageName, route: Route) => {
+  running.get(stage)?.self.send({ type: "finish", outcome: goldenPath(route)[stage].outcome });
+};
+
+/**
+ * Approves each gate and finishes each running stub with its golden outcome,
+ * wherever the lifecycle routes the work item, until it reaches `waypoint`.
+ * Returns the stages it finished, in order.
+ */
+const advance = (workItem: Steerable, running: Running, waypoint: Waypoint, route: Route) => {
+  const finished: StageName[] = [];
+  for (let state = workItem.state(); state !== waypoint; state = workItem.state()) {
+    if (gates.has(state)) {
+      workItem.send({ type: "approve", ...reviewer });
+    } else if (isStageName(state) && running.has(state)) {
+      finishGolden(running, state, route);
+      finished.push(state);
+    } else {
+      throw new WaypointNotOnRoute({ waypoint, actual: state });
+    }
+  }
+  return finished;
+};
+
+/** A work item on the default lifecycle with every stage a stub, advanced to `waypoint` along `route` at once, outside any Effect, so a test declaration can read it while its module loads. */
+const walkTo = (waypoint: Waypoint, route: Route) => {
+  const { running, lifecycle } = stubController({});
+  const actor = createActor(lifecycle, { input: newWorkItem }).start();
+  const workItem: Steerable = {
+    state: () => innermostState(actor.getSnapshot().value),
+    send: (event) => {
+      actor.send(event);
+    },
+  };
+  const passed = advance(workItem, running, waypoint, route);
+  return { actor, workItem, running, passed };
 };
 
 /**
@@ -125,14 +173,29 @@ export const inputAfter = (
   route: Route = {},
   changes: Partial<StageFacts> = {},
 ): StageInput => {
-  const stages = defaultPath(route).filter(isStage);
-  return inputFrom(stages.slice(0, stages.indexOf(lastPassed) + 1), route, changes);
+  const walk = walkTo(lastPassed, route);
+  walk.actor.stop();
+  return inputFrom([...walk.passed, lastPassed], route, changes);
 };
 
-/** The input `stage` receives when the work item first reaches it along `route`. */
+/** The input `stage` receives when the work item first reaches it along `route`, as the lifecycle gives it. */
 export const inputOnReaching = (stage: StageName, route: Route = {}): StageInput => {
-  const stages = defaultPath(route).filter(isStage);
-  return inputFrom(stages.slice(0, stages.indexOf(stage)), route, {});
+  const walk = walkTo(stage, route);
+  const input = walk.running.get(stage)?.input;
+  walk.actor.stop();
+  if (input === undefined) {
+    throw new StageNotRunning({ stage, actual: walk.workItem.state() });
+  }
+  return input;
+};
+
+/** Where the lifecycle sends the work item once `stage` finishes with its golden outcome on `route`. */
+export const nextAfter = (stage: StageName, route: Route = {}): string => {
+  const walk = walkTo(stage, route);
+  finishGolden(walk.running, stage, route);
+  const next = walk.workItem.state();
+  walk.actor.stop();
+  return next;
 };
 
 const inputFrom = (
@@ -148,7 +211,7 @@ const inputFrom = (
   return stageInputWith({ ...learnt, ...changes });
 };
 
-const drive = (workItem: WorkItem, running: ReadonlyMap<StageName, RunningStub>) => {
+const drive = (workItem: WorkItem, running: Running) => {
   const stub = (stage: StageName) => {
     const found = running.get(stage);
     if (found === undefined) {
@@ -173,17 +236,9 @@ const drive = (workItem: WorkItem, running: ReadonlyMap<StageName, RunningStub>)
     crash: (stage: StageName, message: string) => {
       stub(stage).send({ type: "crash", message });
     },
-    /** Finishes every stub stage and approves every gate on the default path before `waypoint`, so the work item stops there. */
+    /** Approves every gate and finishes every stub stage with its golden outcome until the work item reaches `waypoint`; throws `WaypointNotOnRoute` if `route` never passes it. */
     advanceTo: (waypoint: Waypoint, route: Route = {}) => {
-      const path = defaultPath(route);
-      const steps = goldenPath(route);
-      for (const passed of path.slice(0, path.indexOf(waypoint))) {
-        if (isStage(passed)) {
-          stub(passed).send({ type: "finish", outcome: steps[passed].outcome });
-        } else {
-          workItem.send({ type: "approve", ...reviewer });
-        }
-      }
+      advance({ state: workItem.state, send: workItem.send }, running, waypoint, route);
     },
   };
 };
@@ -191,14 +246,10 @@ const drive = (workItem: WorkItem, running: ReadonlyMap<StageName, RunningStub>)
 /** Round-trips a saved work item through JSON, as a store that keeps it as text would. */
 export const throughJson = (persisted: unknown): unknown => JSON.parse(JSON.stringify(persisted));
 
-/** Starts a work item on the default lifecycle, with loop limits of 3 and a stub for every stage not in `real`, for the length of the test. */
+/** Starts the test work item on the default lifecycle, with a stub for every stage not in `real`, for the length of the test. */
 export const startWorkItem = Effect.fnUntraced(function* (real: RealStages = {}) {
   const { running, lifecycle } = stubController(real);
-  const workItem = yield* createWorkItem(lifecycle, {
-    id: goldenRefs.workItemId,
-    issueRef: goldenRefs.issueRef,
-    limits: { review: 3, reproduce: 3 },
-  });
+  const workItem = yield* createWorkItem(lifecycle, newWorkItem);
   return drive(workItem, running);
 });
 

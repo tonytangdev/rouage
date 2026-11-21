@@ -1,10 +1,11 @@
-import type { FailureReason, StageName } from "./stage.ts";
-import { failureReasonOf } from "./stage.ts";
+import { Schema } from "effect";
 
-export interface Blocked {
-  readonly from: StageName;
-  readonly reason: FailureReason;
-}
+import type { FailureReason, StageName } from "./stage.ts";
+import { FailureReasonSchema, StageNameSchema, failureReasonOf } from "./stage.ts";
+
+/** Why a work item is blocked, and the stage a retry re-enters. */
+export const BlockedSchema = Schema.Struct({ from: StageNameSchema, reason: FailureReasonSchema });
+export type Blocked = typeof BlockedSchema.Type;
 
 // These return context patches only: each transition keeps its target literal
 // inline, because visual tools cannot draw a target returned by a helper.

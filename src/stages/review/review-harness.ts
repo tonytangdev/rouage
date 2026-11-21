@@ -30,6 +30,5 @@ export const reviewUnderTest = portStageUnderTest({
   }),
   passing: (misbehaving) => ({ verdicts: [approval], misbehaving }),
   outcome: approval,
-  next: "shipGate",
   firstTask: firstReview,
 });

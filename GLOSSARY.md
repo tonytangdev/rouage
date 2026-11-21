@@ -47,6 +47,10 @@ _Avoid_: Design, approach, task list
 The stage where a plugin judges the built change against its spec, plan and evidence, and either approves it or requests changes, which send it back to Build. A human's judgement comes after, at the ship gate.
 _Avoid_: Code review, QA
 
+**Ship**:
+The stage that delivers a change a human approved at the ship gate, in the form the plugin chooses, such as a merged pull request or a deploy. Delivering a change again has no further effect.
+_Avoid_: Deploy, release, merge
+
 **Provision**:
 The stage that prepares the sandbox a work item runs in, before any reproduction or build.
 _Avoid_: Setup, bootstrap
