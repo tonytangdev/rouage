@@ -102,7 +102,7 @@ const nextAnswer = <A>(answers: readonly A[], index: number, what: string) => {
 export const fakePort = Effect.fnUntraced(function* <
   Id,
   Service,
-  Step extends string,
+  Step extends keyof Service & string,
   GaveUp extends PortGaveUp,
 >(
   key: Context.Key<Id, Service>,

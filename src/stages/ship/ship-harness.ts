@@ -1,8 +1,5 @@
-import { Effect } from "effect";
-
 import { goldenRefs } from "../../lifecycle/lifecycle-harness.ts";
-import { portStageUnderTest } from "../port-stage-under-test.ts";
-import type { FakeShipperScript } from "./fake-shipper.ts";
+import { portStageUnderTest, scriptedStage } from "../port-stage-under-test.ts";
 import { fakeShipper, shipperPort } from "./fake-shipper.ts";
 import { shipStage } from "./ship-stage.ts";
 
@@ -24,10 +21,7 @@ export const firstShipment = {
 export const shipUnderTest = portStageUnderTest({
   name: "ship",
   port: shipperPort,
-  scripted: Effect.fnUntraced(function* (script: FakeShipperScript) {
-    const fake = yield* fakeShipper(script);
-    return { fake, stage: yield* shipStage.pipe(Effect.provide(fake.layer)) };
-  }),
+  scripted: scriptedStage(fakeShipper, shipStage),
   passing: (misbehaving) => ({ deliveries: [delivered], misbehaving }),
   outcome: { _tag: "shipped", ...delivered },
   firstTask: firstShipment,

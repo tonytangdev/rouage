@@ -1,8 +1,5 @@
-import { Effect } from "effect";
-
 import { goldenRefs } from "../../lifecycle/lifecycle-harness.ts";
-import { portStageUnderTest } from "../port-stage-under-test.ts";
-import type { FakeClassifierScript } from "./fake-classifier.ts";
+import { portStageUnderTest, scriptedStage } from "../port-stage-under-test.ts";
 import { classifierPort, fakeClassifier } from "./fake-classifier.ts";
 import { intakeStage } from "./intake-stage.ts";
 
@@ -23,10 +20,7 @@ export const firstClassify = {
 export const intakeUnderTest = portStageUnderTest({
   name: "intake",
   port: classifierPort,
-  scripted: Effect.fnUntraced(function* (script: FakeClassifierScript) {
-    const fake = yield* fakeClassifier(script);
-    return { fake, stage: yield* intakeStage.pipe(Effect.provide(fake.layer)) };
-  }),
+  scripted: scriptedStage(fakeClassifier, intakeStage),
   passing: (misbehaving) => ({ results: [isBug], misbehaving }),
   outcome: { _tag: "classified", kind: "bug" },
   firstTask: firstClassify,

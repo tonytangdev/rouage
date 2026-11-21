@@ -1,8 +1,5 @@
-import { Effect } from "effect";
-
 import { goldenRefs } from "../../lifecycle/lifecycle-harness.ts";
-import { portStageUnderTest } from "../port-stage-under-test.ts";
-import type { FakePlannerScript } from "./fake-planner.ts";
+import { portStageUnderTest, scriptedStage } from "../port-stage-under-test.ts";
 import { fakePlanner, plannerPort } from "./fake-planner.ts";
 import { planStage } from "./plan-stage.ts";
 
@@ -24,10 +21,7 @@ export const firstPlan = {
 export const planUnderTest = portStageUnderTest({
   name: "plan",
   port: plannerPort,
-  scripted: Effect.fnUntraced(function* (script: FakePlannerScript) {
-    const fake = yield* fakePlanner(script);
-    return { fake, stage: yield* planStage.pipe(Effect.provide(fake.layer)) };
-  }),
+  scripted: scriptedStage(fakePlanner, planStage),
   passing: (misbehaving) => ({ plans: [plannedWithDemo], misbehaving }),
   outcome: { _tag: "planned", ...plannedWithDemo },
   firstTask: firstPlan,

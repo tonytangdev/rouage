@@ -1,8 +1,5 @@
-import { Effect } from "effect";
-
 import { goldenRefs } from "../../lifecycle/lifecycle-harness.ts";
-import { portStageUnderTest } from "../port-stage-under-test.ts";
-import type { FakeSpecWriterScript } from "./fake-spec-writer.ts";
+import { portStageUnderTest, scriptedStage } from "../port-stage-under-test.ts";
 import { fakeSpecWriter, specWriterPort } from "./fake-spec-writer.ts";
 import { specStage } from "./spec-stage.ts";
 
@@ -24,10 +21,7 @@ export const firstWrite = {
 export const specUnderTest = portStageUnderTest({
   name: "spec",
   port: specWriterPort,
-  scripted: Effect.fnUntraced(function* (script: FakeSpecWriterScript) {
-    const fake = yield* fakeSpecWriter(script);
-    return { fake, stage: yield* specStage.pipe(Effect.provide(fake.layer)) };
-  }),
+  scripted: scriptedStage(fakeSpecWriter, specStage),
   passing: (misbehaving) => ({ results: [writtenSpec], misbehaving }),
   outcome: writtenSpec,
   route: { kind: "bug" },

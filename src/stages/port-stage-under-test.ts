@@ -126,6 +126,18 @@ export interface PortStageUnderTest<
   ) => Effect.Effect<Scripted & { readonly settled: Settled<unknown> }, unknown, Scope.Scope>;
 }
 
+/** Builds a port stage's `scripted` from its fake and its stage, the fake's layer providing the port the stage takes from context. */
+export const scriptedStage =
+  <Script, Id, Step extends string, Machine, E>(
+    fake: (script: Script) => Effect.Effect<Fake<Id, Step>>,
+    stage: Effect.Effect<Machine, E, Id>,
+  ) =>
+  (script: Script) =>
+    Effect.gen(function* () {
+      const made = yield* fake(script);
+      return { fake: made, stage: yield* stage.pipe(Effect.provide(made.layer)) };
+    });
+
 /** Starts a stage actor outside any lifecycle and waits until it finishes or fails; the actor stops when the test's scope closes. */
 const runAlone = Effect.fnUntraced(function* <Logic extends AnyActorLogic>(actor: Actor<Logic>) {
   // A root actor's error with no error observer is reported to the host as unhandled.
