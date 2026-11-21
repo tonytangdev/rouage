@@ -1,0 +1,202 @@
+{
+  "version": "1",
+  "context": {
+    "dialect": "draft-2020-12",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "facts": {
+          "type": "object",
+          "properties": {
+            "issueRef": { "type": "string" },
+            "kind": {
+              "anyOf": [{ "type": "string", "enum": ["bug", "feature"] }, { "type": "null" }]
+            },
+            "specRef": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "sandboxRef": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "sampleRequest": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "sampleRef": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "scriptRef": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "reproductionRef": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "planRef": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "deliveryRef": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "feedback": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "changeRequest": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "from": { "type": "string", "enum": ["review"] },
+                    "text": { "type": "string" }
+                  },
+                  "required": ["from", "text"],
+                  "additionalProperties": true
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "from": { "type": "string", "enum": ["shipGate"] },
+                    "text": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                  },
+                  "required": ["from", "text"],
+                  "additionalProperties": true
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "from": { "type": "string", "enum": ["ship"] },
+                    "text": { "type": "string" }
+                  },
+                  "required": ["from", "text"],
+                  "additionalProperties": true
+                },
+                { "type": "null" }
+              ]
+            },
+            "demoPlanned": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+            "demoOverride": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+            "demoRef": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "demoOutdated": { "type": "boolean" }
+          },
+          "required": [
+            "issueRef",
+            "kind",
+            "specRef",
+            "sandboxRef",
+            "sampleRequest",
+            "sampleRef",
+            "scriptRef",
+            "reproductionRef",
+            "planRef",
+            "deliveryRef",
+            "feedback",
+            "changeRequest",
+            "demoPlanned",
+            "demoOverride",
+            "demoRef",
+            "demoOutdated"
+          ],
+          "additionalProperties": true
+        },
+        "limits": {
+          "type": "object",
+          "properties": {
+            "review": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "reproduce": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "ship": { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 }
+          },
+          "required": ["review", "reproduce", "ship"],
+          "additionalProperties": true
+        },
+        "counters": {
+          "type": "object",
+          "properties": {
+            "review": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "reproduce": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "ship": { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 }
+          },
+          "required": ["review", "reproduce", "ship"],
+          "additionalProperties": true
+        },
+        "blocked": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "from": {
+                  "type": "string",
+                  "enum": [
+                    "intake",
+                    "spec",
+                    "provision",
+                    "reproduce",
+                    "plan",
+                    "build",
+                    "demo",
+                    "review",
+                    "ship"
+                  ]
+                },
+                "reason": {
+                  "type": "object",
+                  "properties": { "tag": { "type": "string" }, "message": { "type": "string" } },
+                  "required": ["tag", "message"],
+                  "additionalProperties": true
+                }
+              },
+              "required": ["from", "reason"],
+              "additionalProperties": true
+            },
+            { "type": "null" }
+          ]
+        },
+        "decisions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": [
+                  "approve",
+                  "reject",
+                  "retry",
+                  "backToSpec",
+                  "cancel",
+                  "requireDemo",
+                  "skipDemo"
+                ]
+              },
+              "state": { "type": "string" },
+              "by": { "type": "string" },
+              "at": { "type": "string" },
+              "comment": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+            },
+            "required": ["action", "state", "by", "at", "comment"],
+            "additionalProperties": true
+          }
+        }
+      },
+      "required": ["id", "facts", "limits", "counters", "blocked", "decisions"],
+      "additionalProperties": true
+    },
+    "definitions": {}
+  },
+  "states": [
+    "lifecycle",
+    "lifecycle.working",
+    "lifecycle.working.intake",
+    "lifecycle.working.spec",
+    "lifecycle.working.specGate",
+    "lifecycle.working.provision",
+    "lifecycle.working.sampleGate",
+    "lifecycle.working.reproduce",
+    "lifecycle.working.plan",
+    "lifecycle.working.build",
+    "lifecycle.working.demo",
+    "lifecycle.working.review",
+    "lifecycle.working.shipGate",
+    "lifecycle.working.ship",
+    "lifecycle.working.lastStage",
+    "blocked",
+    "shipped",
+    "lifecycle.cancelled"
+  ]
+}

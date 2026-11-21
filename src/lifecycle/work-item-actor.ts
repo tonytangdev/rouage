@@ -30,7 +30,9 @@ interface LifecycleIdentity {
  * The default lifecycle with any stage implementations provided, identified by
  * its own id and version. Providing stages gives each set of stages its own
  * machine type, so a work item accepts any logic with the default lifecycle's
- * snapshot, events and input.
+ * snapshot, events and input. Rouage bumps the default lifecycle's version
+ * whenever a saved work item could no longer restore as it did; a custom
+ * lifecycle owns its id and version, and keeps the same rule (ADR 0002).
  */
 export type Lifecycle = ActorLogic<
   SnapshotFrom<DefaultLifecycle>,

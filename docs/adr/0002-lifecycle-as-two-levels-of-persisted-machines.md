@@ -11,6 +11,8 @@ Below the stage machines, work is Effect programs, not machines. Machines never 
 
 Each persisted snapshot carries the lifecycle machine's `id` and `version`. Restoring a snapshot under a different version fails with a tagged `LifecycleVersionMismatch` error instead of guessing.
 
+The version is an opaque counter, independent of the package version. From the first release on, meaning the first npm publish, it is bumped by every change that could make a saved work item restore wrongly or not at all: a change to the context Schema, to the state tree, or to what a value means under an unchanged shape. Until then it stays `"1"`, because no released work item exists to strand. Rouage keeps this rule for the default lifecycle; a custom lifecycle, and a provided stage machine, own their id and version. A test pins the default lifecycle's saved shape, the JSON Schema of its context and every state id, to `src/lifecycle/saved-shape.v<version>.json`, so a change to either fails `pnpm check` until the version is bumped and a new pin written; a change of meaning under an unchanged shape stays a written rule (#29).
+
 ## Considered Options
 
 - **One machine with every stage's internal states nested in it.** Simpler to start, but a stage cannot be replaced without editing the lifecycle, and "every part is replaceable" is a core principle.

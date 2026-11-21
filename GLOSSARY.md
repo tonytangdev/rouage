@@ -14,6 +14,10 @@ _Avoid_: Pipeline, platform
 The ordered stages a work item passes through, from intake to delivery. Rouage ships a default one that users can extend or replace.
 _Avoid_: SDLC, workflow
 
+**Lifecycle version**:
+The counter a saved work item records with its lifecycle's id, bumped whenever a saved work item could no longer restore as it did. A work item saved under another version is not restored as is. See [ADR 0002](docs/adr/0002-lifecycle-as-two-levels-of-persisted-machines.md).
+_Avoid_: Schema version, release
+
 **Work item**:
 One unit of software work travelling through the lifecycle, usually originating from an issue.
 _Avoid_: Ticket, task, job
