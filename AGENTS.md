@@ -20,7 +20,7 @@ The checks list every violation; these are the moves that satisfy them:
 - **Narrow, don't assert.** Get to a precise type with type guards or `Schema` decoding.
 - **Split on size limits.** When a file, function or parameter list hits a limit, extract a smaller unit with a clear name.
 - **Named exports**, kebab-case file names, relative imports ending in `.ts`.
-- **Saved shape.** Once Rouage is published, a change that could make a saved work item restore wrongly bumps the lifecycle `version` and adds a new `saved-shape.v<version>.json` pin; never edit an old pin (ADR 0002).
+- **Saved shape.** Once Rouage is published, a change that could make a saved work item restore wrongly bumps the lifecycle `version`, adds a new `saved-shape.v<version>.json` pin and a migration to `defaultLifecycleMigrations`; never edit an old pin (ADR 0002, ADR 0015).
 - **Tests** sit next to the code as `*.test.ts`, use `it.effect` from `@effect/vitest`, and run one straight path per test.
 
 ## Comments carry why; code carries what

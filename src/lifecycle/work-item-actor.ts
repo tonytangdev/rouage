@@ -1,9 +1,11 @@
-import { Data, Effect, Schema } from "effect";
+import { Data, Effect } from "effect";
 import type { Actor, EventFrom, SnapshotFrom } from "xstate";
 import { createActor, waitFor } from "xstate";
 import { restoreActor } from "xstate/persist";
 
-import type { DefaultLifecycle, Lifecycle, LifecycleIdentity } from "./lifecycle-logic.ts";
+import type { DefaultLifecycle, Lifecycle } from "./lifecycle-logic.ts";
+import type { LifecycleMigration } from "./lifecycle-migration.ts";
+import { defaultLifecycleMigrations, migratedToCurrent } from "./lifecycle-migration.ts";
 import type { LoopLimits } from "./loops.ts";
 import { resolveLoopLimits } from "./loops.ts";
 import type { Place } from "./place.ts";
@@ -55,15 +57,6 @@ const workItemOf = (
   tornDown,
 });
 
-const PersistedEnvelope = Schema.Struct({
-  machine: Schema.Struct({ id: Schema.String, version: Schema.String }),
-});
-
-export class LifecycleVersionMismatch extends Data.TaggedError("LifecycleVersionMismatch")<{
-  readonly expected: LifecycleIdentity;
-  readonly found: LifecycleIdentity;
-}> {}
-
 export interface NewWorkItem {
   readonly id: string;
   readonly issueRef: string;
@@ -105,22 +98,20 @@ export const createWorkItem = Effect.fnUntraced(function* (
 const unreadable = (message: string) => new UnreadableSnapshot({ message });
 
 /**
- * Resumes a saved work item. Fails with `LifecycleVersionMismatch` when it was
- * saved under another lifecycle id or version, because restoring it anyway
- * could silently put it in the wrong state.
+ * Resumes a saved work item, first moving it to `lifecycle`'s version through
+ * `migrations` when it was saved under an older one, failing as
+ * `migratedToCurrent` does when it was saved under another lifecycle id or a
+ * version no migration leads on from (ADR 0015). Fails with
+ * `UnreadableSnapshot` when what it then holds does not fit `lifecycle`
+ * (ADR 0002, ADR 0014).
  */
 export const restoreWorkItem = Effect.fnUntraced(function* (
   lifecycle: Lifecycle,
   persisted: unknown,
+  migrations: readonly LifecycleMigration[] = defaultLifecycleMigrations,
 ) {
-  const expected = { id: lifecycle.id, version: lifecycle.version };
-  const { machine: found } = yield* Schema.decodeUnknownEffect(PersistedEnvelope)(persisted).pipe(
-    Effect.mapError((error) => unreadable(error.message)),
-  );
-  if (found.id !== expected.id || found.version !== expected.version) {
-    return yield* new LifecycleVersionMismatch({ expected, found });
-  }
-  const snapshot = yield* readableSnapshot(lifecycle, persisted);
+  const current = yield* migratedToCurrent(lifecycle, persisted, migrations);
+  const snapshot = yield* readableSnapshot(lifecycle, current);
   const actor = yield* runScoped(() => restoreActor(lifecycle, snapshot).start());
   const restored = actor.getSnapshot();
   if (restored.status === "error") {

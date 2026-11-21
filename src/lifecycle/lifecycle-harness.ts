@@ -4,14 +4,16 @@ import type { FakeSandboxTeardown } from "./fake-sandbox-teardown.ts";
 import { fakeSandboxTeardown } from "./fake-sandbox-teardown.ts";
 import type { RealStages, Route, Running, Waypoint } from "./golden-route.ts";
 import { StageNotRunning, advance, newWorkItem, stubController } from "./golden-route.ts";
+import type { LifecycleMigration } from "./lifecycle-migration.ts";
 import type { FailureReason, OutcomeOf, StageName } from "./stage.ts";
 import type { WorkItem } from "./work-item-actor.ts";
 import { createWorkItem, restoreWorkItem } from "./work-item-actor.ts";
 
-/** How a test sets up its work item: real stages to run instead of stubs, and the sandbox teardown to record. */
+/** How a test sets up its work item: real stages to run instead of stubs, the sandbox teardown to record, and the migrations a restore may use. */
 export interface WorkItemOptions {
   readonly stages?: RealStages;
   readonly sandbox?: FakeSandboxTeardown;
+  readonly migrations?: readonly LifecycleMigration[];
 }
 
 const drive = (workItem: WorkItem, running: Running, sandbox: FakeSandboxTeardown) => {
@@ -85,6 +87,8 @@ export const restoredWorkItem = Effect.fnUntraced(function* (
 ) {
   const { running, lifecycle } = stubController(options.stages ?? {});
   const sandbox = options.sandbox ?? fakeSandboxTeardown();
-  const workItem = yield* restoreWorkItem(lifecycle, persisted).pipe(Effect.provide(sandbox.layer));
+  const workItem = yield* restoreWorkItem(lifecycle, persisted, options.migrations).pipe(
+    Effect.provide(sandbox.layer),
+  );
   return drive(workItem, running, sandbox);
 });
