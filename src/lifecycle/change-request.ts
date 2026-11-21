@@ -1,9 +1,9 @@
 import { Match, Schema } from "effect";
-import { absurd } from "effect/Function";
 
 import type { StandingFact } from "./facts.ts";
 import type { Teaching } from "./outcome-teaching.ts";
 import type { Transition } from "./transition.ts";
+import { returnsToSpec } from "./transition.ts";
 
 /**
  * What the change was last sent back to Build to address, and where that came
@@ -26,27 +26,16 @@ const changeRequestAfter = (
   taught: Teaching,
 ): ChangeRequest | null =>
   Match.valueTags(transition, {
-    // An outcome whose loop reached its limit teaches no request, because the
-    // change is not sent back to Build, and a retry re-runs the looping stage
-    // on the change Build last made, so the request Build last addressed stands.
+    // An outcome that does not send the change back to Build teaches no
+    // request, so the one Build last addressed stands for Review to check.
     stageFinished: () => taught.changeRequest ?? request,
     stageErrored: () => request,
     gateApproved: () => request,
     gateRejected: ({ gate, decision }): ChangeRequest | null => {
-      switch (gate) {
-        case "shipGate": {
-          return { from: "shipGate", text: decision.comment ?? null };
-        }
-        case "specGate": {
-          return null;
-        }
-        case "sampleGate": {
-          return request;
-        }
-        default: {
-          return absurd(gate);
-        }
+      if (gate === "shipGate") {
+        return { from: "shipGate", text: decision.comment ?? null };
       }
+      return returnsToSpec(transition) ? null : request;
     },
     retried: () => request,
     sentBackToSpec: () => null,

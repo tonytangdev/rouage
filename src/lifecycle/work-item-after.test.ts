@@ -116,6 +116,38 @@ const cases: ReadonlyArray<readonly [string, Case]> = [
     },
   ],
   [
+    "Reproduce asking for a sample at its limit blocks and keeps the sample request",
+    {
+      from: { ...fresh, counters: { ...fresh.counters, reproduce: 2 } },
+      transition: finished("reproduce", { _tag: "needsSample", sampleRequest: "orders over 100" }),
+      to: {
+        ...fresh,
+        facts: { ...fresh.facts, sampleRequest: "orders over 100" },
+        counters: { ...fresh.counters, reproduce: 2 },
+        blocked: {
+          from: "reproduce",
+          reason: { tag: "LoopLimitReached", message: "Reproduce went back to Provision 2 times" },
+        },
+      },
+    },
+  ],
+  [
+    "a plan records whether it calls for a demo",
+    {
+      from: fresh,
+      transition: finished("plan", { _tag: "planned", planRef: "plan-1", demo: true }),
+      to: { ...fresh, facts: { ...fresh.facts, planRef: "plan-1", demoPlanned: true } },
+    },
+  ],
+  [
+    "a new demo replaces the outdated one",
+    {
+      from: { ...fresh, facts: { ...fresh.facts, demoRef: "demo-1", demoOutdated: true } },
+      transition: finished("demo", { _tag: "demonstrated", demoRef: "demo-2" }),
+      to: { ...fresh, facts: { ...fresh.facts, demoRef: "demo-2", demoOutdated: false } },
+    },
+  ],
+  [
     "a build outdates the latest demo",
     {
       from: { ...fresh, facts: { ...fresh.facts, demoRef: "demo-1" } },

@@ -38,7 +38,7 @@ export const DecisionSchema = Schema.Struct({
 });
 export type Decision = typeof DecisionSchema.Type;
 
-/** Everything a work item saves, changed only by its transitions, and checked against this Schema when it is restored (ADR 0002). */
+/** Everything a work item saves, changed only in work-item-after.ts, and checked against this Schema when it is restored (ADR 0002). */
 export const WorkItemContextSchema = Schema.Struct({
   id: Schema.String,
   /** What stages are given to work from. */

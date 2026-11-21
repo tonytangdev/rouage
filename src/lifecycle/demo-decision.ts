@@ -3,6 +3,7 @@ import { Match, Schema, Struct } from "effect";
 import type { StandingFact } from "./facts.ts";
 import type { Teaching } from "./outcome-teaching.ts";
 import type { Transition } from "./transition.ts";
+import { returnsToSpec } from "./transition.ts";
 
 /** What the work item holds to decide whether a demo is made and which demo a stage sees (ADR 0011). */
 const DemoFactsSchema = Schema.Struct({
@@ -48,7 +49,7 @@ const demoFactsAfter = (facts: DemoFacts, transition: Transition, taught: Teachi
     stageFinished: () => ({ ...facts, ...taught.demo }),
     stageErrored: () => facts,
     gateApproved: () => facts,
-    gateRejected: ({ gate }) => (gate === "specGate" ? { ...facts, demoOverride: null } : facts),
+    gateRejected: () => (returnsToSpec(transition) ? { ...facts, demoOverride: null } : facts),
     retried: () => facts,
     sentBackToSpec: () => ({ ...facts, demoOverride: null }),
     demoOverridden: ({ demo }) => ({ ...facts, demoOverride: demo }),

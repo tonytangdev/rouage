@@ -67,6 +67,18 @@ export const soleOutcome = <Stage extends SoleOutcomeStage>(
   outcome: OutcomeOf<Stage>,
 ): StageFinished => finished(stage, outcome);
 
+/** `stage` failing or crashing with `error` instead of finishing. */
+export const errored = (stage: StageName, error: unknown): StageErrored => ({
+  _tag: "stageErrored",
+  stage,
+  error,
+});
+
+/** Whether `transition` returns the work item to Spec to rewrite it: a spec gate rejection, or a blocked work item sent back. */
+export const returnsToSpec = (transition: Transition): boolean =>
+  transition._tag === "sentBackToSpec" ||
+  (transition._tag === "gateRejected" && transition.gate === "specGate");
+
 /** A human approving at `gate`. */
 export const gateApproved = (gate: Gate, decision: HumanDecision): Transition => ({
   _tag: "gateApproved",

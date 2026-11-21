@@ -10,7 +10,7 @@ import type { AnyOutcome } from "./transition.ts";
 /** How an outcome sends the work item around a loop, and why it blocks once the loop reaches `limit`. */
 export interface LoopTrip {
   readonly loop: LoopName;
-  /** Told to the human with what the outcome last asked for. */
+  /** Told to the human once the loop reaches `limit`, with what the outcome asked for when it asked for something. */
   readonly describe: (limit: number) => string;
 }
 
@@ -23,7 +23,8 @@ export interface Teaching {
   readonly changeRequest: ChangeRequest | null;
   /** The demo facts the outcome changes; a human's override is never taught by a stage (ADR 0011). */
   readonly demo: Partial<Omit<DemoFacts, "demoOverride">>;
-  readonly loops: LoopTrip | null;
+  /** The loop the outcome sends the work item around, or `null` when it sends it on. */
+  readonly loop: LoopTrip | null;
   /** Why the outcome blocks the work item, or `null` when it does not. */
   readonly blocks: FailureReason | null;
 }
@@ -59,27 +60,28 @@ type Teachings = {
   readonly [Tag in OutcomeTag]: (outcome: Extract<AnyOutcome, { _tag: Tag }>) => TeachingOf<Tag>;
 };
 
-const untaught: Teaching & { readonly blocks: null } = {
+/** What a transition that is not a stage finishing teaches: nothing. */
+export const nothingTaught: Teaching & { readonly blocks: null } = {
   references: {},
   feedback: null,
   changeRequest: null,
   demo: {},
-  loops: null,
+  loop: null,
   blocks: null,
 };
 
-const teaches = (taught: Partial<Omit<Teaching, "blocks">>) => ({ ...untaught, ...taught });
+const teaches = (taught: Partial<Omit<Teaching, "blocks">>) => ({ ...nothingTaught, ...taught });
 
-const nothing = () => untaught;
+const nothing = () => nothingTaught;
 
-const blocks = (blocked: FailureReason, references: Partial<References> = {}) => ({
-  ...untaught,
+const blocking = (blocked: FailureReason, references: Partial<References> = {}) => ({
+  ...nothingTaught,
   references,
   blocks: blocked,
 });
 
-const sentBackToBuild = (from: "review" | "ship", feedback: string, loops: LoopTrip) =>
-  teaches({ feedback, changeRequest: { from, text: feedback }, loops });
+const sentBackToBuild = (from: "review" | "ship", feedback: string, loop: LoopTrip) =>
+  teaches({ feedback, changeRequest: { from, text: feedback }, loop });
 
 // Keyed by tag, so an outcome added to a stage fails to compile here until it
 // says what it teaches, including whether it loops or blocks.
@@ -92,15 +94,15 @@ const teachings: [SharedOutcomeTag] extends [never] ? Teachings : never = {
   needsSample: ({ sampleRequest }) =>
     teaches({
       references: { sampleRequest },
-      loops: {
+      loop: {
         loop: "reproduce",
         describe: (limit) => `Reproduce went back to Provision ${limit} times`,
       },
     }),
-  cannotReproduce: ({ reason }) => blocks({ tag: "CannotReproduce", message: reason }),
+  cannotReproduce: ({ reason }) => blocking({ tag: "CannotReproduce", message: reason }),
   // The reproduction is kept, so a retry revises it rather than starting over (ADR 0009).
   checkPassed: ({ reproductionRef, output }) =>
-    blocks(
+    blocking(
       {
         tag: "ReproductionDidNotFail",
         message: `The reproduction ${reproductionRef} passed, so it does not show the bug: ${output}`,
@@ -130,6 +132,9 @@ const teachings: [SharedOutcomeTag] extends [never] ? Teachings : never = {
 /** What `outcome` means for the work item when its stage finishes with it. */
 export const taughtBy = (outcome: AnyOutcome): Teaching => Match.valueTags(outcome, teachings);
 
+export const isBlocking = (teaching: Teaching): teaching is BlockingTeaching =>
+  teaching.blocks !== null;
+
 /** `taughtBy` for an outcome that blocks, whose reason is always there. */
 export const blockingTaughtBy = (outcome: BlockingOutcome): BlockingTeaching =>
   Match.valueTags(outcome, {
@@ -143,6 +148,3 @@ export const exhaustedTeaching = (teaching: Teaching): Teaching => ({
   feedback: null,
   changeRequest: null,
 });
-
-/** What a transition that is not a stage finishing teaches: nothing. */
-export const nothingTaught: Teaching = untaught;

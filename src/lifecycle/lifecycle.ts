@@ -9,6 +9,7 @@ import { innermostState } from "./state-value.ts";
 import {
   cancelled,
   demoOverridden,
+  errored,
   finished,
   gateApproved,
   gateRejected,
@@ -56,11 +57,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
       on: {
         "xstate.error.actor": ({ context, event }) => ({
           target: "#blocked",
-          context: blockedAfter(context, {
-            _tag: "stageErrored",
-            stage: event.actorId,
-            error: event.error,
-          }),
+          context: blockedAfter(context, errored(event.actorId, event.error)),
         }),
       },
       states: {

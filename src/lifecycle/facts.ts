@@ -62,10 +62,10 @@ export const noFactsYet: Omit<StageFacts, "issueRef"> = {
 };
 
 /**
- * The work item's facts after `transition`, given what it `taught`: the
- * outcome's teaching when a stage finished, else nothing. References are
- * replaced only by the outcome that teaches a newer one; each standing fact
- * follows its own lifetime.
+ * The work item's facts after `transition`, given what it `taught`: what the
+ * outcome teaches when a stage finished, less what a loop at its limit does
+ * not send back, else nothing. References are replaced only by the outcome
+ * that teaches a newer one; each standing fact follows its own lifetime.
  */
 export const factsAfter = (
   facts: StageFacts,
