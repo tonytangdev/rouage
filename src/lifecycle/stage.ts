@@ -64,6 +64,8 @@ export const StageFactsSchema = Schema.Struct({
   planRef: Reference,
   /** Whether the latest plan calls for a demo, or `null` before Plan has run. */
   demoPlanned: Schema.NullOr(Schema.Boolean),
+  /** Whether a human required a demo, over any plan, or `null` when no human has decided since the last return to Spec (ADR 0011). */
+  demoOverride: Schema.NullOr(Schema.Boolean),
   /** The reference to the latest demo, opaque to Rouage; only the next demo replaces it (ADR 0004). */
   demoRef: Reference,
   /** The reference to where Ship delivered the change, opaque to Rouage (ADR 0004); `null` until shipped. */
@@ -83,6 +85,7 @@ export const noFactsYet: Omit<StageFacts, "issueRef"> = {
   reproductionRef: null,
   planRef: null,
   demoPlanned: null,
+  demoOverride: null,
   demoRef: null,
   deliveryRef: null,
 };
@@ -90,9 +93,13 @@ export const noFactsYet: Omit<StageFacts, "issueRef"> = {
 /** What the lifecycle passes to every stage machine it starts. */
 export interface StageInput extends StageFacts {
   readonly workItemId: string;
-  /** The demo of the current change, or `null` when the latest plan calls for none, because a demo made for an earlier plan no longer shows the change. */
+  /** The demo of the current change, or `null` when the work item calls for none, because a demo made for an earlier plan, or one a human skipped, does not show the change. */
   readonly demoRef: string | null;
 }
+
+/** Whether the work item calls for a demo: a human's override when there is one, else the latest plan's decision (ADR 0011). */
+export const demoCalledFor = (facts: StageFacts): boolean =>
+  (facts.demoOverride ?? facts.demoPlanned) === true;
 
 /** Builds a stage's input from the work item; takes XState's input-function argument so it can be passed as is. */
 export const stageInput = ({
@@ -102,7 +109,7 @@ export const stageInput = ({
 }): StageInput => ({
   workItemId: id,
   ...facts,
-  demoRef: facts.demoPlanned === true ? facts.demoRef : null,
+  demoRef: demoCalledFor(facts) ? facts.demoRef : null,
 });
 
 /**

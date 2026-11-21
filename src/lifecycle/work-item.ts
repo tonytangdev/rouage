@@ -13,7 +13,7 @@ export interface WorkItemInput {
   readonly limits: LoopLimits;
 }
 
-/** What a human sends to decide at a gate or for a blocked work item. `at` is an ISO timestamp set by the sender, because transitions read no clock. */
+/** What a human sends to decide at a gate, for a blocked work item, or on whether a demo is made. `at` is an ISO timestamp set by the sender, because transitions read no clock. */
 export interface HumanDecision {
   readonly by: string;
   readonly at: string;
@@ -26,6 +26,8 @@ export const DecisionActionSchema = Schema.Literals([
   "retry",
   "backToSpec",
   "cancel",
+  "requireDemo",
+  "skipDemo",
 ]);
 export type DecisionAction = typeof DecisionActionSchema.Type;
 
@@ -85,9 +87,29 @@ export const retried = (context: WorkItemContext, decision: HumanDecision) => ({
   decisions: recordDecision(context, "retry", "blocked", decision),
 });
 
-/** The context change for sending a blocked work item back to Spec: unblocked with fresh loop counters, and the comment as the only feedback. */
+/**
+ * The context change for sending a blocked work item back to Spec: unblocked
+ * with fresh loop counters, the comment as the only feedback, and no demo
+ * override, because the new spec's plan makes a demo decision the human has
+ * not yet seen (ADR 0011).
+ */
 export const sentBack = (context: WorkItemContext, decision: HumanDecision) => ({
   ...unblocked,
-  ...learned(context, { feedback: decision.comment ?? null }),
+  ...learned(context, { feedback: decision.comment ?? null, demoOverride: null }),
   decisions: recordDecision(context, "backToSpec", "blocked", decision),
+});
+
+// An override's comment is recorded but is not feedback, so it never displaces
+// what the next stage must address (ADR 0011).
+
+/** The context change when a human requires a demo in `state`: the requirement stands over any later plan. */
+export const demoRequired = (context: WorkItemContext, state: string, decision: HumanDecision) => ({
+  ...learned(context, { demoOverride: true }),
+  decisions: recordDecision(context, "requireDemo", state, decision),
+});
+
+/** The context change when a human skips a demo in `state`: the skip stands over any later plan. */
+export const demoSkipped = (context: WorkItemContext, state: string, decision: HumanDecision) => ({
+  ...learned(context, { demoOverride: false }),
+  decisions: recordDecision(context, "skipDemo", state, decision),
 });

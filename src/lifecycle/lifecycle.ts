@@ -4,9 +4,17 @@ import { reproduceBlocked, stageErrored } from "./blocked.ts";
 import { soleOutcomeFinished, stageFinished } from "./facts.ts";
 import { lifecycleSetup } from "./lifecycle-setup.ts";
 import { loopExhausted, loopLimitReached, noLoopsYet, wentAround } from "./loops.ts";
-import { noFactsYet, stageInput } from "./stage.ts";
+import { demoCalledFor, noFactsYet, stageInput } from "./stage.ts";
 import { innermostState } from "./state-value.ts";
-import { approved, recordDecision, rejected, retried, sentBack } from "./work-item.ts";
+import {
+  approved,
+  demoRequired,
+  demoSkipped,
+  recordDecision,
+  rejected,
+  retried,
+  sentBack,
+} from "./work-item.ts";
 
 // Every transition names its target as a literal, even where a helper could
 // compute it, so Stately's editor can draw every arrow (ADR 0002).
@@ -33,6 +41,12 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           event,
         ),
       },
+    }),
+    requireDemo: ({ context, event, self }) => ({
+      context: demoRequired(context, innermostState(self.getSnapshot().value), event),
+    }),
+    skipDemo: ({ context, event, self }) => ({
+      context: demoSkipped(context, innermostState(self.getSnapshot().value), event),
     }),
   },
   states: {
@@ -165,7 +179,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             input: stageInput,
             onDone: ({ context, event: { output } }) => {
               const built = soleOutcomeFinished(context, "build", output);
-              return context.facts.demoPlanned === true
+              return demoCalledFor(context.facts)
                 ? { target: "demo", context: built }
                 : { target: "review", context: built };
             },
@@ -179,6 +193,12 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             onDone: ({ context, event: { output } }) => ({
               target: "review",
               context: soleOutcomeFinished(context, "demo", output),
+            }),
+          },
+          on: {
+            skipDemo: ({ context, event }) => ({
+              target: "review",
+              context: demoSkipped(context, "demo", event),
             }),
           },
         },
@@ -234,10 +254,11 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
     blocked: {
       id: "blocked",
       on: {
-        retry: ({ context, event }) => ({
-          target: "working.lastStage",
-          context: retried(context, event),
-        }),
+        retry: ({ context, event }) =>
+          // Not back to Demo, because that would make the demo a human skipped while it was blocked (ADR 0011).
+          context.blocked.from === "demo" && !demoCalledFor(context.facts)
+            ? { target: "working.review", context: retried(context, event) }
+            : { target: "working.lastStage", context: retried(context, event) },
         backToSpec: ({ context, event }) =>
           // An unclassified work item would reach Provision without a kind and be routed as a feature.
           context.facts.kind === null
