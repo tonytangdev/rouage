@@ -1,12 +1,9 @@
 import type { Effect } from "effect";
 import { Context, Data } from "effect";
 
-import type { BuiltChange } from "../built-change.ts";
+import type { DemonstratedChange } from "../built-change.ts";
 
-export interface ShipTask extends BuiltChange {
-  /** The demo of the change, or `null` when the latest plan calls for none. */
-  readonly demoRef: string | null;
-}
+export type ShipTask = DemonstratedChange;
 
 export interface Shipped {
   /** Where the change was delivered, such as a pull request URL or a merge commit, opaque to Rouage (ADR 0004). */

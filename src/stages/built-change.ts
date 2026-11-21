@@ -37,3 +37,20 @@ export const builtChangeTask = <Extra extends object>(
         reproductionRef: input.reproductionRef,
         ...extra,
       };
+
+/** What a stage that judges or delivers the finished change is given: the built change and the demo of it. */
+export interface DemonstratedChange extends BuiltChange {
+  /** The demo of the change, or `null` when the latest plan calls for none. */
+  readonly demoRef: string | null;
+}
+
+/**
+ * The task of the stage named `stage`, as `builtChangeTask` builds it, with
+ * the latest demo only while the latest plan calls for one, because a demo
+ * of an earlier plan no longer shows the current change.
+ */
+export const demonstratedChangeTask = (
+  stage: string,
+  input: StageInput,
+): DemonstratedChange | StageFailure =>
+  builtChangeTask(stage, input, { demoRef: input.demoPlanned === true ? input.demoRef : null });
