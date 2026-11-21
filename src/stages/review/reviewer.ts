@@ -1,19 +1,10 @@
 import type { Effect } from "effect";
 import { Context, Data } from "effect";
 
-import type { Kind, OutcomeOf } from "../../lifecycle/stage.ts";
+import type { OutcomeOf } from "../../lifecycle/stage.ts";
+import type { BuiltChange } from "../built-change.ts";
 
-export interface ReviewTask {
-  readonly workItemId: string;
-  readonly issueRef: string;
-  readonly kind: Kind | null;
-  readonly specRef: string | null;
-  /** The plan Build followed, or `null` when the lifecycle runs no Plan. */
-  readonly planRef: string | null;
-  /** The sandbox holding the change and its tests. */
-  readonly sandboxRef: string;
-  /** The bug's reproduction, or `null` for a feature. */
-  readonly reproductionRef: string | null;
+export interface ReviewTask extends BuiltChange {
   /** The demo of the change, or `null` when the latest plan calls for none. */
   readonly demoRef: string | null;
 }

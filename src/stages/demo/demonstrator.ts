@@ -1,18 +1,9 @@
 import type { Effect } from "effect";
 import { Context, Data } from "effect";
 
-import type { Kind } from "../../lifecycle/stage.ts";
+import type { BuiltChange } from "../built-change.ts";
 
-export interface DemoTask {
-  readonly workItemId: string;
-  readonly issueRef: string;
-  readonly kind: Kind | null;
-  readonly specRef: string | null;
-  /** The plan Build followed, or `null` when the lifecycle runs no Plan. */
-  readonly planRef: string | null;
-  readonly sandboxRef: string;
-  /** The bug's reproduction, or `null` for a feature. */
-  readonly reproductionRef: string | null;
+export interface DemoTask extends BuiltChange {
   /** The demo made before, for the demonstrator to revise; `null` on the first demo. */
   readonly previousDemoRef: string | null;
 }

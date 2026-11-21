@@ -1,22 +1,7 @@
-import type { StageFailure, StageInput } from "../../lifecycle/stage.ts";
-import { sandboxMissing } from "../sandbox-missing.ts";
+import { builtChangeTask } from "../built-change.ts";
 import { singleStepStage } from "../single-step-stage.ts";
 import type { ReviewTask, Verdict } from "./reviewer.ts";
 import { Reviewer } from "./reviewer.ts";
-
-const reviewTask = (input: StageInput): ReviewTask | StageFailure =>
-  input.sandboxRef === null
-    ? sandboxMissing("Review")
-    : {
-        workItemId: input.workItemId,
-        issueRef: input.issueRef,
-        kind: input.kind,
-        specRef: input.specRef,
-        planRef: input.planRef,
-        sandboxRef: input.sandboxRef,
-        reproductionRef: input.reproductionRef,
-        demoRef: input.demoPlanned === true ? input.demoRef : null,
-      };
 
 /**
  * The Review stage machine: asks the `Reviewer` in context to judge the built
@@ -26,7 +11,10 @@ const reviewTask = (input: StageInput): ReviewTask | StageFailure =>
  */
 export const reviewStage = singleStepStage(Reviewer, {
   stage: "review",
-  task: reviewTask,
+  task: (input) =>
+    builtChangeTask("Review", input, {
+      demoRef: input.demoPlanned === true ? input.demoRef : null,
+    }),
   ask: (reviewer, task: ReviewTask) => reviewer.review(task),
   outcome: (verdict: Verdict) => verdict,
 });

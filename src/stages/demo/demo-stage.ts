@@ -1,22 +1,7 @@
-import type { StageFailure, StageInput } from "../../lifecycle/stage.ts";
-import { sandboxMissing } from "../sandbox-missing.ts";
+import { builtChangeTask } from "../built-change.ts";
 import { singleStepStage } from "../single-step-stage.ts";
 import type { DemoTask } from "./demonstrator.ts";
 import { Demonstrator } from "./demonstrator.ts";
-
-const demoTask = (input: StageInput): DemoTask | StageFailure =>
-  input.sandboxRef === null
-    ? sandboxMissing("Demo")
-    : {
-        workItemId: input.workItemId,
-        issueRef: input.issueRef,
-        kind: input.kind,
-        specRef: input.specRef,
-        planRef: input.planRef,
-        sandboxRef: input.sandboxRef,
-        reproductionRef: input.reproductionRef,
-        previousDemoRef: input.demoRef,
-      };
 
 /**
  * The Demo stage machine: makes a demo of the built change with the
@@ -26,7 +11,7 @@ const demoTask = (input: StageInput): DemoTask | StageFailure =>
  */
 export const demoStage = singleStepStage(Demonstrator, {
   stage: "demo",
-  task: demoTask,
+  task: (input) => builtChangeTask("Demo", input, { previousDemoRef: input.demoRef }),
   ask: (demonstrator, task: DemoTask) => demonstrator.demonstrate(task),
   outcome: ({ demoRef }) => ({ _tag: "demonstrated", demoRef }),
 });
