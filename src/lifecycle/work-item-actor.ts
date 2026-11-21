@@ -1,47 +1,18 @@
 import { Data, Effect, Schema } from "effect";
-import type {
-  Actor,
-  ActorLogic,
-  AnyActorSystem,
-  EmittedFrom,
-  EventFrom,
-  SnapshotFrom,
-} from "xstate";
+import type { Actor, EventFrom, SnapshotFrom } from "xstate";
 import { createActor, waitFor } from "xstate";
-import { restoreActor, snapshotSchema } from "xstate/persist";
+import { restoreActor } from "xstate/persist";
 
-import { defaultLifecycle } from "./lifecycle.ts";
+import type { DefaultLifecycle, Lifecycle, LifecycleIdentity } from "./lifecycle-logic.ts";
 import type { LoopLimits } from "./loops.ts";
 import { resolveLoopLimits } from "./loops.ts";
 import type { Place } from "./place.ts";
 import { placeOf } from "./place.ts";
+import { UnreadableSnapshot, readableSnapshot } from "./readable-snapshot.ts";
 import type { TeardownGaveUp } from "./sandbox-teardown.ts";
 import { teardownWhenFinal } from "./teardown-when-final.ts";
-import type { WorkItemContext, WorkItemInput } from "./work-item.ts";
+import type { WorkItemContext } from "./work-item.ts";
 
-type DefaultLifecycle = typeof defaultLifecycle;
-
-interface LifecycleIdentity {
-  readonly id: string;
-  readonly version: string;
-}
-
-/**
- * The default lifecycle with any stage implementations provided, identified by
- * its own id and version. Providing stages gives each set of stages its own
- * machine type, so a work item accepts any logic with the default lifecycle's
- * snapshot, events and input. Rouage bumps the default lifecycle's version
- * whenever a saved work item could no longer restore as it did; a custom
- * lifecycle owns its id and version, and keeps the same rule (ADR 0002).
- */
-export type Lifecycle = ActorLogic<
-  SnapshotFrom<DefaultLifecycle>,
-  EventFrom<DefaultLifecycle>,
-  WorkItemInput,
-  AnyActorSystem,
-  EmittedFrom<DefaultLifecycle>
-> &
-  LifecycleIdentity;
 type WorkItemActor = Actor<Lifecycle>;
 
 /** A running work item. The XState actor behind it stays inside this module. */
@@ -93,10 +64,6 @@ export class LifecycleVersionMismatch extends Data.TaggedError("LifecycleVersion
   readonly found: LifecycleIdentity;
 }> {}
 
-export class UnreadableSnapshot extends Data.TaggedError("UnreadableSnapshot")<{
-  readonly message: string;
-}> {}
-
 export interface NewWorkItem {
   readonly id: string;
   readonly issueRef: string;
@@ -137,19 +104,6 @@ export const createWorkItem = Effect.fnUntraced(function* (
 
 const unreadable = (message: string) => new UnreadableSnapshot({ message });
 
-// Decoded with the default lifecycle's schema because `Lifecycle` shares its
-// snapshot type; restoring then rejects any state the given lifecycle lacks.
-const validateSnapshot = Effect.fnUntraced(function* (persisted: unknown) {
-  const result = yield* Effect.tryPromise({
-    try: () => Promise.resolve(snapshotSchema(defaultLifecycle)["~standard"].validate(persisted)),
-    catch: (error) => unreadable(String(error)),
-  });
-  if (result.issues !== undefined) {
-    return yield* unreadable(result.issues.map((issue) => issue.message).join("; "));
-  }
-  return result.value;
-});
-
 /**
  * Resumes a saved work item. Fails with `LifecycleVersionMismatch` when it was
  * saved under another lifecycle id or version, because restoring it anyway
@@ -166,7 +120,7 @@ export const restoreWorkItem = Effect.fnUntraced(function* (
   if (found.id !== expected.id || found.version !== expected.version) {
     return yield* new LifecycleVersionMismatch({ expected, found });
   }
-  const snapshot = yield* validateSnapshot(persisted);
+  const snapshot = yield* readableSnapshot(lifecycle, persisted);
   const actor = yield* runScoped(() => restoreActor(lifecycle, snapshot).start());
   const restored = actor.getSnapshot();
   if (restored.status === "error") {

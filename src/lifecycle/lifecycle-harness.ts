@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import type { FakeSandboxTeardown } from "./fake-sandbox-teardown.ts";
 import { fakeSandboxTeardown } from "./fake-sandbox-teardown.ts";
@@ -45,6 +45,18 @@ const drive = (workItem: WorkItem, running: Running, sandbox: FakeSandboxTeardow
 
 /** A test work item: a work item plus the controls that drive its stub stages. */
 export type TestWorkItem = ReturnType<typeof drive>;
+
+const JsonObject = Schema.Record(Schema.String, Schema.Unknown);
+const objectIn = Schema.decodeUnknownSync(JsonObject);
+
+/** `persisted` with the saved context of its running `stage` replaced by `context`, as a stage machine whose context has changed since would find it; throws if `stage` is not running in it. */
+export const withStageContext = (persisted: unknown, stage: StageName, context: unknown) => {
+  const saved = objectIn(persisted);
+  const children = objectIn(saved["children"]);
+  const entry = objectIn(children[stage]);
+  const snapshot = { ...objectIn(entry["snapshot"]), context };
+  return { ...saved, children: { ...children, [stage]: { ...entry, snapshot } } };
+};
 
 /** Round-trips a saved work item through JSON, as a store that keeps it as text would. */
 export const throughJson = (persisted: unknown): unknown => JSON.parse(JSON.stringify(persisted));

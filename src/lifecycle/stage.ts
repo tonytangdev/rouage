@@ -1,11 +1,9 @@
 import { Data, Predicate, Schema, Struct } from "effect";
 
-import type { DemoFacts } from "./demo-decision.ts";
 import { demoFactNames, demoShown, demoToRevise } from "./demo-decision.ts";
 import type { StageFacts } from "./facts.ts";
-
-export const KindSchema = Schema.Literals(["bug", "feature"]);
-export type Kind = typeof KindSchema.Type;
+import { StageFactsSchema } from "./facts.ts";
+import type { Kind } from "./kind.ts";
 
 /** Every stage of the default lifecycle; `StageOutcomes` gives each its outcome. */
 export const StageNameSchema = Schema.Literals([
@@ -48,13 +46,19 @@ export const failureReasonOf = (error: unknown): FailureReason => {
  * What the lifecycle passes to every stage machine it starts: the work item's
  * facts, with the demo decision reduced to the one demo the stage may see,
  * because a stage reading the raw demo facts could disagree with the lifecycle
- * on whether a demo is called for (ADR 0011).
+ * on whether a demo is called for (ADR 0011). A Schema, so a stage machine
+ * that keeps its input in its context can check a restored one (ADR 0014).
  */
-export interface StageInput extends Omit<StageFacts, keyof DemoFacts> {
-  readonly workItemId: string;
+export const StageInputSchema = Schema.Struct({
+  workItemId: Schema.String,
+  ...Struct.omit(StageFactsSchema.fields, demoFactNames),
   /** The demo of the current change, or `null` when there is none to show. */
-  readonly demoRef: string | null;
-}
+  demoRef: Schema.NullOr(Schema.String),
+});
+export type StageInput = typeof StageInputSchema.Type;
+
+/** The `StageInput` Schema as the Standard Schema a stage machine declares its context with, when its context is its input. */
+export const stageInputContext = Schema.toStandardSchemaV1(StageInputSchema);
 
 interface InputArgument {
   readonly context: { readonly id: string; readonly facts: StageFacts };

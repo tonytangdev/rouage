@@ -2,7 +2,7 @@ import type { Context, Effect } from "effect";
 import { setup, types } from "xstate";
 
 import type { OutcomeOf, StageInput, StageName } from "../lifecycle/stage.ts";
-import { StageFailure } from "../lifecycle/stage.ts";
+import { StageFailure, stageInputContext } from "../lifecycle/stage.ts";
 import type { PortGaveUp, PortStep } from "./port-stage.ts";
 import { portStage } from "./port-stage.ts";
 
@@ -30,7 +30,7 @@ const singleStepSetup = <Stage extends StageName, Port, Task, Answer>(
   setup({
     schemas: {
       input: types<StageInput>(),
-      context: types<StageInput>(),
+      context: stageInputContext,
       output: types<OutcomeOf<Stage>>(),
     },
     actors: { ask: step(spec.ask) },

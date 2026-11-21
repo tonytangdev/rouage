@@ -1,5 +1,5 @@
 import type { Effect } from "effect";
-import { Context, Data } from "effect";
+import { Context, Data, Schema } from "effect";
 
 import type { ChangeRequest } from "../../lifecycle/change-request.ts";
 import type { RunBrief } from "../run-brief.ts";
@@ -14,11 +14,12 @@ export interface BuildTask extends RunBrief {
 }
 
 /** A bug's reproduction to run in the sandbox holding the change. */
-export interface ReproductionCheckTask {
-  readonly workItemId: string;
-  readonly sandboxRef: string;
-  readonly reproductionRef: string;
-}
+export const ReproductionCheckTaskSchema = Schema.Struct({
+  workItemId: Schema.String,
+  sandboxRef: Schema.String,
+  reproductionRef: Schema.String,
+});
+export type ReproductionCheckTask = typeof ReproductionCheckTaskSchema.Type;
 
 export interface FixTask {
   readonly workItemId: string;

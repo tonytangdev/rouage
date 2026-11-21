@@ -4,7 +4,12 @@ import type { AnyStateMachine } from "xstate";
 
 import type { RealStages } from "../lifecycle/golden-route.ts";
 import { reviewer } from "../lifecycle/golden-route.ts";
-import { restoredWorkItem, startWorkItem, throughJson } from "../lifecycle/lifecycle-harness.ts";
+import {
+  restoredWorkItem,
+  startWorkItem,
+  throughJson,
+  withStageContext,
+} from "../lifecycle/lifecycle-harness.ts";
 import type { StageName } from "../lifecycle/stage.ts";
 import type { PortStageUnderTest, ScriptedPortStage } from "./port-stage-under-test.ts";
 
@@ -35,13 +40,57 @@ const itGivesARetrysCommentToItsFirstStep = <
   );
 };
 
+const itRestoresMidFirstStep = <
+  Step extends string,
+  Script,
+  Scripted extends ScriptedPortStage<Step>,
+>(
+  stage: PortStageUnderTest<Step, Script, Scripted>,
+) => {
+  const { firstStep } = stage;
+  const savedMidFirstStep = Effect.fnUntraced(function* () {
+    const before = yield* stage.scripted(stage.passing({ step: firstStep, as: "hanging" }));
+    const original = yield* startWorkItem({ stages: lifecycleWith(stage.name, before.stage) });
+    original.advanceTo(stage.name, stage.route);
+    yield* before.fake.started(firstStep);
+    return throughJson(original.save());
+  });
+
+  it.effect("runs its first step again with the same task when restored mid-step", () =>
+    Effect.gen(function* () {
+      const saved = yield* savedMidFirstStep();
+      const after = yield* stage.scripted(stage.passing());
+      const workItem = yield* restoredWorkItem(saved, {
+        stages: lifecycleWith(stage.name, after.stage),
+      });
+      yield* workItem.reaches(stage.next);
+      expect(after.fake.calls()[0]).toStrictEqual({ step: firstStep, task: stage.firstTask });
+    }),
+  );
+
+  it.effect("refuses a work item saved mid-step whose stage context no longer fits", () =>
+    Effect.gen(function* () {
+      const saved = yield* savedMidFirstStep();
+      const after = yield* stage.scripted(stage.passing());
+      const persisted = withStageContext(saved, stage.name, {});
+      const error = yield* Effect.flip(
+        restoredWorkItem(persisted, { stages: lifecycleWith(stage.name, after.stage) }),
+      );
+      expect(error._tag).toStrictEqual("UnreadableSnapshot");
+      expect(error.message).toContain(`The saved ${stage.name} stage`);
+      expect(after.fake.calls()).toStrictEqual([]);
+    }),
+  );
+};
+
 /**
  * Declares the tests every port stage must pass inside the default
  * lifecycle: any of its steps giving up blocks the work item on the stage
  * with its port's reason, cancelling a work item interrupts whichever step
  * is running, a retry's comment reaches its first step as feedback,
- * and a work item restored mid-first-step runs that step again with the same
- * task and moves on.
+ * a work item restored mid-first-step runs that step again with the same
+ * task and moves on, and one whose saved stage context no longer fits the
+ * stage machine is refused before any step runs.
  */
 export const describePortStageInLifecycle = <
   Step extends string,
@@ -50,8 +99,6 @@ export const describePortStageInLifecycle = <
 >(
   stage: PortStageUnderTest<Step, Script, Scripted>,
 ) => {
-  const { firstStep } = stage;
-
   describe(`port stage contract in the lifecycle, ${stage.name}`, () => {
     for (const step of stage.steps) {
       it.effect(
@@ -85,20 +132,6 @@ export const describePortStageInLifecycle = <
     }
 
     itGivesARetrysCommentToItsFirstStep(stage);
-
-    it.effect("runs its first step again with the same task when restored mid-step", () =>
-      Effect.gen(function* () {
-        const before = yield* stage.scripted(stage.passing({ step: firstStep, as: "hanging" }));
-        const original = yield* startWorkItem({ stages: lifecycleWith(stage.name, before.stage) });
-        original.advanceTo(stage.name, stage.route);
-        yield* before.fake.started(firstStep);
-        const after = yield* stage.scripted(stage.passing());
-        const workItem = yield* restoredWorkItem(throughJson(original.save()), {
-          stages: lifecycleWith(stage.name, after.stage),
-        });
-        yield* workItem.reaches(stage.next);
-        expect(after.fake.calls()[0]).toStrictEqual({ step: firstStep, task: stage.firstTask });
-      }),
-    );
+    itRestoresMidFirstStep(stage);
   });
 };
