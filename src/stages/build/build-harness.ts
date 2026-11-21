@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 
-import { goldenRefs } from "../../lifecycle/golden-route.ts";
+import { goldenRefs, inputOnReaching } from "../../lifecycle/golden-route.ts";
 import { portStageUnderTest } from "../port-stage-under-test.ts";
 import type { BuildOptions } from "./build-stage.ts";
 import { buildStage } from "./build-stage.ts";
@@ -9,12 +9,34 @@ import { builderPort, fakeBuilder } from "./fake-builder.ts";
 
 export const testsPassed = { _tag: "passed" } as const;
 export const testsFailed = { _tag: "failed", failures: "1 test failed: totals add VAT" } as const;
+export const reproductionPassed = { _tag: "passed" } as const;
+export const reproductionFailed = {
+  _tag: "failed",
+  failures: "repro-1 still failed: total is 0",
+} as const;
 
 /** What the builder is asked to implement on a feature's first build. */
 export const firstImplement = {
   workItemId: goldenRefs.workItemId,
   planRef: goldenRefs.planRef,
+  reproductionRef: null,
   feedback: null,
+} as const;
+
+/** What Build is given when a bug first reaches it. */
+export const bugInput = inputOnReaching("build", { kind: "bug" });
+
+/** What the builder is asked to check once a bug's tests pass. */
+export const bugCheck = {
+  workItemId: goldenRefs.workItemId,
+  sandboxRef: goldenRefs.sandboxRef,
+  reproductionRef: goldenRefs.reproductionRef,
+} as const;
+
+/** What the builder is asked to implement on a bug's first build. */
+export const bugImplement = {
+  ...firstImplement,
+  reproductionRef: goldenRefs.reproductionRef,
 } as const;
 
 /** The builder's script, with the Build options the stage is made with. */
@@ -28,7 +50,11 @@ export const buildUnderTest = portStageUnderTest({
     const options = fixAttempts === undefined ? {} : { fixAttempts };
     return { fake, stage: yield* buildStage(options).pipe(Effect.provide(fake.layer)) };
   }),
-  passing: (misbehaving) => ({ testReports: [testsPassed], misbehaving }),
+  passing: (misbehaving) => ({
+    testReports: [testsPassed],
+    reproductionChecks: [reproductionPassed],
+    misbehaving,
+  }),
   outcome: { _tag: "built" },
   firstTask: firstImplement,
 });

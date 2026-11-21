@@ -3,9 +3,118 @@ import { ConfigProvider, Effect } from "effect";
 
 import { failureReasonOf } from "../../lifecycle/stage.ts";
 import { describePortStage } from "../port-stage-contract.ts";
-import { buildUnderTest, testsFailed, testsPassed } from "./build-harness.ts";
+import { sandboxMissing } from "../sandbox-missing.ts";
+import {
+  bugCheck,
+  bugImplement,
+  bugInput,
+  buildUnderTest,
+  reproductionFailed,
+  reproductionPassed,
+  testsFailed,
+  testsPassed,
+} from "./build-harness.ts";
 
 describe("build stage", () => {
+  it.effect("checks a bug's reproduction in its sandbox once the tests pass", () =>
+    Effect.gen(function* () {
+      const { settled, fake } = yield* buildUnderTest.run(
+        { testReports: [testsPassed], reproductionChecks: [reproductionPassed] },
+        bugInput,
+      );
+      expect(settled.output).toStrictEqual({ _tag: "built" });
+      expect(fake.calls().slice(1)).toStrictEqual([
+        { step: "test", task: bugImplement },
+        {
+          step: "checkReproduction",
+          task: bugCheck,
+        },
+      ]);
+    }),
+  );
+
+  it.effect("fixes a reproduction that still fails, then tests and checks it again", () =>
+    Effect.gen(function* () {
+      const { settled, fake } = yield* buildUnderTest.run(
+        {
+          testReports: [testsPassed, testsPassed],
+          reproductionChecks: [reproductionFailed, reproductionPassed],
+        },
+        bugInput,
+      );
+      expect(settled.output).toStrictEqual({ _tag: "built" });
+      expect(fake.steps()).toStrictEqual([
+        "implement",
+        "test",
+        "checkReproduction",
+        "fix",
+        "test",
+        "checkReproduction",
+      ]);
+      expect(fake.calls()).toContainEqual({
+        step: "fix",
+        task: { workItemId: "wi-1", failures: reproductionFailed.failures },
+      });
+    }),
+  );
+
+  it.effect(
+    "fails with a StageFailure when the reproduction still fails after its last fix attempt",
+    () =>
+      Effect.gen(function* () {
+        const { settled } = yield* buildUnderTest.run(
+          {
+            testReports: [testsPassed, testsPassed],
+            reproductionChecks: [reproductionFailed, reproductionFailed],
+            fixAttempts: 1,
+          },
+          bugInput,
+        );
+        expect(failureReasonOf(settled.error)).toStrictEqual({
+          tag: "FixAttemptsExhausted",
+          message:
+            "The reproduction still failed after Build spent its fix-attempt budget of 1: repro-1 still failed: total is 0",
+        });
+      }),
+  );
+
+  it.effect("builds a feature without a reproduction or a sandbox, and checks nothing", () =>
+    Effect.gen(function* () {
+      const { settled, fake } = yield* buildUnderTest.run(
+        { testReports: [testsPassed], reproductionChecks: [reproductionPassed] },
+        { ...buildUnderTest.input, reproductionRef: null, sandboxRef: null },
+      );
+      expect(settled.output).toStrictEqual({ _tag: "built" });
+      expect(fake.steps()).toStrictEqual(["implement", "test"]);
+    }),
+  );
+
+  it.effect("fails a bug that reaches it without a reproduction", () =>
+    Effect.gen(function* () {
+      const { settled, fake } = yield* buildUnderTest.run(
+        { testReports: [testsPassed] },
+        { ...bugInput, reproductionRef: null },
+      );
+      expect(failureReasonOf(settled.error)).toStrictEqual({
+        tag: "ReproductionMissing",
+        message:
+          "Build started on a bug without a reproduction; send the work item back to Spec so Reproduce captures one",
+      });
+      expect(fake.steps()).toStrictEqual([]);
+    }),
+  );
+
+  it.effect("fails a bug that reaches it without a sandbox", () =>
+    Effect.gen(function* () {
+      const { settled, fake } = yield* buildUnderTest.run(
+        { testReports: [testsPassed] },
+        { ...bugInput, sandboxRef: null },
+      );
+      expect(failureReasonOf(settled.error)).toStrictEqual(sandboxMissing("Build").reason);
+      expect(fake.steps()).toStrictEqual([]);
+    }),
+  );
+
   it.effect("fixes and tests again until the tests pass", () =>
     Effect.gen(function* () {
       const { settled, fake } = yield* buildUnderTest.run({
