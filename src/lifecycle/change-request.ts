@@ -24,24 +24,21 @@ const changeRequestAfter = (
   request: ChangeRequest | null,
   transition: Transition,
   taught: Teaching,
-): ChangeRequest | null =>
-  Match.valueTags(transition, {
-    // An outcome that does not send the change back to Build teaches no
-    // request, so the one Build last addressed stands for Review to check.
-    stageFinished: () => taught.changeRequest ?? request,
-    stageErrored: () => request,
-    gateApproved: () => request,
-    gateRejected: ({ gate, decision }): ChangeRequest | null => {
-      if (gate === "shipGate") {
-        return { from: "shipGate", text: decision.comment ?? null };
-      }
-      return returnsToSpec(transition) ? null : request;
-    },
-    retried: () => request,
-    sentBackToSpec: () => null,
-    demoOverridden: () => request,
-    cancelled: () => request,
-  });
+): ChangeRequest | null => {
+  if (returnsToSpec(transition)) {
+    return null;
+  }
+  return Match.value(transition).pipe(
+    Match.tags({
+      // An outcome that does not send the change back to Build teaches no
+      // request, so the one Build last addressed stands for Review to check.
+      stageFinished: () => taught.changeRequest ?? request,
+      gateRejected: ({ gate, decision }): ChangeRequest | null =>
+        gate === "shipGate" ? { from: "shipGate", text: decision.comment ?? null } : request,
+    }),
+    Match.orElse(() => request),
+  );
+};
 
 const ChangeRequestFactSchema = Schema.Struct({
   /** What the change was last sent back to Build to address; kept after Build finishes so Review can check it, and reset only on return to Spec (ADR 0012). */

@@ -44,17 +44,18 @@ export const retrySkipsDemo = (blockedFrom: string, facts: DemoFacts): boolean =
 // A human's override stands over any later plan and is dropped only on return
 // to Spec, because the new spec's plan makes a demo decision the human has not
 // yet seen (ADR 0011).
-const demoFactsAfter = (facts: DemoFacts, transition: Transition, taught: Teaching): DemoFacts =>
-  Match.valueTags(transition, {
-    stageFinished: () => ({ ...facts, ...taught.demo }),
-    stageErrored: () => facts,
-    gateApproved: () => facts,
-    gateRejected: () => (returnsToSpec(transition) ? { ...facts, demoOverride: null } : facts),
-    retried: () => facts,
-    sentBackToSpec: () => ({ ...facts, demoOverride: null }),
-    demoOverridden: ({ demo }) => ({ ...facts, demoOverride: demo }),
-    cancelled: () => facts,
-  });
+const demoFactsAfter = (facts: DemoFacts, transition: Transition, taught: Teaching): DemoFacts => {
+  if (returnsToSpec(transition)) {
+    return { ...facts, demoOverride: null };
+  }
+  return Match.value(transition).pipe(
+    Match.tags({
+      stageFinished: () => ({ ...facts, ...taught.demo }),
+      demoOverridden: ({ demo }) => ({ ...facts, demoOverride: demo }),
+    }),
+    Match.orElse(() => facts),
+  );
+};
 
 /** The demo decision and the latest demo, which stages see only as the one demo their input shows. */
 export const demoFact: StandingFact<typeof DemoFactsSchema> = {
