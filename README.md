@@ -4,7 +4,7 @@
 
 # Rouage
 
-**The state-machine core for building your own software factory.**
+**The open-source state-machine core for building your own software factory.**
 
 <sub><i>rouage</i> /ʁu.aʒ/ (French, noun): a gear in a mechanism; one of the parts that make the whole thing turn.</sub>
 
@@ -18,6 +18,8 @@
 <br>
 [![Sponsor on GitHub](https://img.shields.io/badge/sponsor-GitHub-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/tonytangdev)
 [![Buy me a coffee](https://img.shields.io/badge/buy%20me%20a%20coffee-FFDD00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/tonytangdev)
+
+▶️ [Watch the 1-minute intro](https://www.youtube.com/shorts/LPl8fMZJOy8)
 
 [Why](#why-rouage) · [How it works](#how-it-works) · [Principles](#principles) · [Plugins](#plugins) · [API](#a-glimpse-of-the-api) · [Roadmap](#roadmap)
 
