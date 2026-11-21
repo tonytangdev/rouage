@@ -1,14 +1,14 @@
 import type { FakePort, Misbehaving } from "../fake-script.ts";
-import { fakePort } from "../fake-script.ts";
+import { everyStep, fakePort } from "../fake-script.ts";
 import type { Written } from "./spec-writer.ts";
 import { SpecWriter, SpecWriterGaveUp } from "./spec-writer.ts";
 
-export type WriteStep = "write";
+export type WriteStep = keyof SpecWriter["Service"];
 
 /** The spec writer as its fake and the stage contract suite know it. */
 export const specWriterPort: FakePort<WriteStep, SpecWriterGaveUp> = {
   port: "spec writer",
-  steps: ["write"],
+  steps: everyStep<WriteStep>()(["write"]),
   gaveUp: (message) => new SpecWriterGaveUp({ message }),
 };
 

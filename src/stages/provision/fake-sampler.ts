@@ -1,14 +1,14 @@
 import type { FakePort, Misbehaving } from "../fake-script.ts";
-import { fakePort } from "../fake-script.ts";
+import { everyStep, fakePort } from "../fake-script.ts";
 import type { Sampled } from "./sampler.ts";
 import { Sampler, SamplerGaveUp } from "./sampler.ts";
 
-export type SampleStep = "sample";
+export type SampleStep = keyof Sampler["Service"];
 
 /** The sampler as its fake knows it. */
 export const samplerPort: FakePort<SampleStep, SamplerGaveUp> = {
   port: "sampler",
-  steps: ["sample"],
+  steps: everyStep<SampleStep>()(["sample"]),
   gaveUp: (message) => new SamplerGaveUp({ message }),
 };
 

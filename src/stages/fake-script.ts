@@ -18,12 +18,32 @@ export const gaveUpMessage = (port: string, step: string) => `The ${port} gave u
 /** The defect message a fake port dies with when `crashing` during `step`. */
 export const crashMessage = (port: string, step: string) => `The ${port} exited during ${step}`;
 
+type Steps<Step extends string> = readonly [Step, ...Step[]];
+
+// An object type rather than `never`, because then the error names each unlisted step.
+type ListsEvery<Step extends string, Listed extends Steps<Step>> = [
+  Exclude<Step, Listed[number]>,
+] extends [never]
+  ? unknown
+  : { readonly unlisted: Exclude<Step, Listed[number]> };
+
+/**
+ * `steps` as the ordered steps of a port whose steps are `Step`, such as
+ * `keyof Builder["Service"]`. The compiler rejects a list that names a step
+ * `Step` lacks or leaves one of them out, so a port method added or renamed
+ * without its fake changing fails to compile.
+ */
+export const everyStep =
+  <Step extends string>() =>
+  <const Listed extends Steps<Step>>(steps: Listed & ListsEvery<Step, Listed>): Steps<Step> =>
+    steps;
+
 /** A port as its fake declares it once, for the fake's workings and the stage contract suite alike. */
 export interface FakePort<Step extends string, GaveUp extends PortGaveUp> {
   /** The port's name as messages call it. */
   readonly port: string;
-  /** Every step of the port, the one a stage runs first leading. */
-  readonly steps: readonly [Step, ...Step[]];
+  /** Every step of the port, the one a stage runs first leading, listed with `everyStep`. */
+  readonly steps: Steps<Step>;
   readonly gaveUp: (message: string) => GaveUp;
 }
 

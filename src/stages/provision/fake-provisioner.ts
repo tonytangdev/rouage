@@ -1,14 +1,14 @@
 import type { FakePort, Misbehaving } from "../fake-script.ts";
-import { fakePort } from "../fake-script.ts";
+import { everyStep, fakePort } from "../fake-script.ts";
 import type { Provisioned } from "./provisioner.ts";
 import { Provisioner, ProvisionerGaveUp } from "./provisioner.ts";
 
-export type ProvisionerStep = "provision";
+export type ProvisionerStep = keyof Provisioner["Service"];
 
 /** The provisioner as its fake and the stage contract suite know it. */
 export const provisionerPort: FakePort<ProvisionerStep, ProvisionerGaveUp> = {
   port: "provisioner",
-  steps: ["provision"],
+  steps: everyStep<ProvisionerStep>()(["provision"]),
   gaveUp: (message) => new ProvisionerGaveUp({ message }),
 };
 

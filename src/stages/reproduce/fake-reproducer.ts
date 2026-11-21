@@ -1,14 +1,14 @@
 import type { FakePort, Misbehaving } from "../fake-script.ts";
-import { fakePort } from "../fake-script.ts";
+import { everyStep, fakePort } from "../fake-script.ts";
 import type { Captured, Confirmation } from "./reproducer.ts";
 import { Reproducer, ReproducerGaveUp } from "./reproducer.ts";
 
-export type ReproducerStep = "capture" | "confirm";
+export type ReproducerStep = keyof Reproducer["Service"];
 
 /** The reproducer as its fake and the stage contract suite know it. */
 export const reproducerPort: FakePort<ReproducerStep, ReproducerGaveUp> = {
   port: "reproducer",
-  steps: ["capture", "confirm"],
+  steps: everyStep<ReproducerStep>()(["capture", "confirm"]),
   gaveUp: (message) => new ReproducerGaveUp({ message }),
 };
 
