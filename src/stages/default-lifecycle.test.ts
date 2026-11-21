@@ -49,7 +49,7 @@ describe("the default lifecycle with every real stage", () => {
       ]);
       workItem.send({ type: "approve", ...reviewer });
       yield* workItem.reaches("shipped");
-      expect(workItem.context().facts).toMatchObject(delivered);
+      expect(workItem.context().facts).toMatchObject({ deliveryRef: delivered.deliveryRef });
     }),
   );
 });

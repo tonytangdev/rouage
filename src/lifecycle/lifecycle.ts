@@ -3,10 +3,10 @@ import { absurd } from "effect/Function";
 import { reproduceBlocked, stageErrored } from "./blocked.ts";
 import { demoCalledFor, retrySkipsDemo } from "./demo-decision.ts";
 import { finished, soleOutcome } from "./fact-event.ts";
-import { factsAfter } from "./facts.ts";
+import { factsAfter, noFactsYet } from "./facts.ts";
 import { lifecycleSetup } from "./lifecycle-setup.ts";
 import { aroundLoop, noLoopsYet } from "./loops.ts";
-import { demoStageInput, noFactsYet, stageInput } from "./stage.ts";
+import { demoStageInput, stageInput } from "./stage.ts";
 import { innermostState } from "./state-value.ts";
 import {
   approved,
@@ -248,10 +248,25 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             id: "ship",
             src: "ship",
             input: stageInput,
-            onDone: ({ context, event: { output } }) => ({
-              target: "#shipped",
-              context: { facts: factsAfter(context.facts, soleOutcome("ship", output)) },
-            }),
+            onDone: ({ context, event: { output } }) => {
+              switch (output._tag) {
+                case "shipped": {
+                  return {
+                    target: "#shipped",
+                    context: { facts: factsAfter(context.facts, finished(output)) },
+                  };
+                }
+                case "needsRebuild": {
+                  const trip = aroundLoop(context, "ship", output);
+                  return trip.exhausted
+                    ? { target: "#blocked", context: trip.context }
+                    : { target: "build", context: trip.context };
+                }
+                default: {
+                  return absurd(output);
+                }
+              }
+            },
           },
         },
         lastStage: { type: "history", target: "intake" },

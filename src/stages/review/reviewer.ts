@@ -2,7 +2,6 @@ import type { Effect } from "effect";
 import { Context, Data } from "effect";
 
 import type { ChangeRequest } from "../../lifecycle/change-request.ts";
-import type { OutcomeOf } from "../../lifecycle/stage.ts";
 import type { DemonstratedChange } from "../built-change.ts";
 
 export interface ReviewTask extends DemonstratedChange {
@@ -10,8 +9,14 @@ export interface ReviewTask extends DemonstratedChange {
   readonly changeRequest: ChangeRequest | null;
 }
 
-/** The reviewer's verdict: approve the change, or request changes with feedback for Build. */
-export type Verdict = OutcomeOf<"review">;
+/**
+ * The reviewer's verdict: approve the change, or request changes with
+ * feedback for Build. Owned by the port rather than taken from the lifecycle's
+ * outcomes, so the plugin contract changes only when this port does (ADR 0003).
+ */
+export type Verdict =
+  | { readonly _tag: "approved" }
+  | { readonly _tag: "changesRequested"; readonly feedback: string };
 
 /** The reviewer could not reach a verdict. */
 export class ReviewerGaveUp extends Data.TaggedError("ReviewerGaveUp")<{

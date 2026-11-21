@@ -2,11 +2,10 @@ import { Schema } from "effect";
 
 import { BlockedSchema } from "./blocked.ts";
 import type { RejectingGate } from "./fact-event.ts";
-import { factsAfter } from "./facts.ts";
+import { StageFactsSchema, factsAfter } from "./facts.ts";
 import type { LoopLimits } from "./loops.ts";
 import { PerLoopCount, noLoopsYet } from "./loops.ts";
 import type { Gate } from "./place.ts";
-import { StageFactsSchema } from "./stage.ts";
 
 export interface WorkItemInput {
   readonly id: string;

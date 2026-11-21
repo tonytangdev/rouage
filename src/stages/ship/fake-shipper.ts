@@ -1,6 +1,6 @@
 import type { FakePort, Misbehaving } from "../fake-script.ts";
 import { fakePort } from "../fake-script.ts";
-import type { Shipped } from "./shipper.ts";
+import type { Shipment } from "./shipper.ts";
 import { Shipper, ShipperGaveUp } from "./shipper.ts";
 
 export type ShipStep = "ship";
@@ -13,13 +13,13 @@ export const shipperPort: FakePort<ShipStep, ShipperGaveUp> = {
 };
 
 export interface FakeShipperScript {
-  /** What each ship returns, in order. */
-  readonly deliveries: readonly Shipped[];
+  /** What each ship answers, in order. */
+  readonly shipments: readonly Shipment[];
   readonly misbehaving?: Misbehaving<ShipStep> | undefined;
 }
 
 /** A shipper that follows a script instead of delivering anything. */
 export const fakeShipper = (script: FakeShipperScript) =>
   fakePort(Shipper, shipperPort, script.misbehaving, ({ answer }) =>
-    Shipper.of({ ship: (task) => answer("ship", task, script.deliveries) }),
+    Shipper.of({ ship: (task) => answer("ship", task, script.shipments) }),
   );

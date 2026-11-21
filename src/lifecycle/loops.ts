@@ -1,23 +1,53 @@
-import { Config, Effect, Schema } from "effect";
+import { Config, Effect, Record, Schema } from "effect";
 
 import { blockedOn } from "./blocked.ts";
 import { finished, loopExhausted } from "./fact-event.ts";
 import { factsAfter } from "./facts.ts";
-import type { OutcomeOf } from "./stage.ts";
+import type { OutcomeOf, StageName } from "./stage.ts";
 import type { WorkItemContext } from "./work-item.ts";
 
-/** Each loop is named after the stage that sends the work item back around it. */
-export type LoopName = "review" | "reproduce";
-
-/** The tag of each loop's stage outcome that sends the work item back around it. */
-interface LoopingTags {
-  readonly review: "changesRequested";
-  readonly reproduce: "needsSample";
+/** A loop, named after the stage that sends the work item back around it with the outcome tagged `tag`. */
+interface Loop<Stage extends StageName, Tag extends OutcomeOf<Stage>["_tag"]> {
+  readonly tag: Tag;
+  readonly variable: string;
+  /** Why the work item is blocked once the loop reaches `limit`, told to the human with what the last outcome asked for. */
+  readonly describe: (limit: number, outcome: Extract<OutcomeOf<Stage>, { _tag: Tag }>) => string;
 }
+
+// Curried so the stage is named and the tag is inferred from the declaration.
+const loopOf =
+  <Stage extends StageName>() =>
+  <Tag extends OutcomeOf<Stage>["_tag"]>(loop: Loop<Stage, Tag>) =>
+    loop;
+
+const loops = {
+  review: loopOf<"review">()({
+    tag: "changesRequested",
+    variable: "ROUAGE_MAX_REVIEW_LOOPS",
+    describe: (limit, { feedback }) =>
+      `Review sent the change back to Build ${limit} times, and last asked: ${feedback}`,
+  }),
+  reproduce: loopOf<"reproduce">()({
+    tag: "needsSample",
+    variable: "ROUAGE_MAX_REPRODUCE_LOOPS",
+    describe: (limit) => `Reproduce went back to Provision ${limit} times`,
+  }),
+  ship: loopOf<"ship">()({
+    tag: "needsRebuild",
+    variable: "ROUAGE_MAX_SHIP_LOOPS",
+    describe: (limit, { feedback }) =>
+      `Ship sent the change back to Build ${limit} times, and last asked: ${feedback}`,
+  }),
+};
+
+type Loops = typeof loops;
+
+/** Each loop is named after the stage that sends the work item back around it. */
+export type LoopName = keyof Loops;
 
 type LoopingOutcome<Name extends LoopName> = Extract<
   OutcomeOf<Name>,
-  { readonly _tag: LoopingTags[Name] }
+  { readonly _tag: Loops[Name]["tag"] }
 >;
 
 export type LoopLimits = Readonly<Record<LoopName, number>>;
@@ -25,31 +55,15 @@ export type LoopLimits = Readonly<Record<LoopName, number>>;
 /** How many times a work item has gone around each loop. */
 export type LoopCounts = Readonly<Record<LoopName, number>>;
 
-interface Loop<Name extends LoopName> {
-  readonly variable: string;
-  /** Why the work item is blocked once the loop reaches `limit`, told to the human with what the last outcome asked for. */
-  readonly describe: (limit: number, outcome: LoopingOutcome<Name>) => string;
-}
-
 const DEFAULT_LIMIT = 3;
 
-const loops: { readonly [Name in LoopName]: Loop<Name> } = {
-  review: {
-    variable: "ROUAGE_MAX_REVIEW_LOOPS",
-    describe: (limit, { feedback }) =>
-      `Review sent the change back to Build ${limit} times, and last asked: ${feedback}`,
-  },
-  reproduce: {
-    variable: "ROUAGE_MAX_REPRODUCE_LOOPS",
-    describe: (limit) => `Reproduce went back to Provision ${limit} times`,
-  },
-};
+/** One value per loop, so every per-loop record is built from the one list of loops. */
+export const perLoop = <A>(value: (loop: LoopName) => A): Readonly<Record<LoopName, A>> =>
+  Record.map(loops, (_loop, name) => value(name));
 
-/** One value per loop, so every per-loop record is built from this one list of loops. */
-export const perLoop = <A>(value: (loop: LoopName) => A): Readonly<Record<LoopName, A>> => ({
-  review: value("review"),
-  reproduce: value("reproduce"),
-});
+// The same loops seen key by key, so indexing with a generic loop name keeps
+// each loop's outcome tied to its own block message.
+const byName: { readonly [Name in LoopName]: Loop<Name, Loops[Name]["tag"]> } = loops;
 
 export const noLoopsYet: LoopCounts = perLoop(() => 0);
 
@@ -63,7 +77,7 @@ const limit = (loop: LoopName, override: number | undefined) =>
 
 /**
  * Resolves the loop limits for a new work item. An explicit option wins over
- * `ROUAGE_MAX_REVIEW_LOOPS` / `ROUAGE_MAX_REPRODUCE_LOOPS`, which win over 3.
+ * the loop's variable, such as `ROUAGE_MAX_REVIEW_LOOPS`, which wins over 3.
  * Resolve once per work item and store the result, so a restart or a changed
  * variable never moves the limits of a work item already in flight.
  */
@@ -87,7 +101,7 @@ export const aroundLoop = <Name extends LoopName>(
 ) => {
   const allowed = context.limits[loop];
   if (context.counters[loop] >= allowed) {
-    const reason = { tag: "LoopLimitReached", message: loops[loop].describe(allowed, outcome) };
+    const reason = { tag: "LoopLimitReached", message: byName[loop].describe(allowed, outcome) };
     return {
       exhausted: true as const,
       context: {

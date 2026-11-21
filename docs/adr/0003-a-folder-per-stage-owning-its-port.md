@@ -9,7 +9,7 @@ Each stage implementation of the default lifecycle lives in its own folder under
 
 What every port stage shares sits at the root of `src/stages/`: the step helper that turns a port giving up into a `StageFailure`, the machine for a stage that asks its port one thing, the scripted-port workings behind every fake, the runner for testing a stage alone, and the contract every port stage passes inside the lifecycle (it blocks when its port gives up, and runs its first step again after a restore). A shape that only some stages share, such as the built change Demo and Review are both given, sits there too, so no stage folder imports another.
 
-A port belongs to its stage, because it is the interface that one stage needs from the outside world, written in that stage's terms (see "Port" in `GLOSSARY.md`). A plugin fills ports; it does not define them. The one port the lifecycle owns, sandbox teardown, belongs to no stage ([ADR 0007](0007-the-lifecycle-tears-down-a-sandbox-at-least-once-through-a-port-it-owns.md)).
+A port belongs to its stage, because it is the interface that one stage needs from the outside world, written in that stage's terms (see "Port" in `GLOSSARY.md`). A plugin fills ports; it does not define them. A port's answers are its own types, never the lifecycle's outcomes, and its stage maps each answer to an outcome, so a change to the lifecycle's outcomes never changes a plugin contract. The one port the lifecycle owns, sandbox teardown, belongs to no stage ([ADR 0007](0007-the-lifecycle-tears-down-a-sandbox-at-least-once-through-a-port-it-owns.md)).
 
 Dependencies run one way. Stages import the lifecycle's stage contract (`StageInput`, `Kind`, `StageFailure`, the stage contract suite). The lifecycle, including its test support, never imports a stage. This is why the lifecycle harness types the real stages it runs as any state machine, and why each stage folder runs the stage contract suite against itself.
 
@@ -20,5 +20,5 @@ Dependencies run one way. Stages import the lifecycle's stage contract (`StageIn
 
 ## Consequences
 
-- Adding a stage implementation means adding one folder. `src/lifecycle/` changes only when the stage's outcome does, or when the outcome brings a new fact for the work item to keep: a field in `StageFacts` with its empty value in `noFactsYet`, and its entry in the lifecycle's table of the facts each outcome teaches (`src/lifecycle/facts.ts`).
+- Adding a stage implementation means adding one folder. `src/lifecycle/` changes only when the stage's outcome does, or when the outcome brings a new fact for the work item to keep. A reference is one field in `src/lifecycle/facts.ts` and its entry in the table of what each outcome teaches (`src/lifecycle/outcome-teaching.ts`); a fact with a lifetime of its own is one `StandingFact` declaration, listed in `src/lifecycle/facts.ts`.
 - `src/plugins/` is reserved for real adapters that fill ports, such as a Claude Code plugin. It does not exist until the first one does.

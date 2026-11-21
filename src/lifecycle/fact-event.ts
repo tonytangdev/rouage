@@ -45,7 +45,3 @@ export const loopExhausted = <Loop extends LoopName>(
   _loop: Loop,
   outcome: OutcomeOf<Loop>,
 ): FactEvent => ({ _tag: "loopExhausted", outcome });
-
-/** The feedback Review gave when `event` is Review requesting changes, else `null`. */
-export const changesRequestedIn = (event: { readonly outcome: AnyOutcome }): string | null =>
-  event.outcome._tag === "changesRequested" ? event.outcome.feedback : null;

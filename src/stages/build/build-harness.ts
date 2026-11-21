@@ -63,25 +63,19 @@ export const buildUnderTest = portStageUnderTest(
   },
   (declare) => [
     declare({
-      port: builderPort,
       step: "fix",
-      fake: ({ fake }) => fake,
       misbehaving: (as) => ({ testReports: [testsFailed], misbehaving: { step: "fix", as } }),
-      input: inputOnReaching("build"),
       reach: (workItem) =>
         Effect.sync(() => {
           workItem.advanceTo("build");
         }),
     }),
     declare({
-      port: builderPort,
       step: "checkReproduction",
-      fake: ({ fake }) => fake,
       misbehaving: (as) => ({
         testReports: [testsPassed],
         misbehaving: { step: "checkReproduction", as },
       }),
-      input: bugInput,
       reach: (workItem) =>
         Effect.sync(() => {
           workItem.advanceTo("build", { kind: "bug" });

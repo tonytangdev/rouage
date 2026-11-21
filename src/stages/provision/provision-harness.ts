@@ -1,7 +1,6 @@
 import { Effect, Layer } from "effect";
 
-import { goldenRefs, inputOnReaching } from "../../lifecycle/golden-route.ts";
-import type { StageInput } from "../../lifecycle/stage.ts";
+import { goldenRefs } from "../../lifecycle/golden-route.ts";
 import { portStageUnderTest } from "../port-stage-under-test.ts";
 import type { FakeProvisionerScript } from "./fake-provisioner.ts";
 import { fakeProvisioner, provisionerPort } from "./fake-provisioner.ts";
@@ -31,13 +30,6 @@ export const firstSample = {
   previousScriptRef: null,
   feedback: null,
 } as const;
-
-/** The input of a Provision run Reproduce sent back for a sample. */
-export const sampleRequestedInput: StageInput = {
-  ...inputOnReaching("provision"),
-  sandboxRef: goldenRefs.sandboxRef,
-  sampleRequest: "orders over 100",
-};
 
 export interface ProvisionScript {
   readonly provisioner: FakeProvisionerScript;
@@ -69,7 +61,6 @@ export const provisionUnderTest = portStageUnderTest(
         provisioner: { results: [sandbox, sandbox] },
         sampler: { results: [], misbehaving: { step: "sample", as } },
       }),
-      input: sampleRequestedInput,
       reach: Effect.fnUntraced(function* (workItem) {
         workItem.advanceTo("provision", { kind: "bug" });
         yield* workItem.reaches("reproduce");

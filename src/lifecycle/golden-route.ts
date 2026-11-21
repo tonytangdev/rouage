@@ -3,12 +3,14 @@ import type { AnyActorRef, AnyStateMachine, EventFrom } from "xstate";
 import { createActor } from "xstate";
 
 import { demoFactNames } from "./demo-decision.ts";
+import type { StageFacts } from "./facts.ts";
+import { noFactsYet } from "./facts.ts";
 import { defaultLifecycle } from "./lifecycle.ts";
 import { perLoop } from "./loops.ts";
 import type { Gate, Place } from "./place.ts";
 import { isGate, placeOf } from "./place.ts";
-import type { Kind, OutcomeOf, StageFacts, StageInput, StageName } from "./stage.ts";
-import { StageNameSchema, noFactsYet } from "./stage.ts";
+import type { Kind, OutcomeOf, StageInput, StageName } from "./stage.ts";
+import { StageNameSchema } from "./stage.ts";
 import type { AttachStub } from "./stub-stage.ts";
 import { stubStages } from "./stub-stage.ts";
 

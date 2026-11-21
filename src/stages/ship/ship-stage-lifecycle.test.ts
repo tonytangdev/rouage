@@ -4,12 +4,27 @@ import { Effect } from "effect";
 import { goldenRefs } from "../../lifecycle/golden-route.ts";
 import { startWorkItem } from "../../lifecycle/lifecycle-harness.ts";
 import { describePortStageInLifecycle } from "../port-stage-lifecycle-contract.ts";
-import { firstShipment, shipUnderTest } from "./ship-harness.ts";
+import { firstShipment, needsRebuild, shipUnderTest } from "./ship-harness.ts";
 
 describe("a work item in the Ship stage", () => {
+  it.effect("goes back to Build when the shipper cannot land the change", () =>
+    Effect.gen(function* () {
+      const { stage } = yield* shipUnderTest.scripted({ shipments: [needsRebuild] });
+      const workItem = yield* startWorkItem({ stages: { ship: stage } });
+      workItem.advanceTo("ship");
+      yield* workItem.reaches("build");
+      expect(workItem.stageInput("build")?.changeRequest).toStrictEqual({
+        from: "ship",
+        text: needsRebuild.feedback,
+      });
+    }),
+  );
+
   it.effect("keeps where its change was delivered once shipped", () =>
     Effect.gen(function* () {
-      const { stage } = yield* shipUnderTest.scripted({ deliveries: [{ deliveryRef: "pr-7" }] });
+      const { stage } = yield* shipUnderTest.scripted({
+        shipments: [{ _tag: "shipped", deliveryRef: "pr-7" }],
+      });
       const workItem = yield* startWorkItem({ stages: { ship: stage } });
       workItem.advanceTo("ship");
       yield* workItem.reaches("shipped");

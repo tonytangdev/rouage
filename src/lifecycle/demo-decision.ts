@@ -1,9 +1,10 @@
-import { Match, Schema } from "effect";
+import { Match, Schema, Struct } from "effect";
 
 import type { AnyOutcome, FactEvent } from "./fact-event.ts";
+import type { StandingFact } from "./facts.ts";
 
 /** What the work item holds to decide whether a demo is made and which demo a stage sees (ADR 0011). */
-export const DemoFactsSchema = Schema.Struct({
+const DemoFactsSchema = Schema.Struct({
   /** Whether the latest plan calls for a demo, or `null` before Plan has run. */
   demoPlanned: Schema.NullOr(Schema.Boolean),
   /** Whether a human required a demo, over any plan, or `null` when no human has decided since the last return to Spec. */
@@ -22,14 +23,6 @@ export const demoFactNames = [
   "demoRef",
   "demoOutdated",
 ] as const satisfies ReadonlyArray<keyof DemoFacts>;
-
-/** The demo facts of a work item no stage has worked on yet. */
-export const noDemoYet: DemoFacts = {
-  demoPlanned: null,
-  demoOverride: null,
-  demoRef: null,
-  demoOutdated: false,
-};
 
 /** Whether the work item calls for a demo: a human's override when there is one, else the latest plan's decision. */
 export const demoCalledFor = (facts: DemoFacts): boolean =>
@@ -60,12 +53,10 @@ const demoTaughtBy = (facts: DemoFacts, outcome: AnyOutcome): DemoFacts => {
   return facts;
 };
 
-/**
- * The demo facts after `event`. A human's override stands over any later plan
- * and is dropped only on return to Spec, because the new spec's plan makes a
- * demo decision the human has not yet seen (ADR 0011).
- */
-export const demoFactsAfter = (facts: DemoFacts, event: FactEvent): DemoFacts =>
+// A human's override stands over any later plan and is dropped only on return
+// to Spec, because the new spec's plan makes a demo decision the human has not
+// yet seen (ADR 0011).
+const demoFactsAfter = (facts: DemoFacts, event: FactEvent): DemoFacts =>
   Match.valueTags(event, {
     stageFinished: ({ outcome }) => demoTaughtBy(facts, outcome),
     loopExhausted: ({ outcome }) => demoTaughtBy(facts, outcome),
@@ -74,3 +65,10 @@ export const demoFactsAfter = (facts: DemoFacts, event: FactEvent): DemoFacts =>
     retried: () => facts,
     demoOverridden: ({ demo }) => ({ ...facts, demoOverride: demo }),
   });
+
+/** The demo decision and the latest demo, which stages see only as the one demo their input shows. */
+export const demoFact: StandingFact<typeof DemoFactsSchema> = {
+  schema: DemoFactsSchema,
+  empty: { demoPlanned: null, demoOverride: null, demoRef: null, demoOutdated: false },
+  after: (facts, event) => demoFactsAfter(Struct.pick(facts, demoFactNames), event),
+};

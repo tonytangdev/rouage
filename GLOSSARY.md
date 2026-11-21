@@ -48,7 +48,7 @@ The stage where a plugin judges the built change against its spec, plan and evid
 _Avoid_: Code review, QA
 
 **Ship**:
-The stage that delivers a change a human approved at the ship gate, in the form the plugin chooses, such as a merged pull request or a deploy. Delivering a change again has no further effect.
+The stage that delivers a change a human approved at the ship gate, in the form the plugin chooses, such as a merged pull request or a deploy. A change that no longer lands without changing its code goes back to Build. Delivering a change again has no further effect.
 _Avoid_: Deploy, release, merge
 
 **Provision**:
@@ -64,7 +64,7 @@ What the next stage to finish is asked to address: the comment a human gives whe
 _Avoid_: Notes, remarks
 
 **Change request**:
-What the change was last sent back to Build to address: the changes Review requested, or a human's rejection at the ship gate, with its comment if any. Unlike feedback, it stands after Build finishes, so Review can check it was addressed, until a newer one replaces it or the spec is sent back to be rewritten.
+What the change was last sent back to Build to address: the changes Review requested, a human's rejection at the ship gate, with its comment if any, or what kept Ship from landing it. Unlike feedback, it stands after Build finishes, so Review can check it was addressed, until a newer one replaces it or the spec is sent back to be rewritten.
 _Avoid_: Review comments, review feedback
 
 **Blocked**:
@@ -74,7 +74,7 @@ The state of a work item that cannot progress without human input: a bug that ca
 The final state of a work item a human stopped. The stage it was in stops with it.
 
 **Loop limit**:
-The most times a work item may go around one loop of the lifecycle, such as Review back to Build, before it becomes blocked.
+The most times a work item may go around one loop of the lifecycle, such as Review back to Build or Ship back to Build, before it becomes blocked.
 
 ### Evidence
 

@@ -27,7 +27,8 @@ describe("work item persistence", () => {
       original.finish("reproduce", { _tag: "needsSample", sampleRequest: "orders over 100" });
       original.finish("provision", { _tag: "provisioned", sandboxRef: "box-1", sampleRef: null });
       const workItem = yield* restoredWorkItem(throughJson(original.save()));
-      expect(workItem.context().counters).toStrictEqual({ review: 0, reproduce: 1 });
+      expect(workItem.context().counters).toStrictEqual(original.context().counters);
+      expect(workItem.context().counters.reproduce).toBe(1);
       workItem.finish("reproduce", { _tag: "reproduced", reproductionRef: "repro-1" });
       expect(workItem.state()).toStrictEqual("plan");
     }),

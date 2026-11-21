@@ -3,7 +3,11 @@ import { portStageUnderTest, scriptedStage } from "../port-stage-under-test.ts";
 import { fakeShipper, shipperPort } from "./fake-shipper.ts";
 import { shipStage } from "./ship-stage.ts";
 
-export const delivered = { deliveryRef: goldenRefs.deliveryRef } as const;
+export const delivered = { _tag: "shipped", deliveryRef: goldenRefs.deliveryRef } as const;
+export const needsRebuild = {
+  _tag: "needsRebuild",
+  feedback: "conflicts in src/totals.ts against main",
+} as const;
 
 /** What the shipper is asked when a feature is first shipped. */
 export const firstShipment = {
@@ -22,7 +26,7 @@ export const shipUnderTest = portStageUnderTest({
   name: "ship",
   port: shipperPort,
   scripted: scriptedStage(fakeShipper, shipStage),
-  passing: (misbehaving) => ({ deliveries: [delivered], misbehaving }),
-  outcome: { _tag: "shipped", ...delivered },
+  passing: (misbehaving) => ({ shipments: [delivered], misbehaving }),
+  outcome: delivered,
   firstTask: firstShipment,
 });
