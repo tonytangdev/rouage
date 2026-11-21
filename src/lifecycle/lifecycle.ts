@@ -4,7 +4,7 @@ import { demoCalledFor, retrySkipsDemo } from "./demo-decision.ts";
 import { noFactsYet } from "./facts.ts";
 import { lifecycleSetup } from "./lifecycle-setup.ts";
 import { noLoopsYet } from "./loops.ts";
-import { demoStageInput, stageInput } from "./stage.ts";
+import { stageInputs } from "./stage.ts";
 import { innermostState } from "./state-value.ts";
 import {
   cancelled,
@@ -68,7 +68,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           invoke: {
             id: "intake",
             src: "intake",
-            input: stageInput,
+            input: stageInputs.intake,
             onDone: ({ context, event: { output } }) => ({
               target: "spec",
               context: workItemAfter(context, soleOutcome("intake", output)),
@@ -79,7 +79,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           invoke: {
             id: "spec",
             src: "spec",
-            input: stageInput,
+            input: stageInputs.spec,
             onDone: ({ context, event: { output } }) => ({
               target: "specGate",
               context: workItemAfter(context, soleOutcome("spec", output)),
@@ -102,7 +102,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           invoke: {
             id: "provision",
             src: "provision",
-            input: stageInput,
+            input: stageInputs.provision,
             onDone: ({ context, event: { output } }) => {
               switch (output._tag) {
                 case "provisioned": {
@@ -140,7 +140,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           invoke: {
             id: "reproduce",
             src: "reproduce",
-            input: stageInput,
+            input: stageInputs.reproduce,
             onDone: ({ context, event: { output } }) => {
               switch (output._tag) {
                 case "reproduced": {
@@ -174,7 +174,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           invoke: {
             id: "plan",
             src: "plan",
-            input: stageInput,
+            input: stageInputs.plan,
             onDone: ({ context, event: { output } }) => ({
               target: "build",
               context: workItemAfter(context, soleOutcome("plan", output)),
@@ -185,7 +185,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           invoke: {
             id: "build",
             src: "build",
-            input: stageInput,
+            input: stageInputs.build,
             onDone: ({ context, event: { output } }) => {
               const built = workItemAfter(context, soleOutcome("build", output));
               return demoCalledFor(context.facts)
@@ -198,7 +198,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           invoke: {
             id: "demo",
             src: "demo",
-            input: demoStageInput,
+            input: stageInputs.demo,
             onDone: ({ context, event: { output } }) => ({
               target: "review",
               context: workItemAfter(context, soleOutcome("demo", output)),
@@ -215,7 +215,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           invoke: {
             id: "review",
             src: "review",
-            input: stageInput,
+            input: stageInputs.review,
             onDone: ({ context, event: { output } }) => {
               switch (output._tag) {
                 case "approved": {
@@ -254,7 +254,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           invoke: {
             id: "ship",
             src: "ship",
-            input: stageInput,
+            input: stageInputs.ship,
             onDone: ({ context, event: { output } }) => {
               switch (output._tag) {
                 case "shipped": {
