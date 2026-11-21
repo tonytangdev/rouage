@@ -14,5 +14,5 @@ For the check to mean anything a stage machine must declare its context as a run
 ## Consequences
 
 - A stage machine that keeps its context in a TypeScript type only is restored unchecked; a provided stage machine declares a context Schema to be checked.
-- A port step running inside a stage restores with the task it was saved with, which the check does not cover beyond the stage machine's own children being sources it still has.
-- A change to a Rouage stage machine's context is caught when a saved work item is restored, not by `pnpm check`.
+- A port step running inside a stage restores with the task it was saved with, which the check does not cover beyond the stage machine's own children being sources it still has (#44).
+- A change to a Rouage stage machine's context is caught when a saved work item is restored, not by `pnpm check` (#43).
