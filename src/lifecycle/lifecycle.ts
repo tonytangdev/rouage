@@ -2,7 +2,8 @@ import { absurd } from "effect/Function";
 
 import { reproduceBlocked, stageErrored } from "./blocked.ts";
 import { demoCalledFor, retrySkipsDemo } from "./demo-decision.ts";
-import { soleOutcomeFinished, stageFinished } from "./facts.ts";
+import { finished, soleOutcome } from "./fact-event.ts";
+import { factsAfter } from "./facts.ts";
 import { lifecycleSetup } from "./lifecycle-setup.ts";
 import { aroundLoop, noLoopsYet } from "./loops.ts";
 import { demoStageInput, noFactsYet, stageInput } from "./stage.ts";
@@ -68,7 +69,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             input: stageInput,
             onDone: ({ context, event: { output } }) => ({
               target: "spec",
-              context: soleOutcomeFinished(context, "intake", output),
+              context: { facts: factsAfter(context.facts, soleOutcome("intake", output)) },
             }),
           },
         },
@@ -79,7 +80,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             input: stageInput,
             onDone: ({ context, event: { output } }) => ({
               target: "specGate",
-              context: soleOutcomeFinished(context, "spec", output),
+              context: { facts: factsAfter(context.facts, soleOutcome("spec", output)) },
             }),
           },
         },
@@ -103,7 +104,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             onDone: ({ context, event: { output } }) => {
               switch (output._tag) {
                 case "provisioned": {
-                  const prepared = stageFinished(context, "provision", output);
+                  const prepared = { facts: factsAfter(context.facts, finished(output)) };
                   return context.facts.kind === "bug"
                     ? { target: "reproduce", context: prepared }
                     : { target: "plan", context: prepared };
@@ -111,7 +112,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
                 case "awaitingRun": {
                   return {
                     target: "sampleGate",
-                    context: stageFinished(context, "provision", output),
+                    context: { facts: factsAfter(context.facts, finished(output)) },
                   };
                 }
                 default: {
@@ -141,7 +142,10 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             onDone: ({ context, event: { output } }) => {
               switch (output._tag) {
                 case "reproduced": {
-                  return { target: "plan", context: stageFinished(context, "reproduce", output) };
+                  return {
+                    target: "plan",
+                    context: { facts: factsAfter(context.facts, finished(output)) },
+                  };
                 }
                 case "cannotReproduce":
                 case "checkPassed": {
@@ -167,7 +171,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             input: stageInput,
             onDone: ({ context, event: { output } }) => ({
               target: "build",
-              context: soleOutcomeFinished(context, "plan", output),
+              context: { facts: factsAfter(context.facts, soleOutcome("plan", output)) },
             }),
           },
         },
@@ -177,7 +181,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             src: "build",
             input: stageInput,
             onDone: ({ context, event: { output } }) => {
-              const built = soleOutcomeFinished(context, "build", output);
+              const built = { facts: factsAfter(context.facts, soleOutcome("build", output)) };
               return demoCalledFor(context.facts)
                 ? { target: "demo", context: built }
                 : { target: "review", context: built };
@@ -191,7 +195,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             input: demoStageInput,
             onDone: ({ context, event: { output } }) => ({
               target: "review",
-              context: soleOutcomeFinished(context, "demo", output),
+              context: { facts: factsAfter(context.facts, soleOutcome("demo", output)) },
             }),
           },
           on: {
@@ -209,7 +213,10 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             onDone: ({ context, event: { output } }) => {
               switch (output._tag) {
                 case "approved": {
-                  return { target: "shipGate", context: stageFinished(context, "review", output) };
+                  return {
+                    target: "shipGate",
+                    context: { facts: factsAfter(context.facts, finished(output)) },
+                  };
                 }
                 case "changesRequested": {
                   const trip = aroundLoop(context, "review", output);
@@ -243,7 +250,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             input: stageInput,
             onDone: ({ context, event: { output } }) => ({
               target: "#shipped",
-              context: soleOutcomeFinished(context, "ship", output),
+              context: { facts: factsAfter(context.facts, soleOutcome("ship", output)) },
             }),
           },
         },

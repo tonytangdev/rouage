@@ -16,6 +16,7 @@ export const firstReview = {
   sandboxRef: goldenRefs.sandboxRef,
   reproductionRef: null,
   demoRef: null,
+  changeRequest: null,
   feedback: null,
 } as const;
 
