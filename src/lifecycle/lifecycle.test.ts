@@ -183,6 +183,22 @@ describe("lifecycle", () => {
       }),
   );
 
+  it.effect("passes the plan and its demo decision on to Build", () =>
+    Effect.gen(function* () {
+      const workItem = yield* startAt("plan", { kind: "feature" });
+      workItem.finish("plan", { _tag: "planned", planRef: "plan-1", demo: true });
+      expect(workItem.stageInput("build")).toStrictEqual(
+        stageInputWith({
+          kind: "feature",
+          specRef: "spec-1",
+          sandboxRef: "box-1",
+          planRef: "plan-1",
+          demoPlanned: true,
+        }),
+      );
+    }),
+  );
+
   it.effect("runs a planned demo between Build and Review", () =>
     Effect.gen(function* () {
       const workItem = yield* startAt("build", { demo: true });
@@ -219,6 +235,8 @@ describe("lifecycle", () => {
             feedback: "rename the flag",
             specRef: "spec-1",
             sandboxRef: "box-1",
+            planRef: "plan-1",
+            demoPlanned: false,
           }),
         );
         requestChanges();
@@ -246,6 +264,8 @@ describe("lifecycle", () => {
           specRef: "spec-1",
           sandboxRef: "box-1",
           reproductionRef: "repro-1",
+          planRef: "plan-1",
+          demoPlanned: false,
         }),
       );
     }),
@@ -274,6 +294,8 @@ describe("lifecycle", () => {
           feedback: "wait for the release freeze",
           specRef: "spec-1",
           sandboxRef: "box-1",
+          planRef: "plan-1",
+          demoPlanned: false,
         }),
       );
     }),

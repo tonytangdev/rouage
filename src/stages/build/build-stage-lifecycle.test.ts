@@ -68,18 +68,25 @@ describe("a work item in the Build stage", () => {
     }),
   );
 
-  it.effect("builds again with the reviewer's feedback when Review requests changes", () =>
-    Effect.gen(function* () {
-      const { builder, build } = yield* scriptedBuild({ testReports: [testsPassed, testsPassed] });
-      const workItem = yield* startWorkItem({ build });
-      workItem.advanceTo("build");
-      yield* workItem.reaches("review");
-      workItem.finish("review", { _tag: "changesRequested", feedback: "rename totals" });
-      yield* workItem.reaches("review");
-      expect(builder.calls().filter((call) => call.step === "implement")).toStrictEqual([
-        { step: "implement", task: { workItemId: "wi-1", feedback: null } },
-        { step: "implement", task: { workItemId: "wi-1", feedback: "rename totals" } },
-      ]);
-    }),
+  it.effect(
+    "builds again, following the same plan, with the reviewer's feedback when Review requests changes",
+    () =>
+      Effect.gen(function* () {
+        const { builder, build } = yield* scriptedBuild({
+          testReports: [testsPassed, testsPassed],
+        });
+        const workItem = yield* startWorkItem({ build });
+        workItem.advanceTo("build");
+        yield* workItem.reaches("review");
+        workItem.finish("review", { _tag: "changesRequested", feedback: "rename totals" });
+        yield* workItem.reaches("review");
+        expect(builder.calls().filter((call) => call.step === "implement")).toStrictEqual([
+          { step: "implement", task: { workItemId: "wi-1", planRef: "plan-1", feedback: null } },
+          {
+            step: "implement",
+            task: { workItemId: "wi-1", planRef: "plan-1", feedback: "rename totals" },
+          },
+        ]);
+      }),
   );
 });

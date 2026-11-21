@@ -31,7 +31,6 @@ export interface WorkItemContext {
   readonly facts: StageFacts;
   readonly limits: LoopLimits;
   readonly counters: LoopCounts;
-  readonly demoPlanned: boolean;
   readonly blocked: Blocked | null;
   readonly decisions: readonly Decision[];
 }

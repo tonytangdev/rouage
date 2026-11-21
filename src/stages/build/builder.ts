@@ -3,6 +3,8 @@ import { Context, Data } from "effect";
 
 export interface BuildTask {
   readonly workItemId: string;
+  /** The plan to follow, or `null` when the lifecycle runs no Plan before Build. */
+  readonly planRef: string | null;
   readonly feedback: string | null;
 }
 

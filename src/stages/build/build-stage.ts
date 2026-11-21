@@ -21,6 +21,7 @@ export interface BuildOptions {
 
 const buildTask = ({ context }: { readonly context: BuildContext }): BuildTask => ({
   workItemId: context.input.workItemId,
+  planRef: context.input.planRef,
   feedback: context.input.feedback,
 });
 
