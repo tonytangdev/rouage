@@ -2,21 +2,21 @@ import { Record, Schema } from "effect";
 
 import { changeRequestFact } from "./change-request.ts";
 import { demoFact } from "./demo-decision.ts";
-import type { FactEvent } from "./fact-event.ts";
 import { feedbackFact } from "./feedback.ts";
-import { taughtBy } from "./outcome-teaching.ts";
+import type { Teaching } from "./outcome-teaching.ts";
 import { KindSchema } from "./stage.ts";
+import type { Transition } from "./transition.ts";
 
 /**
  * A fact with a lifetime of its own, rather than a reference only a newer
  * outcome replaces: its fields, their value before any stage has worked, and
- * their value after each event. Adding one means declaring it and listing it
- * in the work item's facts below.
+ * their value after each transition, given what it taught. Adding one means
+ * declaring it and listing it in the work item's facts below.
  */
 export interface StandingFact<S extends Schema.Struct<Schema.Struct.Fields>> {
   readonly schema: S;
   readonly empty: S["Type"];
-  readonly after: (value: S["Type"], event: FactEvent) => S["Type"];
+  readonly after: (value: S["Type"], transition: Transition, taught: Teaching) => S["Type"];
 }
 
 const Reference = Schema.NullOr(Schema.String);
@@ -61,20 +61,20 @@ export const noFactsYet: Omit<StageFacts, "issueRef"> = {
   ...demoFact.empty,
 };
 
-const referencesAfter = (event: FactEvent): Partial<References> =>
-  event._tag === "stageFinished" || event._tag === "loopExhausted"
-    ? taughtBy(event.outcome).references
-    : {};
-
 /**
- * The work item's facts after `event`, the only way they change. References
- * are replaced only by the outcome that teaches a newer one; each standing
- * fact follows its own lifetime.
+ * The work item's facts after `transition`, given what it `taught`: what the
+ * outcome teaches when a stage finished, less what a loop at its limit does
+ * not send back, else nothing. References are replaced only by the outcome
+ * that teaches a newer one; each standing fact follows its own lifetime.
  */
-export const factsAfter = (facts: StageFacts, event: FactEvent): StageFacts => ({
+export const factsAfter = (
+  facts: StageFacts,
+  transition: Transition,
+  taught: Teaching,
+): StageFacts => ({
   ...facts,
-  ...referencesAfter(event),
-  ...feedbackFact.after(facts, event),
-  ...changeRequestFact.after(facts, event),
-  ...demoFact.after(facts, event),
+  ...taught.references,
+  ...feedbackFact.after(facts, transition, taught),
+  ...changeRequestFact.after(facts, transition, taught),
+  ...demoFact.after(facts, transition, taught),
 });

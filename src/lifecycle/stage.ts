@@ -69,13 +69,25 @@ const inputWith = (
   demoRef,
 });
 
-/** Builds a stage's input from the work item; takes XState's input-function argument so it can be passed as is. */
-export const stageInput = (argument: InputArgument): StageInput =>
+const shownInput = (argument: InputArgument): StageInput =>
   inputWith(argument, demoShown(argument.context.facts));
 
-/** `stageInput` for Demo, which gets the demo to revise. */
-export const demoStageInput = (argument: InputArgument): StageInput =>
-  inputWith(argument, demoToRevise(argument.context.facts));
+/**
+ * The input the lifecycle gives each stage, built from the work item. Each
+ * takes XState's input-function argument so a state can pass it as is. Demo
+ * alone gets the demo to revise, even when outdated (ADR 0011).
+ */
+export const stageInputs: Readonly<Record<StageName, (argument: InputArgument) => StageInput>> = {
+  intake: shownInput,
+  spec: shownInput,
+  provision: shownInput,
+  reproduce: shownInput,
+  plan: shownInput,
+  build: shownInput,
+  demo: (argument) => inputWith(argument, demoToRevise(argument.context.facts)),
+  review: shownInput,
+  ship: shownInput,
+};
 
 /**
  * Each stage of the default lifecycle and the outcome its stage machine

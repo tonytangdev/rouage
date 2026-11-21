@@ -1,8 +1,9 @@
 import { Match, Schema } from "effect";
 
-import type { FactEvent } from "./fact-event.ts";
 import type { StandingFact } from "./facts.ts";
-import { taughtBy } from "./outcome-teaching.ts";
+import type { Teaching } from "./outcome-teaching.ts";
+import type { Transition } from "./transition.ts";
+import { returnsToSpec } from "./transition.ts";
 
 /**
  * What the change was last sent back to Build to address, and where that came
@@ -21,20 +22,23 @@ export type ChangeRequest = typeof ChangeRequestSchema.Type;
 // to Spec, because a new spec makes earlier requests obsolete (ADR 0012).
 const changeRequestAfter = (
   request: ChangeRequest | null,
-  event: FactEvent,
-): ChangeRequest | null =>
-  Match.valueTags(event, {
-    stageFinished: ({ outcome }) => taughtBy(outcome).changeRequest ?? request,
-    // The change is not sent back to Build, and a retry re-runs the looping
-    // stage on the change Build last made, so the request Build last
-    // addressed stands.
-    loopExhausted: () => request,
-    gateRejected: ({ gate, comment }): ChangeRequest | null =>
-      gate === "shipGate" ? { from: "shipGate", text: comment } : request,
-    returnedToSpec: () => null,
-    retried: () => request,
-    demoOverridden: () => request,
-  });
+  transition: Transition,
+  taught: Teaching,
+): ChangeRequest | null => {
+  if (returnsToSpec(transition)) {
+    return null;
+  }
+  return Match.value(transition).pipe(
+    Match.tags({
+      // An outcome that does not send the change back to Build teaches no
+      // request, so the one Build last addressed stands for Review to check.
+      stageFinished: () => taught.changeRequest ?? request,
+      gateRejected: ({ gate, decision }): ChangeRequest | null =>
+        gate === "shipGate" ? { from: "shipGate", text: decision.comment ?? null } : request,
+    }),
+    Match.orElse(() => request),
+  );
+};
 
 const ChangeRequestFactSchema = Schema.Struct({
   /** What the change was last sent back to Build to address; kept after Build finishes so Review can check it, and reset only on return to Spec (ADR 0012). */
@@ -45,7 +49,7 @@ const ChangeRequestFactSchema = Schema.Struct({
 export const changeRequestFact: StandingFact<typeof ChangeRequestFactSchema> = {
   schema: ChangeRequestFactSchema,
   empty: { changeRequest: null },
-  after: ({ changeRequest }, event) => ({
-    changeRequest: changeRequestAfter(changeRequest, event),
+  after: ({ changeRequest }, transition, taught) => ({
+    changeRequest: changeRequestAfter(changeRequest, transition, taught),
   }),
 };

@@ -10,8 +10,7 @@ import { startWorkItem } from "../lifecycle/lifecycle-harness.ts";
 import type { Place } from "../lifecycle/place.ts";
 import type { Settled } from "../lifecycle/stage-contract.ts";
 import type { FailureReason, StageInput, StageName } from "../lifecycle/stage.ts";
-import { demoStageInput, stageInput } from "../lifecycle/stage.ts";
-import type { WorkItemContext } from "../lifecycle/work-item.ts";
+import { stageInputs } from "../lifecycle/stage.ts";
 import type { Fake, FakePort, Misbehaviour, Misbehaving } from "./fake-script.ts";
 import { crashMessage, gaveUpMessage } from "./fake-script.ts";
 import type { PortGaveUp } from "./port-stage.ts";
@@ -98,11 +97,6 @@ const reachableStep = <Script, Scripted>(
   };
 };
 
-// Read from the work item's context because a real stage, unlike a stub,
-// does not report its input; Demo is given the demo to revise (ADR 0011).
-const inputIn = (stage: StageName, context: WorkItemContext): StageInput =>
-  stage === "demo" ? demoStageInput({ context }) : stageInput({ context });
-
 /** The input `stage` receives once `reach` drives a work item there, with the stage `scripted` running. */
 const inputOnReach = <Scripted extends { readonly stage: AnyStateMachine }>(
   stage: StageName,
@@ -113,7 +107,9 @@ const inputOnReach = <Scripted extends { readonly stage: AnyStateMachine }>(
     const { stage: machine } = yield* scripted;
     const workItem = yield* startWorkItem({ stages: { [stage]: machine } });
     yield* reach(workItem);
-    return inputIn(stage, workItem.context());
+    // Read from the work item's context because a real stage, unlike a stub,
+    // does not report its input.
+    return stageInputs[stage]({ context: workItem.context() });
   });
 
 /** A port's name and every step it has, for the check that each step is declared. */

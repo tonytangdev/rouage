@@ -1,23 +1,23 @@
 import { absurd } from "effect/Function";
 
-import { reproduceBlocked, stageErrored } from "./blocked.ts";
 import { demoCalledFor, retrySkipsDemo } from "./demo-decision.ts";
-import { finished, soleOutcome } from "./fact-event.ts";
-import { factsAfter, noFactsYet } from "./facts.ts";
+import { noFactsYet } from "./facts.ts";
 import { lifecycleSetup } from "./lifecycle-setup.ts";
-import { aroundLoop, noLoopsYet } from "./loops.ts";
-import { demoStageInput, stageInput } from "./stage.ts";
+import { noLoopsYet } from "./loops.ts";
+import { stageInputs } from "./stage.ts";
 import { innermostState } from "./state-value.ts";
 import {
-  approved,
-  demoRequired,
-  demoSkipped,
-  recordDecision,
-  rejected,
-  specRejected,
+  cancelled,
+  demoOverridden,
+  errored,
+  finished,
+  gateApproved,
+  gateRejected,
   retried,
-  sentBack,
-} from "./work-item.ts";
+  sentBackToSpec,
+  soleOutcome,
+} from "./transition.ts";
+import { blockedAfter, blockedIn, workItemAfter } from "./work-item-after.ts";
 
 // Every transition names its target as a literal, even where a helper could
 // compute it, so Stately's editor can draw every arrow (ADR 0002).
@@ -36,29 +36,28 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
   on: {
     cancel: ({ context, event, self }) => ({
       target: ".cancelled",
-      context: {
-        decisions: recordDecision(
-          context,
-          "cancel",
-          innermostState(self.getSnapshot().value),
-          event,
-        ),
-      },
+      context: workItemAfter(context, cancelled(innermostState(self.getSnapshot().value), event)),
     }),
     requireDemo: ({ context, event, self }) => ({
-      context: demoRequired(context, innermostState(self.getSnapshot().value), event),
+      context: workItemAfter(
+        context,
+        demoOverridden(true, innermostState(self.getSnapshot().value), event),
+      ),
     }),
     skipDemo: ({ context, event, self }) => ({
-      context: demoSkipped(context, innermostState(self.getSnapshot().value), event),
+      context: workItemAfter(
+        context,
+        demoOverridden(false, innermostState(self.getSnapshot().value), event),
+      ),
     }),
   },
   states: {
     working: {
       initial: "intake",
       on: {
-        "xstate.error.actor": ({ event }) => ({
+        "xstate.error.actor": ({ context, event }) => ({
           target: "#blocked",
-          context: stageErrored(event.actorId, event.error),
+          context: blockedAfter(context, errored(event.actorId, event.error)),
         }),
       },
       states: {
@@ -66,10 +65,10 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           invoke: {
             id: "intake",
             src: "intake",
-            input: stageInput,
+            input: stageInputs.intake,
             onDone: ({ context, event: { output } }) => ({
               target: "spec",
-              context: { facts: factsAfter(context.facts, soleOutcome("intake", output)) },
+              context: workItemAfter(context, soleOutcome("intake", output)),
             }),
           },
         },
@@ -77,10 +76,10 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           invoke: {
             id: "spec",
             src: "spec",
-            input: stageInput,
+            input: stageInputs.spec,
             onDone: ({ context, event: { output } }) => ({
               target: "specGate",
-              context: { facts: factsAfter(context.facts, soleOutcome("spec", output)) },
+              context: workItemAfter(context, soleOutcome("spec", output)),
             }),
           },
         },
@@ -88,11 +87,11 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           on: {
             approve: ({ context, event }) => ({
               target: "provision",
-              context: approved(context, "specGate", event),
+              context: workItemAfter(context, gateApproved("specGate", event)),
             }),
             reject: ({ context, event }) => ({
               target: "spec",
-              context: specRejected(context, event),
+              context: workItemAfter(context, gateRejected("specGate", event)),
             }),
           },
         },
@@ -100,11 +99,11 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           invoke: {
             id: "provision",
             src: "provision",
-            input: stageInput,
+            input: stageInputs.provision,
             onDone: ({ context, event: { output } }) => {
               switch (output._tag) {
                 case "provisioned": {
-                  const prepared = { facts: factsAfter(context.facts, finished(output)) };
+                  const prepared = workItemAfter(context, finished("provision", output));
                   return context.facts.kind === "bug"
                     ? { target: "reproduce", context: prepared }
                     : { target: "plan", context: prepared };
@@ -112,7 +111,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
                 case "awaitingRun": {
                   return {
                     target: "sampleGate",
-                    context: { facts: factsAfter(context.facts, finished(output)) },
+                    context: workItemAfter(context, finished("provision", output)),
                   };
                 }
                 default: {
@@ -126,11 +125,11 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           on: {
             approve: ({ context, event }) => ({
               target: "provision",
-              context: approved(context, "sampleGate", event),
+              context: workItemAfter(context, gateApproved("sampleGate", event)),
             }),
             reject: ({ context, event }) => ({
               target: "provision",
-              context: rejected(context, "sampleGate", event),
+              context: workItemAfter(context, gateRejected("sampleGate", event)),
             }),
           },
         },
@@ -138,24 +137,28 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           invoke: {
             id: "reproduce",
             src: "reproduce",
-            input: stageInput,
+            input: stageInputs.reproduce,
             onDone: ({ context, event: { output } }) => {
               switch (output._tag) {
                 case "reproduced": {
                   return {
                     target: "plan",
-                    context: { facts: factsAfter(context.facts, finished(output)) },
+                    context: workItemAfter(context, finished("reproduce", output)),
                   };
                 }
                 case "cannotReproduce":
                 case "checkPassed": {
-                  return { target: "#blocked", context: reproduceBlocked(context, output) };
+                  return {
+                    target: "#blocked",
+                    context: blockedAfter(context, finished("reproduce", output)),
+                  };
                 }
                 case "needsSample": {
-                  const trip = aroundLoop(context, "reproduce", output);
-                  return trip.exhausted
-                    ? { target: "#blocked", context: trip.context }
-                    : { target: "provision", context: trip.context };
+                  const next = workItemAfter(context, finished("reproduce", output));
+                  const blocked = blockedIn(next);
+                  return blocked === null
+                    ? { target: "provision", context: next }
+                    : { target: "#blocked", context: blocked };
                 }
                 default: {
                   return absurd(output);
@@ -168,10 +171,10 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           invoke: {
             id: "plan",
             src: "plan",
-            input: stageInput,
+            input: stageInputs.plan,
             onDone: ({ context, event: { output } }) => ({
               target: "build",
-              context: { facts: factsAfter(context.facts, soleOutcome("plan", output)) },
+              context: workItemAfter(context, soleOutcome("plan", output)),
             }),
           },
         },
@@ -179,9 +182,9 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           invoke: {
             id: "build",
             src: "build",
-            input: stageInput,
+            input: stageInputs.build,
             onDone: ({ context, event: { output } }) => {
-              const built = { facts: factsAfter(context.facts, soleOutcome("build", output)) };
+              const built = workItemAfter(context, soleOutcome("build", output));
               return demoCalledFor(context.facts)
                 ? { target: "demo", context: built }
                 : { target: "review", context: built };
@@ -192,16 +195,16 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           invoke: {
             id: "demo",
             src: "demo",
-            input: demoStageInput,
+            input: stageInputs.demo,
             onDone: ({ context, event: { output } }) => ({
               target: "review",
-              context: { facts: factsAfter(context.facts, soleOutcome("demo", output)) },
+              context: workItemAfter(context, soleOutcome("demo", output)),
             }),
           },
           on: {
             skipDemo: ({ context, event }) => ({
               target: "review",
-              context: demoSkipped(context, "demo", event),
+              context: workItemAfter(context, demoOverridden(false, "demo", event)),
             }),
           },
         },
@@ -209,20 +212,21 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           invoke: {
             id: "review",
             src: "review",
-            input: stageInput,
+            input: stageInputs.review,
             onDone: ({ context, event: { output } }) => {
               switch (output._tag) {
                 case "approved": {
                   return {
                     target: "shipGate",
-                    context: { facts: factsAfter(context.facts, finished(output)) },
+                    context: workItemAfter(context, finished("review", output)),
                   };
                 }
                 case "changesRequested": {
-                  const trip = aroundLoop(context, "review", output);
-                  return trip.exhausted
-                    ? { target: "#blocked", context: trip.context }
-                    : { target: "build", context: trip.context };
+                  const next = workItemAfter(context, finished("review", output));
+                  const blocked = blockedIn(next);
+                  return blocked === null
+                    ? { target: "build", context: next }
+                    : { target: "#blocked", context: blocked };
                 }
                 default: {
                   return absurd(output);
@@ -235,11 +239,11 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           on: {
             approve: ({ context, event }) => ({
               target: "ship",
-              context: approved(context, "shipGate", event),
+              context: workItemAfter(context, gateApproved("shipGate", event)),
             }),
             reject: ({ context, event }) => ({
               target: "build",
-              context: rejected(context, "shipGate", event),
+              context: workItemAfter(context, gateRejected("shipGate", event)),
             }),
           },
         },
@@ -247,20 +251,21 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           invoke: {
             id: "ship",
             src: "ship",
-            input: stageInput,
+            input: stageInputs.ship,
             onDone: ({ context, event: { output } }) => {
               switch (output._tag) {
                 case "shipped": {
                   return {
                     target: "#shipped",
-                    context: { facts: factsAfter(context.facts, finished(output)) },
+                    context: workItemAfter(context, finished("ship", output)),
                   };
                 }
                 case "needsRebuild": {
-                  const trip = aroundLoop(context, "ship", output);
-                  return trip.exhausted
-                    ? { target: "#blocked", context: trip.context }
-                    : { target: "build", context: trip.context };
+                  const next = workItemAfter(context, finished("ship", output));
+                  const blocked = blockedIn(next);
+                  return blocked === null
+                    ? { target: "build", context: next }
+                    : { target: "#blocked", context: blocked };
                 }
                 default: {
                   return absurd(output);
@@ -275,15 +280,19 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
     blocked: {
       id: "blocked",
       on: {
-        retry: ({ context, event }) =>
-          retrySkipsDemo(context.blocked.from, context.facts)
-            ? { target: "working.review", context: retried(context, event) }
-            : { target: "working.lastStage", context: retried(context, event) },
-        backToSpec: ({ context, event }) =>
+        retry: ({ context, event }) => {
+          const next = workItemAfter(context, retried(event));
+          return retrySkipsDemo(context.blocked.from, context.facts)
+            ? { target: "working.review", context: next }
+            : { target: "working.lastStage", context: next };
+        },
+        backToSpec: ({ context, event }) => {
+          const next = workItemAfter(context, sentBackToSpec(event));
           // An unclassified work item would reach Provision without a kind and be routed as a feature.
-          context.facts.kind === null
-            ? { target: "working.intake", context: sentBack(context, event) }
-            : { target: "working.spec", context: sentBack(context, event) },
+          return context.facts.kind === null
+            ? { target: "working.intake", context: next }
+            : { target: "working.spec", context: next };
+        },
       },
     },
     shipped: { id: "shipped", type: "final" },
