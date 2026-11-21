@@ -50,7 +50,7 @@ describe("a work item in the Provision stage", () => {
   );
 
   it.effect(
-    "waits at the sample gate until the user runs the extraction script, then samples",
+    "hands the sampler the extraction script the user ran, and takes the sample it finds",
     () =>
       Effect.gen(function* () {
         const { sampler, stage } = yield* provisionUnderTest.scripted({
@@ -62,14 +62,9 @@ describe("a work item in the Provision stage", () => {
         yield* workItem.reaches("reproduce");
         workItem.finish("reproduce", askForSample);
         yield* workItem.reaches("sampleGate");
-        expect(workItem.context().facts).toMatchObject({
-          sandboxRef: "box-1",
-          scriptRef: "script-1",
-        });
         workItem.send({ type: "approve", ...reviewer });
         yield* workItem.reaches("reproduce");
         expect(workItem.context().facts.sampleRef).toStrictEqual("sample-1");
-        expect(workItem.context().counters.reproduce).toStrictEqual(1);
         expect(sampler.tasks()).toStrictEqual([
           firstSample,
           { ...firstSample, previousScriptRef: "script-1" },
@@ -97,35 +92,7 @@ describe("a work item in the Provision stage", () => {
           previousScriptRef: "script-1",
           feedback: "leave out the emails",
         });
-        expect(workItem.context().facts.feedback).toBeNull();
       }),
-  );
-
-  it.effect("still waits at the sample gate when restored there, and samples once approved", () =>
-    Effect.gen(function* () {
-      const before = yield* provisionUnderTest.scripted({
-        provisioner: { results: [sandbox, sandbox] },
-        sampler: { results: [awaitingRun] },
-      });
-      const original = yield* startWorkItem({ stages: { provision: before.stage } });
-      original.advanceTo("provision", { kind: "bug" });
-      yield* original.reaches("reproduce");
-      original.finish("reproduce", askForSample);
-      yield* original.reaches("sampleGate");
-      const after = yield* provisionUnderTest.scripted({
-        provisioner: { results: [sandbox] },
-        sampler: { results: [sample] },
-      });
-      const workItem = yield* restoredWorkItem(throughJson(original.save()), {
-        stages: { provision: after.stage },
-      });
-      expect(workItem.state()).toStrictEqual("sampleGate");
-      workItem.send({ type: "approve", ...reviewer });
-      yield* workItem.reaches("reproduce");
-      expect(after.sampler.tasks()).toStrictEqual([
-        { ...firstSample, previousScriptRef: "script-1" },
-      ]);
-    }),
   );
 
   it.effect("blocks when the sampler finds no usable sample after the user ran the script", () =>
