@@ -1,5 +1,5 @@
 import type { BlockingOutcome, LoopingOutcome, OnwardOutcome } from "./outcome-teaching.ts";
-import type { Gate } from "./place.ts";
+import type { Gate, Place } from "./place.ts";
 import type { OutcomeOf, StageName } from "./stage.ts";
 import type { HumanDecision } from "./work-item.ts";
 
@@ -36,10 +36,10 @@ export type Transition =
   | {
       readonly _tag: "demoOverridden";
       readonly demo: boolean;
-      readonly state: string;
+      readonly state: Place;
       readonly decision: HumanDecision;
     }
-  | { readonly _tag: "cancelled"; readonly state: string; readonly decision: HumanDecision };
+  | { readonly _tag: "cancelled"; readonly state: Place; readonly decision: HumanDecision };
 
 /** A transition that always blocks the work item. */
 export type BlockingTransition = StageErrored | StageFinished<BlockingOutcome>;
@@ -117,12 +117,12 @@ export const sentBackToSpec = (decision: HumanDecision): HumanTransition => ({
 /** A human requiring (`demo: true`) or skipping a demo while the work item is in `state`. */
 export const demoOverridden = (
   demo: boolean,
-  state: string,
+  state: Place,
   decision: HumanDecision,
 ): HumanTransition => ({ _tag: "demoOverridden", demo, state, decision });
 
 /** A human cancelling the work item while it is in `state`. */
-export const cancelled = (state: string, decision: HumanDecision): HumanTransition => ({
+export const cancelled = (state: Place, decision: HumanDecision): HumanTransition => ({
   _tag: "cancelled",
   state,
   decision,

@@ -76,6 +76,18 @@ describe("work item persistence", () => {
     }),
   );
 
+  it.effect("refuses a snapshot whose decision names a place the lifecycle does not have", () =>
+    Effect.gen(function* () {
+      const original = yield* startWorkItem();
+      original.send({ type: "cancel", ...reviewer });
+      const context = original.context();
+      const decisions = context.decisions.map((decision) => ({ ...decision, state: "deploy" }));
+      const persisted = { ...original.save(), context: { ...context, decisions } };
+      const error = yield* Effect.flip(restoredWorkItem(throughJson(persisted)));
+      expect(error._tag).toStrictEqual("UnreadableSnapshot");
+    }),
+  );
+
   it.effect("refuses a snapshot whose work item lacks a fact", () =>
     Effect.gen(function* () {
       const original = yield* startWorkItem();

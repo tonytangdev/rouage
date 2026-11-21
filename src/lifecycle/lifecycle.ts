@@ -4,8 +4,8 @@ import { demoCalledFor, retrySkipsDemo } from "./demo-decision.ts";
 import { noFactsYet } from "./facts.ts";
 import { lifecycleSetup } from "./lifecycle-setup.ts";
 import { noLoopsYet } from "./loops.ts";
+import { placeOfState } from "./place.ts";
 import { stageInputs } from "./stage.ts";
-import { innermostState } from "./state-value.ts";
 import {
   cancelled,
   demoOverridden,
@@ -36,18 +36,18 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
   on: {
     cancel: ({ context, event, self }) => ({
       target: ".cancelled",
-      context: workItemAfter(context, cancelled(innermostState(self.getSnapshot().value), event)),
+      context: workItemAfter(context, cancelled(placeOfState(self.getSnapshot().value), event)),
     }),
     requireDemo: ({ context, event, self }) => ({
       context: workItemAfter(
         context,
-        demoOverridden(true, innermostState(self.getSnapshot().value), event),
+        demoOverridden(true, placeOfState(self.getSnapshot().value), event),
       ),
     }),
     skipDemo: ({ context, event, self }) => ({
       context: workItemAfter(
         context,
-        demoOverridden(false, innermostState(self.getSnapshot().value), event),
+        demoOverridden(false, placeOfState(self.getSnapshot().value), event),
       ),
     }),
   },

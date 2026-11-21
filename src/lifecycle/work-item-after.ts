@@ -11,6 +11,7 @@ import {
   nothingTaught,
   taughtBy,
 } from "./outcome-teaching.ts";
+import type { Place } from "./place.ts";
 import { failureReasonOf } from "./stage.ts";
 import type {
   BlockingTransition,
@@ -31,7 +32,7 @@ export interface BlockedContext extends WorkItemContext {
 const decided = (
   context: WorkItemContext,
   action: DecisionAction,
-  state: string,
+  state: Place,
   { by, at, comment }: HumanDecision,
 ): WorkItemContext => ({
   ...context,

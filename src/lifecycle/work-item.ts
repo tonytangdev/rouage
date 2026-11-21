@@ -4,6 +4,7 @@ import { BlockedSchema } from "./blocked.ts";
 import { StageFactsSchema } from "./facts.ts";
 import type { LoopLimits } from "./loops.ts";
 import { PerLoopCount } from "./loops.ts";
+import { PlaceSchema } from "./place.ts";
 
 export interface WorkItemInput {
   readonly id: string;
@@ -31,7 +32,7 @@ export type DecisionAction = typeof DecisionActionSchema.Type;
 
 export const DecisionSchema = Schema.Struct({
   action: DecisionActionSchema,
-  state: Schema.String,
+  state: PlaceSchema,
   by: Schema.String,
   at: Schema.String,
   comment: Schema.NullOr(Schema.String),

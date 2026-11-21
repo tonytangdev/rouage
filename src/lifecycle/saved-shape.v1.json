@@ -164,7 +164,26 @@
                   "skipDemo"
                 ]
               },
-              "state": { "type": "string" },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "intake",
+                  "spec",
+                  "specGate",
+                  "provision",
+                  "sampleGate",
+                  "reproduce",
+                  "plan",
+                  "build",
+                  "demo",
+                  "review",
+                  "shipGate",
+                  "ship",
+                  "blocked",
+                  "shipped",
+                  "cancelled"
+                ]
+              },
               "by": { "type": "string" },
               "at": { "type": "string" },
               "comment": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
