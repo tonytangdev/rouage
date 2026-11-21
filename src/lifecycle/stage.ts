@@ -1,12 +1,25 @@
-import { Data, Predicate } from "effect";
+import { Data, Predicate, Schema } from "effect";
 
-export type Kind = "bug" | "feature";
+export const KindSchema = Schema.Literals(["bug", "feature"]);
+export type Kind = typeof KindSchema.Type;
+
+/** Every stage of the default lifecycle; `StageOutcomes` gives each its outcome. */
+export const StageNameSchema = Schema.Literals([
+  "intake",
+  "spec",
+  "provision",
+  "reproduce",
+  "plan",
+  "build",
+  "demo",
+  "review",
+  "ship",
+]);
+export type StageName = typeof StageNameSchema.Type;
 
 /** Why a stage could not finish, as plain data so it survives persistence. */
-export interface FailureReason {
-  readonly tag: string;
-  readonly message: string;
-}
+export const FailureReasonSchema = Schema.Struct({ tag: Schema.String, message: Schema.String });
+export type FailureReason = typeof FailureReasonSchema.Type;
 
 /**
  * What a stage machine fails with when it cannot finish. Any other error from
@@ -27,31 +40,34 @@ export const failureReasonOf = (error: unknown): FailureReason => {
   };
 };
 
+const Reference = Schema.NullOr(Schema.String);
+
 /** What the work item holds that every stage sees. */
-export interface StageFacts {
-  readonly issueRef: string;
-  readonly kind: Kind | null;
+export const StageFactsSchema = Schema.Struct({
+  issueRef: Schema.String,
+  kind: Schema.NullOr(KindSchema),
   /** A comment for the next stage to finish, set by a rejection, a return from Blocked or Review's requested changes, and cleared when any stage finishes. */
-  readonly feedback: string | null;
+  feedback: Reference,
   /** The reference to the latest written spec, opaque to Rouage; only the next written spec replaces it (ADR 0004). */
-  readonly specRef: string | null;
+  specRef: Reference,
   /** The reference to the work item's sandbox, opaque to Rouage; set by Provision (ADR 0004). */
-  readonly sandboxRef: string | null;
+  sandboxRef: Reference,
   /** Reproduce's description of the data a bug needs, which Provision takes a sample of; never cleared (ADR 0005). */
-  readonly sampleRequest: string | null;
+  sampleRequest: Reference,
   /** The reference to the sample Provision took into the sandbox, opaque to Rouage (ADR 0004). */
-  readonly sampleRef: string | null;
+  sampleRef: Reference,
   /** The reference to the bug's reproduction, opaque to Rouage; only the next reproduction replaces it (ADR 0004, ADR 0006). */
-  readonly reproductionRef: string | null;
+  reproductionRef: Reference,
   /** The reference to the latest plan, opaque to Rouage; only the next plan replaces it (ADR 0004). */
-  readonly planRef: string | null;
+  planRef: Reference,
   /** Whether the latest plan calls for a demo, or `null` before Plan has run. */
-  readonly demoPlanned: boolean | null;
+  demoPlanned: Schema.NullOr(Schema.Boolean),
   /** The reference to the latest demo, opaque to Rouage; only the next demo replaces it (ADR 0004). */
-  readonly demoRef: string | null;
+  demoRef: Reference,
   /** The reference to where Ship delivered the change, opaque to Rouage (ADR 0004); `null` until shipped. */
-  readonly deliveryRef: string | null;
-}
+  deliveryRef: Reference,
+});
+export type StageFacts = typeof StageFactsSchema.Type;
 
 /** The facts of a work item no stage has worked on yet; only `issueRef` is known from the start. */
 export const noFactsYet: Omit<StageFacts, "issueRef"> = {
@@ -111,7 +127,5 @@ export interface StageOutcomes {
     | { readonly _tag: "changesRequested"; readonly feedback: string };
   readonly ship: { readonly _tag: "shipped"; readonly deliveryRef: string };
 }
-
-export type StageName = keyof StageOutcomes;
 
 export type OutcomeOf<Stage extends StageName> = StageOutcomes[Stage];

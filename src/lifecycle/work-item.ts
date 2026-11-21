@@ -1,6 +1,10 @@
-import type { Blocked } from "./blocked.ts";
-import type { LoopCounts, LoopLimits } from "./loops.ts";
-import type { StageFacts } from "./stage.ts";
+import { Schema } from "effect";
+
+import { BlockedSchema } from "./blocked.ts";
+import { learned } from "./facts.ts";
+import type { LoopLimits } from "./loops.ts";
+import { PerLoopCount } from "./loops.ts";
+import { StageFactsSchema } from "./stage.ts";
 
 export interface WorkItemInput {
   readonly id: string;
@@ -15,25 +19,35 @@ export interface HumanDecision {
   readonly comment?: string;
 }
 
-export type DecisionAction = "approve" | "reject" | "retry" | "backToSpec" | "cancel";
+export const DecisionActionSchema = Schema.Literals([
+  "approve",
+  "reject",
+  "retry",
+  "backToSpec",
+  "cancel",
+]);
+export type DecisionAction = typeof DecisionActionSchema.Type;
 
-export interface Decision {
-  readonly action: DecisionAction;
-  readonly state: string;
-  readonly by: string;
-  readonly at: string;
-  readonly comment: string | null;
-}
+export const DecisionSchema = Schema.Struct({
+  action: DecisionActionSchema,
+  state: Schema.String,
+  by: Schema.String,
+  at: Schema.String,
+  comment: Schema.NullOr(Schema.String),
+});
+export type Decision = typeof DecisionSchema.Type;
 
-export interface WorkItemContext {
-  readonly id: string;
+/** Everything a work item saves, checked against this Schema when it is restored (ADR 0002). */
+export const WorkItemContextSchema = Schema.Struct({
+  id: Schema.String,
   /** What every stage sees, changed only through `learned`. */
-  readonly facts: StageFacts;
-  readonly limits: LoopLimits;
-  readonly counters: LoopCounts;
-  readonly blocked: Blocked | null;
-  readonly decisions: readonly Decision[];
-}
+  facts: StageFactsSchema,
+  limits: PerLoopCount,
+  counters: PerLoopCount,
+  blocked: Schema.NullOr(BlockedSchema),
+  decisions: Schema.Array(DecisionSchema),
+});
+export type WorkItemContext = typeof WorkItemContextSchema.Type;
 
 export const recordDecision = (
   context: WorkItemContext,
@@ -48,15 +62,6 @@ export const recordDecision = (
 /** The context change for a gate approval. */
 export const approved = (context: WorkItemContext, gate: string, decision: HumanDecision) => ({
   decisions: recordDecision(context, "approve", gate, decision),
-});
-
-/**
- * The context change when an outcome or a human's decision sets some of the
- * work item's facts. Every fact not in `learnt` keeps its value, so a
- * reference is only ever replaced by a newer one (ADR 0004).
- */
-export const learned = (context: WorkItemContext, learnt: Partial<StageFacts>) => ({
-  facts: { ...context.facts, ...learnt },
 });
 
 /** The context change for a gate rejection: the comment becomes the feedback for the stage it returns to. */

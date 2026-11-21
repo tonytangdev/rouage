@@ -1,10 +1,12 @@
+import { Schema } from "effect";
 import type { ActorRefFrom } from "xstate";
 import { setup, types } from "xstate";
 
 import type { Blocked } from "./blocked.ts";
 import { stageSlot } from "./stage-slot.ts";
 import type { StageName } from "./stage.ts";
-import type { HumanDecision, WorkItemContext, WorkItemInput } from "./work-item.ts";
+import type { HumanDecision, WorkItemInput } from "./work-item.ts";
+import { WorkItemContextSchema } from "./work-item.ts";
 
 // XState needs each stage slot as its own key, and the compiler only checks
 // those keys against `StageName` through `satisfies`. Written out rather than
@@ -27,7 +29,7 @@ type StageRef<Name extends StageName> = ActorRefFrom<(typeof stages)[Name]>;
 export const lifecycleSetup = setup({
   schemas: {
     input: types<WorkItemInput>(),
-    context: types<WorkItemContext>(),
+    context: Schema.toStandardSchemaV1(WorkItemContextSchema),
     events: {
       approve: types<HumanDecision>(),
       reject: types<HumanDecision>(),

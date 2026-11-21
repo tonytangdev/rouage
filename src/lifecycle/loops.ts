@@ -1,4 +1,4 @@
-import { Config, Effect } from "effect";
+import { Config, Effect, Schema } from "effect";
 
 import { blockedOn } from "./blocked.ts";
 import { stageFinished } from "./facts.ts";
@@ -43,6 +43,9 @@ export const perLoop = <A>(value: (loop: LoopName) => A): Readonly<Record<LoopNa
 });
 
 export const noLoopsYet: LoopCounts = perLoop(() => 0);
+
+/** A whole number for each loop, as the work item saves its loop limits and counters. */
+export const PerLoopCount = Schema.Struct(perLoop(() => Schema.Int));
 
 const limit = (loop: LoopName, override: number | undefined) =>
   override === undefined

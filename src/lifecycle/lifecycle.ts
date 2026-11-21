@@ -1,10 +1,10 @@
 import { blockedOn, stageErrored } from "./blocked.ts";
-import { stageFinished } from "./facts.ts";
+import { learned, stageFinished } from "./facts.ts";
 import { lifecycleSetup } from "./lifecycle-setup.ts";
 import { loopExhausted, loopLimitReached, noLoopsYet, wentAround } from "./loops.ts";
 import { noFactsYet, stageInput } from "./stage.ts";
 import { innermostState } from "./state-value.ts";
-import { approved, learned, recordDecision, rejected } from "./work-item.ts";
+import { approved, recordDecision, rejected } from "./work-item.ts";
 
 // Every transition names its target as a literal, even where a helper could
 // compute it, so Stately's editor can draw every arrow (ADR 0002).
