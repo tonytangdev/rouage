@@ -321,6 +321,24 @@ describe("lifecycle", () => {
     }),
   );
 
+  it.effect("shows stages no demo once the latest plan calls for none, but keeps it", () =>
+    Effect.gen(function* () {
+      const workItem = yield* startAt("review", { demo: true });
+      workItem.fail("review", { tag: "ReviewerGaveUp", message: "plan is wrong" });
+      workItem.send({ type: "backToSpec", ...reviewer });
+      workItem.finish("spec", { _tag: "written", specRef: goldenRefs.specRef });
+      workItem.send({ type: "approve", ...reviewer });
+      workItem.finish("provision", {
+        _tag: "provisioned",
+        sandboxRef: goldenRefs.sandboxRef,
+        sampleRef: null,
+      });
+      workItem.finish("plan", { _tag: "planned", planRef: "plan-2", demo: false });
+      expect(workItem.stageInput("build")?.demoRef).toBeNull();
+      expect(workItem.context().facts.demoRef).toStrictEqual(goldenRefs.demoRef);
+    }),
+  );
+
   it.effect("sends a change rejected at the ship gate back to Build with the comment", () =>
     Effect.gen(function* () {
       const workItem = yield* startAt("shipGate");

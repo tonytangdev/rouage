@@ -1,4 +1,4 @@
-import { demonstratedChangeTask } from "../built-change.ts";
+import { builtChangeTask } from "../built-change.ts";
 import { singleStepStage } from "../single-step-stage.ts";
 import type { ReviewTask, Verdict } from "./reviewer.ts";
 import { Reviewer } from "./reviewer.ts";
@@ -11,7 +11,7 @@ import { Reviewer } from "./reviewer.ts";
  */
 export const reviewStage = singleStepStage(Reviewer, {
   stage: "review",
-  task: (input) => demonstratedChangeTask("Review", input),
+  task: (input) => builtChangeTask("Review", input, { demoRef: input.demoRef }),
   ask: (reviewer, task: ReviewTask) => reviewer.review(task),
   outcome: (verdict: Verdict) => verdict,
 });

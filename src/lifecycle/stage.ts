@@ -47,7 +47,7 @@ export interface StageFacts {
   readonly planRef: string | null;
   /** Whether the latest plan calls for a demo, or `null` before Plan has run. */
   readonly demoPlanned: boolean | null;
-  /** The reference to the latest demo, opaque to Rouage; only the next demo replaces it (ADR 0004), so it shows the current change only while the latest plan calls for a demo. */
+  /** The reference to the latest demo, opaque to Rouage; only the next demo replaces it (ADR 0004). */
   readonly demoRef: string | null;
   /** The reference to where Ship delivered the change, opaque to Rouage (ADR 0004); `null` until shipped. */
   readonly deliveryRef: string | null;
@@ -71,6 +71,8 @@ export const noFactsYet: Omit<StageFacts, "issueRef"> = {
 /** What the lifecycle passes to every stage machine it starts. */
 export interface StageInput extends StageFacts {
   readonly workItemId: string;
+  /** The demo of the current change, or `null` when the latest plan calls for none, because a demo made for an earlier plan no longer shows the change. */
+  readonly demoRef: string | null;
 }
 
 /** Builds a stage's input from the work item; takes XState's input-function argument so it can be passed as is. */
@@ -78,7 +80,11 @@ export const stageInput = ({
   context: { id, facts },
 }: {
   readonly context: { readonly id: string; readonly facts: StageFacts };
-}): StageInput => ({ workItemId: id, ...facts });
+}): StageInput => ({
+  workItemId: id,
+  ...facts,
+  demoRef: facts.demoPlanned === true ? facts.demoRef : null,
+});
 
 /**
  * Each stage of the default lifecycle and the outcome its stage machine

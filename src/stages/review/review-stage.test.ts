@@ -3,19 +3,9 @@ import { Effect } from "effect";
 
 import { failureReasonOf } from "../../lifecycle/stage.ts";
 import { describePortStage } from "../port-stage-contract.ts";
-import { approval, changesRequested, firstReview, reviewUnderTest } from "./review-harness.ts";
+import { approval, changesRequested, reviewUnderTest } from "./review-harness.ts";
 
 describe("review stage", () => {
-  it.effect("hides a demo the latest plan no longer calls for", () =>
-    Effect.gen(function* () {
-      const { fake } = yield* reviewUnderTest.run(
-        { verdicts: [approval] },
-        { ...reviewUnderTest.input, demoPlanned: false, demoRef: "demo-1" },
-      );
-      expect(fake.tasks()).toStrictEqual([firstReview]);
-    }),
-  );
-
   it.effect("finishes with the changes the reviewer requests", () =>
     Effect.gen(function* () {
       const { settled } = yield* reviewUnderTest.run({ verdicts: [changesRequested] });

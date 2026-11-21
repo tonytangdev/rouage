@@ -1,4 +1,4 @@
-import { demonstratedChangeTask } from "../built-change.ts";
+import { builtChangeTask } from "../built-change.ts";
 import { singleStepStage } from "../single-step-stage.ts";
 import type { Shipped, ShipTask } from "./shipper.ts";
 import { Shipper } from "./shipper.ts";
@@ -11,7 +11,7 @@ import { Shipper } from "./shipper.ts";
  */
 export const shipStage = singleStepStage(Shipper, {
   stage: "ship",
-  task: (input) => demonstratedChangeTask("Ship", input),
+  task: (input) => builtChangeTask("Ship", input, { demoRef: input.demoRef }),
   ask: (shipper, task: ShipTask) => shipper.ship(task),
   outcome: ({ deliveryRef }: Shipped) => ({ _tag: "shipped", deliveryRef }),
 });
