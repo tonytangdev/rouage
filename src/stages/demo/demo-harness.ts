@@ -30,6 +30,5 @@ export const demoUnderTest = portStageUnderTest({
   passing: (misbehaving) => ({ demos: [firstDemoMade], misbehaving }),
   outcome: { _tag: "demonstrated", ...firstDemoMade },
   route: { demo: true },
-  next: "review",
   firstTask: firstDemo,
 });

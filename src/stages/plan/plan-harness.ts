@@ -29,6 +29,5 @@ export const planUnderTest = portStageUnderTest({
   }),
   passing: (misbehaving) => ({ plans: [plannedWithDemo], misbehaving }),
   outcome: { _tag: "planned", ...plannedWithDemo },
-  next: "build",
   firstTask: firstPlan,
 });

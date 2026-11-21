@@ -29,6 +29,5 @@ export const shipUnderTest = portStageUnderTest({
   }),
   passing: (misbehaving) => ({ deliveries: [delivered], misbehaving }),
   outcome: { _tag: "shipped", ...delivered },
-  next: "shipped",
   firstTask: firstShipment,
 });

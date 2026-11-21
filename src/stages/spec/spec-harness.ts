@@ -31,6 +31,5 @@ export const specUnderTest = portStageUnderTest({
   passing: (misbehaving) => ({ results: [writtenSpec], misbehaving }),
   outcome: writtenSpec,
   route: { kind: "bug" },
-  next: "specGate",
   firstTask: firstWrite,
 });

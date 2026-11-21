@@ -3,8 +3,8 @@ import type { Scope } from "effect";
 import type { Actor, AnyActorLogic, AnyStateMachine, OutputFrom } from "xstate";
 import { createActor, toPromise } from "xstate";
 
-import type { Route, Waypoint } from "../lifecycle/lifecycle-harness.ts";
-import { inputOnReaching } from "../lifecycle/lifecycle-harness.ts";
+import type { Route } from "../lifecycle/lifecycle-harness.ts";
+import { inputOnReaching, nextAfter } from "../lifecycle/lifecycle-harness.ts";
 import type { Settled } from "../lifecycle/stage-contract.ts";
 import type { FailureReason, StageInput, StageName } from "../lifecycle/stage.ts";
 import type { Fake, FakePort, Misbehaving } from "./fake-script.ts";
@@ -32,8 +32,6 @@ export interface PortStageDeclaration<
   readonly outcome: unknown;
   /** The route the work item takes to reach the stage; a feature with no demo unless set. */
   readonly route?: Route;
-  /** Where the work item goes once the stage finishes on `route`: a waypoint, or `shipped` for the last stage. */
-  readonly next: Waypoint | "shipped";
   /** What the stage's first step is asked when it is reached along `route`. */
   readonly firstTask: unknown;
 }
@@ -46,6 +44,8 @@ export interface PortStageUnderTest<
 > extends PortStageDeclaration<Step, Script, Scripted> {
   /** The input the stage receives when the work item first reaches it along `route`. */
   readonly input: StageInput;
+  /** Where the lifecycle sends the work item once the stage finishes on `route`. */
+  readonly next: string;
   /** The step the stage asks its port first, which the contract suites make misbehave. */
   readonly firstStep: Step;
   /** The reason the stage fails with when its port gives up during `firstStep`. */
@@ -90,6 +90,7 @@ export const portStageUnderTest = <
   return {
     ...declaration,
     input,
+    next: nextAfter(declaration.name, declaration.route),
     firstStep,
     gaveUp: { tag: gaveUp._tag, message: gaveUp.message },
     crashMessage: crashMessage(port.port, firstStep),

@@ -30,6 +30,5 @@ export const buildUnderTest = portStageUnderTest({
   }),
   passing: (misbehaving) => ({ testReports: [testsPassed], misbehaving }),
   outcome: { _tag: "built" },
-  next: "review",
   firstTask: firstImplement,
 });
