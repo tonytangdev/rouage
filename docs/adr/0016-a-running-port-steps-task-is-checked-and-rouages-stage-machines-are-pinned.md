@@ -17,4 +17,4 @@ Because a task is now part of what a saved work item depends on, it belongs to t
 
 - A change to a task, such as a new field in `BuildTask`, fails `pnpm check` until the pin is updated or, once Rouage is published, the lifecycle version is bumped.
 - A provided stage machine is not pinned; its author owns its shape (ADR 0002).
-- The input of a stage machine's own states is saved too but declared as a type only, so it is neither checked on restore nor pinned.
+- The input of a stage machine's own states is saved too but declared as a type only, so it is neither checked on restore nor pinned (#46).

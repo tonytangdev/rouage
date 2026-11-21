@@ -3,17 +3,15 @@ import { Effect } from "effect";
 
 import { defaultLifecycleMigrations } from "./lifecycle-migration.ts";
 import { defaultLifecycle } from "./lifecycle.ts";
-import { expectPinned, pinName, pinnedVersions } from "./saved-shape-pin.ts";
+import { expectPinned, pinnedVersions } from "./saved-shape-pin.ts";
 import { savedShape } from "./saved-shape.ts";
-
-const pin = pinName(savedShape.version);
 
 describe("the default lifecycle's saved shape", () => {
   it.effect("matches the pin of its lifecycle version", () =>
     expectPinned(
       savedShape,
       import.meta.dirname,
-      `A work item saved under lifecycle version ${savedShape.version} would no longer restore as it did. Once Rouage is published, bump the version in lifecycle.ts, which writes a new pin, keep ${pin} as it is and add a migration from it; before that, update the pin with \`pnpm test -u\` (ADR 0002, ADR 0015)`,
+      `A work item saved under lifecycle version ${savedShape.version}`,
     ),
   );
 

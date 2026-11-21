@@ -43,29 +43,39 @@ const SavedStep = Schema.Struct({
   input: Schema.optional(Schema.Unknown),
 });
 
-const savedChildren = Effect.fnUntraced(function* (logic: LifecycleSources, persisted: unknown) {
+const savedChildren = Effect.fnUntraced(function* (parent: LifecycleSources, persisted: unknown) {
   const { children } = yield* Schema.decodeUnknownEffect(SavedChildren)(persisted).pipe(
     Effect.mapError((error) => unreadable(error.message)),
   );
   return Object.entries(children).flatMap(([id, { src, snapshot }]) => {
-    const source = src === undefined ? undefined : logic.sources.actors[src];
+    const source = src === undefined ? undefined : parent.sources.actors[src];
     return source === undefined || snapshot === undefined ? [] : [{ id, source, snapshot }];
   });
 });
 
-// A finished step drops its input, so only a running one is checked.
+// A step that finished or failed drops its input, so only a running one is checked.
+const checkSavedStep = Effect.fnUntraced(function* (
+  task: StandardSchemaV1<unknown, unknown>,
+  snapshot: unknown,
+  what: string,
+) {
+  const { status, input } = yield* Schema.decodeUnknownEffect(SavedStep)(snapshot).pipe(
+    Effect.mapError((error) => unreadable(error.message)),
+  );
+  if (status === "active") {
+    yield* validated(task, input, what);
+  }
+});
+
 const checkSavedSteps = Effect.fnUntraced(function* (
   stage: string,
-  machine: LifecycleSources,
+  parent: LifecycleSources,
   persisted: unknown,
 ) {
-  for (const { id, source, snapshot } of yield* savedChildren(machine, persisted)) {
+  for (const { id, source, snapshot } of yield* savedChildren(parent, persisted)) {
     const task = taskSchemaOf(source);
-    const { status, input } = yield* Schema.decodeUnknownEffect(SavedStep)(snapshot).pipe(
-      Effect.mapError((error) => unreadable(error.message)),
-    );
-    if (task !== undefined && status === "active") {
-      yield* validated(task, input, `The task of the saved ${stage} stage's ${id} step`);
+    if (task !== undefined) {
+      yield* checkSavedStep(task, snapshot, `The task of the saved ${stage} stage's ${id} step`);
     }
   }
 });

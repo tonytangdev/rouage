@@ -1,4 +1,5 @@
 import { readdir } from "node:fs/promises";
+import { relative } from "node:path";
 
 import { expect } from "@effect/vitest";
 import { Effect, Struct } from "effect";
@@ -6,13 +7,14 @@ import { format } from "oxfmt";
 
 import formatConfig from "../../.oxfmtrc.json" with { type: "json" };
 
-/** A saved shape as a pin holds it: the lifecycle version it was saved under, and what restoring depends on. */
+/** A saved shape as a pin holds it, naming the lifecycle version it is pinned at. */
 export interface PinnedShape {
   readonly version: string;
 }
 
-/** The file name of the saved-shape pin at lifecycle `version`. */
-export const pinName = (version: string) => `saved-shape.v${version}.json`;
+const repositoryRoot = `${import.meta.dirname}/../..`;
+
+const pinName = (version: string) => `saved-shape.v${version}.json`;
 
 /** Every lifecycle version a saved shape is pinned at in `directory`. */
 export const pinnedVersions = (directory: string) =>
@@ -24,17 +26,21 @@ export const pinnedVersions = (directory: string) =>
     ),
   );
 
+const changedShape = (saved: string, pin: string) =>
+  `${saved} would no longer restore as it did. Once Rouage is published, bump the version in lifecycle.ts, which writes a new pin, keep ${pin} as it is and add a migration from it; before that, update the pin with \`pnpm test -u\` (ADR 0002, ADR 0015, ADR 0016)`;
+
 /**
- * Fails with `message` unless `shape` matches its pin in `directory`, written
- * with the settings `pnpm format` gives JSON so a pin `pnpm test -u` writes
+ * Fails, saying that a work item `saved` as described would no longer
+ * restore, unless `shape` matches its pin in `directory`. The pin is written
+ * with the settings `pnpm format` gives JSON, so a pin `pnpm test -u` writes
  * passes the format check as is.
  */
 export const expectPinned = Effect.fnUntraced(function* (
   shape: PinnedShape,
   directory: string,
-  message: string,
+  saved: string,
 ) {
-  const pin = pinName(shape.version);
+  const pin = `${directory}/${pinName(shape.version)}`;
   const { code } = yield* Effect.promise(() =>
     format(
       pin,
@@ -42,5 +48,7 @@ export const expectPinned = Effect.fnUntraced(function* (
       Struct.pick(formatConfig, ["printWidth", "tabWidth", "useTabs"]),
     ),
   );
-  yield* Effect.promise(() => expect(code, message).toMatchFileSnapshot(`${directory}/${pin}`));
+  yield* Effect.promise(() =>
+    expect(code, changedShape(saved, relative(repositoryRoot, pin))).toMatchFileSnapshot(pin),
+  );
 });
