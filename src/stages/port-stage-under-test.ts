@@ -3,9 +3,8 @@ import type { Scope } from "effect";
 import type { Actor, AnyActorLogic, AnyStateMachine, OutputFrom } from "xstate";
 import { createActor, toPromise } from "xstate";
 
-import type { Route } from "../lifecycle/golden-route.ts";
-import { inputOnReaching, nextAfter } from "../lifecycle/golden-route.ts";
-import type { TestWorkItem } from "../lifecycle/lifecycle-harness.ts";
+import type { Route, TestWorkItem } from "../lifecycle/lifecycle-harness.ts";
+import { inputOnReaching, nextAfter } from "../lifecycle/lifecycle-harness.ts";
 import type { Place } from "../lifecycle/place.ts";
 import type { Settled } from "../lifecycle/stage-contract.ts";
 import type { FailureReason, StageInput, StageName } from "../lifecycle/stage.ts";

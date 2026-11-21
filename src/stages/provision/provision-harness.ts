@@ -1,6 +1,6 @@
 import { Effect, Layer } from "effect";
 
-import { goldenRefs, inputOnReaching } from "../../lifecycle/golden-route.ts";
+import { goldenRefs, inputOnReaching } from "../../lifecycle/lifecycle-harness.ts";
 import type { StageInput } from "../../lifecycle/stage.ts";
 import { portStageUnderTest } from "../port-stage-under-test.ts";
 import type { FakeProvisionerScript } from "./fake-provisioner.ts";

@@ -2,9 +2,13 @@ import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 import type { AnyStateMachine } from "xstate";
 
-import type { RealStages } from "../lifecycle/golden-route.ts";
-import { reviewer } from "../lifecycle/golden-route.ts";
-import { restoredWorkItem, startWorkItem, throughJson } from "../lifecycle/lifecycle-harness.ts";
+import type { RealStages } from "../lifecycle/lifecycle-harness.ts";
+import {
+  restoredWorkItem,
+  reviewer,
+  startWorkItem,
+  throughJson,
+} from "../lifecycle/lifecycle-harness.ts";
 import type { StageName } from "../lifecycle/stage.ts";
 import type { PortStageUnderTest, ScriptedPortStage } from "./port-stage-under-test.ts";
 

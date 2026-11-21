@@ -1,8 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { reviewer } from "./golden-route.ts";
-import { restoredWorkItem, startWorkItem, throughJson } from "./lifecycle-harness.ts";
+import { restoredWorkItem, reviewer, startWorkItem, throughJson } from "./lifecycle-harness.ts";
 
 describe("work item persistence", () => {
   it.effect("resumes a work item saved while it waits at a gate", () =>
