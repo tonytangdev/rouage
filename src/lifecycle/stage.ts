@@ -56,6 +56,8 @@ export const StageFactsSchema = Schema.Struct({
   sampleRequest: Reference,
   /** The reference to the sample Provision took into the sandbox, opaque to Rouage (ADR 0004). */
   sampleRef: Reference,
+  /** The reference to the latest extraction script the user was asked to run, opaque to Rouage; only the next script replaces it (ADR 0004, ADR 0008). */
+  scriptRef: Reference,
   /** The reference to the bug's reproduction, opaque to Rouage; only the next reproduction replaces it (ADR 0004, ADR 0006). */
   reproductionRef: Reference,
   /** The reference to the latest plan, opaque to Rouage; only the next plan replaces it (ADR 0004). */
@@ -77,6 +79,7 @@ export const noFactsYet: Omit<StageFacts, "issueRef"> = {
   sandboxRef: null,
   sampleRequest: null,
   sampleRef: null,
+  scriptRef: null,
   reproductionRef: null,
   planRef: null,
   demoPlanned: null,
@@ -110,11 +113,13 @@ export const stageInput = ({
 export interface StageOutcomes {
   readonly intake: { readonly _tag: "classified"; readonly kind: Kind };
   readonly spec: { readonly _tag: "written"; readonly specRef: string };
-  readonly provision: {
-    readonly _tag: "provisioned";
-    readonly sandboxRef: string;
-    readonly sampleRef: string | null;
-  };
+  readonly provision:
+    | {
+        readonly _tag: "provisioned";
+        readonly sandboxRef: string;
+        readonly sampleRef: string | null;
+      }
+    | { readonly _tag: "awaitingRun"; readonly sandboxRef: string; readonly scriptRef: string };
   readonly reproduce:
     | { readonly _tag: "reproduced"; readonly reproductionRef: string }
     | { readonly _tag: "needsSample"; readonly sampleRequest: string }

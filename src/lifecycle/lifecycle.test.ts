@@ -2,9 +2,14 @@ import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
 import { fakeSandboxTeardown } from "./fake-sandbox-teardown.ts";
-import type { Route, Waypoint } from "./golden-route.ts";
-import { goldenRefs, inputAfter, reviewer, stageInputWith } from "./golden-route.ts";
-import { startWorkItem } from "./lifecycle-harness.ts";
+import type { Route, Waypoint } from "./lifecycle-harness.ts";
+import {
+  goldenRefs,
+  inputAfter,
+  reviewer,
+  stageInputWith,
+  startWorkItem,
+} from "./lifecycle-harness.ts";
 import { defaultLifecycle } from "./lifecycle.ts";
 import { createWorkItem } from "./work-item-actor.ts";
 
@@ -177,6 +182,61 @@ describe("lifecycle", () => {
           from: "reproduce",
           reason: { tag: "LoopLimitReached", message: "Reproduce went back to Provision 3 times" },
         });
+      }),
+  );
+
+  it.effect(
+    "waits at the sample gate for an extraction run, then approving sends it back to Provision with its loop count kept",
+    () =>
+      Effect.gen(function* () {
+        const workItem = yield* startAt("provision", { kind: "bug" });
+        workItem.finish("provision", { _tag: "provisioned", sandboxRef: "box-1", sampleRef: null });
+        workItem.finish("reproduce", { _tag: "needsSample", sampleRequest: "orders over 100" });
+        workItem.finish("provision", {
+          _tag: "awaitingRun",
+          sandboxRef: "box-2",
+          scriptRef: "script-1",
+        });
+        expect(workItem.state()).toStrictEqual("sampleGate");
+        workItem.send({ type: "approve", ...reviewer });
+        expect(workItem.state()).toStrictEqual("provision");
+        expect(workItem.stageInput("provision")).toMatchObject({
+          sandboxRef: "box-2",
+          scriptRef: "script-1",
+          feedback: null,
+        });
+        expect(workItem.context().counters).toStrictEqual({ review: 0, reproduce: 1 });
+        expect(workItem.context().decisions.at(-1)).toMatchObject({
+          action: "approve",
+          state: "sampleGate",
+        });
+      }),
+  );
+
+  it.effect(
+    "sends a rejected extraction script back to Provision with the comment as feedback",
+    () =>
+      Effect.gen(function* () {
+        const workItem = yield* startAt("provision", { kind: "bug" });
+        workItem.finish("provision", { _tag: "provisioned", sandboxRef: "box-1", sampleRef: null });
+        workItem.finish("reproduce", { _tag: "needsSample", sampleRequest: "orders over 100" });
+        workItem.finish("provision", {
+          _tag: "awaitingRun",
+          sandboxRef: "box-1",
+          scriptRef: "script-1",
+        });
+        workItem.send({ type: "reject", ...reviewer, comment: "leave out the emails" });
+        expect(workItem.state()).toStrictEqual("provision");
+        expect(workItem.stageInput("provision")).toMatchObject({
+          scriptRef: "script-1",
+          feedback: "leave out the emails",
+        });
+        workItem.finish("provision", {
+          _tag: "provisioned",
+          sandboxRef: "box-1",
+          sampleRef: "s-1",
+        });
+        expect(workItem.context().facts.feedback).toBeNull();
       }),
   );
 

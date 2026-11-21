@@ -13,8 +13,9 @@ import { restoreActor, snapshotSchema } from "xstate/persist";
 import { defaultLifecycle } from "./lifecycle.ts";
 import type { LoopLimits } from "./loops.ts";
 import { resolveLoopLimits } from "./loops.ts";
+import type { Place } from "./place.ts";
+import { placeOf } from "./place.ts";
 import type { TeardownGaveUp } from "./sandbox-teardown.ts";
-import { innermostState } from "./state-value.ts";
 import { teardownWhenFinal } from "./teardown-when-final.ts";
 import type { WorkItemContext, WorkItemInput } from "./work-item.ts";
 
@@ -43,22 +44,22 @@ type WorkItemActor = Actor<Lifecycle>;
 
 /** A running work item. The XState actor behind it stays inside this module. */
 export interface WorkItem {
-  /** The innermost active state, such as `"specGate"` or `"blocked"`. */
-  readonly state: () => string;
+  /** Where the work item is now, such as `"specGate"` or `"blocked"`. */
+  readonly state: () => Place;
   readonly status: () => SnapshotFrom<DefaultLifecycle>["status"];
   readonly context: () => WorkItemContext;
   /** Sends a human decision to the work item. */
   readonly send: (event: EventFrom<DefaultLifecycle>) => void;
   /** The work item's state as plain JSON, ready to store. */
   readonly save: () => ReturnType<WorkItemActor["getPersistedSnapshot"]>;
-  /** Completes once the innermost active state is `state`; fails with `StateNotReached` if the work item stops first. */
-  readonly reaches: (state: string) => Effect.Effect<void, StateNotReached>;
+  /** Completes once the work item is at `place`; fails with `StateNotReached` if it stops first. */
+  readonly reaches: (place: Place) => Effect.Effect<void, StateNotReached>;
   /** Completes once the sandbox of the work item, shipped or cancelled, is torn down. */
   readonly tornDown: Effect.Effect<void, TeardownGaveUp>;
 }
 
 export class StateNotReached extends Data.TaggedError("StateNotReached")<{
-  readonly state: string;
+  readonly state: Place;
   readonly message: string;
 }> {}
 
@@ -66,17 +67,17 @@ const workItemOf = (
   actor: WorkItemActor,
   tornDown: Effect.Effect<void, TeardownGaveUp>,
 ): WorkItem => ({
-  state: () => innermostState(actor.getSnapshot().value),
+  state: () => placeOf(actor.getSnapshot().value),
   status: () => actor.getSnapshot().status,
   context: () => actor.getSnapshot().context,
   send: (event) => {
     actor.send(event);
   },
   save: () => actor.getPersistedSnapshot(),
-  reaches: (state) =>
+  reaches: (place) =>
     Effect.tryPromise({
-      try: () => waitFor(actor, (snapshot) => innermostState(snapshot.value) === state),
-      catch: (error) => new StateNotReached({ state, message: String(error) }),
+      try: () => waitFor(actor, (snapshot) => placeOf(snapshot.value) === place),
+      catch: (error) => new StateNotReached({ state: place, message: String(error) }),
     }).pipe(Effect.asVoid),
   tornDown,
 });

@@ -3,6 +3,7 @@ import { Effect } from "effect";
 
 import type { StageAdapter } from "../lifecycle/stage-contract.ts";
 import { describeStageContract } from "../lifecycle/stage-contract.ts";
+import { failureReasonOf } from "../lifecycle/stage.ts";
 import type { Misbehaving } from "./fake-script.ts";
 import type { PortStageUnderTest, ScriptedPortStage } from "./port-stage-under-test.ts";
 
@@ -27,7 +28,8 @@ const portAdapter = <Step extends string, Script, Scripted extends ScriptedPortS
 
 /**
  * Declares the tests every port stage must pass run alone: the stage
- * contract, and that its first step is asked the same task as when the
+ * contract, that every later port fails and crashes the stage as its first
+ * port does, and that its first step is asked the same task as when the
  * lifecycle reaches the stage.
  */
 export const describePortStage = <
@@ -49,5 +51,24 @@ export const describePortStage = <
         });
       }),
     );
+
+    for (const port of stage.ports.slice(1)) {
+      it.effect(`fails with the ${port.port}'s reason when the ${port.port} gives up`, () =>
+        Effect.gen(function* () {
+          const { settled } = yield* stage.run(port.misbehaving("failing"), port.input);
+          expect(failureReasonOf(settled.error)).toStrictEqual(port.gaveUp);
+        }),
+      );
+
+      it.effect(`counts the ${port.port} dying as a crash`, () =>
+        Effect.gen(function* () {
+          const { settled } = yield* stage.run(port.misbehaving("crashing"), port.input);
+          expect(failureReasonOf(settled.error)).toStrictEqual({
+            tag: "StageCrashed",
+            message: port.crashMessage,
+          });
+        }),
+      );
+    }
   });
 };

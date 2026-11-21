@@ -3,8 +3,13 @@ import { ConfigProvider, Effect, Fiber } from "effect";
 import { TestClock } from "effect/testing";
 
 import { fakeSandboxTeardown } from "./fake-sandbox-teardown.ts";
-import { goldenRefs, reviewer } from "./golden-route.ts";
-import { restoredWorkItem, startWorkItem, throughJson } from "./lifecycle-harness.ts";
+import {
+  goldenRefs,
+  restoredWorkItem,
+  reviewer,
+  startWorkItem,
+  throughJson,
+} from "./lifecycle-harness.ts";
 
 const tornDownOnce = [{ workItemId: goldenRefs.workItemId }];
 
