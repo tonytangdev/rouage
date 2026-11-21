@@ -20,29 +20,39 @@ export const crashMessage = (port: string, step: string) => `The ${port} exited 
 
 type Steps<Step extends string> = readonly [Step, ...Step[]];
 
-// An object type rather than `never`, because then the error names each unlisted step.
-type ListsEvery<Step extends string, Listed extends Steps<Step>> = [
+type Repeated<Listed extends readonly string[]> = Listed extends readonly [
+  infer First,
+  ...infer Rest extends readonly string[],
+]
+  ? (First extends Rest[number] ? First : never) | Repeated<Rest>
+  : never;
+
+// Object types rather than `never`, because then the error names each step at fault.
+type ListsEveryOnce<Step extends string, Listed extends Steps<Step>> = ([
   Exclude<Step, Listed[number]>,
 ] extends [never]
   ? unknown
-  : { readonly unlisted: Exclude<Step, Listed[number]> };
+  : { readonly unlisted: Exclude<Step, Listed[number]> }) &
+  ([Repeated<Listed>] extends [never] ? unknown : { readonly repeated: Repeated<Listed> });
 
 /**
  * `steps` as the ordered steps of a port whose steps are `Step`, such as
  * `keyof Builder["Service"]`. The compiler rejects a list that names a step
- * `Step` lacks or leaves one of them out, so a port method added or renamed
- * without its fake changing fails to compile.
+ * `Step` lacks, leaves one of them out or names one twice, so a port method
+ * added or renamed without its fake changing fails to compile. Called as
+ * `everyStep<Step>()(steps)`, because TypeScript can't take `Step` explicitly
+ * and infer the list's own type in the same call.
  */
 export const everyStep =
   <Step extends string>() =>
-  <const Listed extends Steps<Step>>(steps: Listed & ListsEvery<Step, Listed>): Steps<Step> =>
+  <const Listed extends Steps<Step>>(steps: Listed & ListsEveryOnce<Step, Listed>): Steps<Step> =>
     steps;
 
 /** A port as its fake declares it once, for the fake's workings and the stage contract suite alike. */
 export interface FakePort<Step extends string, GaveUp extends PortGaveUp> {
   /** The port's name as messages call it. */
   readonly port: string;
-  /** Every step of the port, the one a stage runs first leading, listed with `everyStep`. */
+  /** Every step of the port, the one a stage runs first leading; list them with `everyStep` so the compiler checks the list against the port. */
   readonly steps: Steps<Step>;
   readonly gaveUp: (message: string) => GaveUp;
 }
