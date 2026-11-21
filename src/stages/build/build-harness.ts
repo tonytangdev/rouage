@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 
-import { goldenRefs } from "../../lifecycle/lifecycle-harness.ts";
+import { goldenRefs } from "../../lifecycle/golden-route.ts";
 import { portStageUnderTest } from "../port-stage-under-test.ts";
 import type { BuildOptions } from "./build-stage.ts";
 import { buildStage } from "./build-stage.ts";

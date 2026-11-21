@@ -2,14 +2,9 @@ import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
 import { fakeSandboxTeardown } from "./fake-sandbox-teardown.ts";
-import type { Route, Waypoint } from "./lifecycle-harness.ts";
-import {
-  goldenRefs,
-  inputAfter,
-  reviewer,
-  stageInputWith,
-  startWorkItem,
-} from "./lifecycle-harness.ts";
+import type { Route, Waypoint } from "./golden-route.ts";
+import { goldenRefs, inputAfter, reviewer, stageInputWith } from "./golden-route.ts";
+import { startWorkItem } from "./lifecycle-harness.ts";
 import { defaultLifecycle } from "./lifecycle.ts";
 import { createWorkItem } from "./work-item-actor.ts";
 

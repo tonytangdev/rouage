@@ -1,4 +1,4 @@
-import { goldenRefs } from "../../lifecycle/lifecycle-harness.ts";
+import { goldenRefs } from "../../lifecycle/golden-route.ts";
 import { portStageUnderTest, scriptedStage } from "../port-stage-under-test.ts";
 import { fakeSpecWriter, specWriterPort } from "./fake-spec-writer.ts";
 import { specStage } from "./spec-stage.ts";
