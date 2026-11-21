@@ -1,12 +1,10 @@
 import { describe, expect, it } from "@effect/vitest";
 import { ConfigProvider, Effect } from "effect";
 
-import { loopLimitReached, noLoopsYet, resolveLoopLimits } from "./loops.ts";
+import { resolveLoopLimits } from "./loops.ts";
 
 const withEnv = (env: Record<string, string>) =>
   Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown(env)));
-
-const limits = { review: 2, reproduce: 2 };
 
 describe("loops", () => {
   it.effect("allows three trips around each loop when nothing is configured", () =>
@@ -31,17 +29,6 @@ describe("loops", () => {
         withEnv({ ROUAGE_MAX_REVIEW_LOOPS: "5", ROUAGE_MAX_REPRODUCE_LOOPS: "1" }),
       );
       expect(resolved).toStrictEqual({ review: 7, reproduce: 1 });
-    }),
-  );
-
-  it.effect("blocks on the loop's stage with the limit in the message", () =>
-    Effect.sync(() => {
-      expect(loopLimitReached({ limits, counters: noLoopsYet }, "reproduce")).toStrictEqual({
-        blocked: {
-          from: "reproduce",
-          reason: { tag: "LoopLimitReached", message: "Reproduce went back to Provision 2 times" },
-        },
-      });
     }),
   );
 });

@@ -59,6 +59,13 @@ export const startWorkItem = Effect.fnUntraced(function* (options: WorkItemOptio
   return drive(workItem, running, sandbox);
 });
 
+/** Starts the test work item and advances it to `waypoint` along `route`. */
+export const startWorkItemAt = Effect.fnUntraced(function* (waypoint: Waypoint, route: Route = {}) {
+  const workItem = yield* startWorkItem();
+  workItem.advanceTo(waypoint, route);
+  return workItem;
+});
+
 /** Resumes a saved work item on the default lifecycle, set up by `options`, for the length of the test. */
 export const restoredWorkItem = Effect.fnUntraced(function* (
   persisted: unknown,

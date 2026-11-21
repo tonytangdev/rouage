@@ -24,22 +24,19 @@ export type LoopLimits = Readonly<Record<LoopName, number>>;
 /** How many times a work item has gone around each loop. */
 export type LoopCounts = Readonly<Record<LoopName, number>>;
 
-interface LoopState {
-  readonly limits: LoopLimits;
-  readonly counters: LoopCounts;
-}
-
-interface Loop {
+interface Loop<Name extends LoopName> {
   readonly variable: string;
-  readonly describe: (limit: number) => string;
+  /** Why the work item is blocked once the loop reaches `limit`, told to the human with what the last outcome asked for. */
+  readonly describe: (limit: number, outcome: LoopingOutcome<Name>) => string;
 }
 
 const DEFAULT_LIMIT = 3;
 
-const loops: Readonly<Record<LoopName, Loop>> = {
+const loops: { readonly [Name in LoopName]: Loop<Name> } = {
   review: {
     variable: "ROUAGE_MAX_REVIEW_LOOPS",
-    describe: (limit) => `Review sent the change back to Build ${limit} times`,
+    describe: (limit, { feedback }) =>
+      `Review sent the change back to Build ${limit} times, and last asked: ${feedback}`,
   },
   reproduce: {
     variable: "ROUAGE_MAX_REPRODUCE_LOOPS",
@@ -73,24 +70,31 @@ export const resolveLoopLimits = Effect.fnUntraced(function* (overrides: Partial
   return yield* Config.all(perLoop((loop) => limit(loop, overrides[loop])));
 });
 
-/** Whether the work item has already gone around `loop` as many times as its limit allows. */
-export const loopExhausted = (state: LoopState, loop: LoopName) =>
-  state.counters[loop] >= state.limits[loop];
-
 /**
  * The context change when the stage that names `loop` finishes with an
- * `outcome` that sends the work item back around it: the facts the outcome
- * teaches, and one more trip counted.
+ * `outcome` that sends the work item back around it, and whether the loop is
+ * exhausted, so the transition picks its target literal (ADR 0002). Either
+ * way the facts the outcome teaches are kept, as a block keeps a reproduction
+ * (ADR 0009). Below the limit one more trip is counted; at the limit the work
+ * item is blocked with no feedback, because a retry re-runs the looping stage
+ * itself, so what it asked for goes to the human in the block's message.
  */
-export const wentAround = <Name extends LoopName>(
+export const aroundLoop = <Name extends LoopName>(
   context: WorkItemContext,
   loop: Name,
   outcome: LoopingOutcome<Name>,
-) => ({
-  ...stageFinished(context, loop, outcome),
-  counters: { ...context.counters, [loop]: context.counters[loop] + 1 },
-});
-
-/** The context change that blocks the work item on the stage that names an exhausted `loop`. */
-export const loopLimitReached = (state: LoopState, loop: LoopName) =>
-  blockedOn(loop, { tag: "LoopLimitReached", message: loops[loop].describe(state.limits[loop]) });
+) => {
+  const taught = stageFinished(context, loop, outcome);
+  const allowed = context.limits[loop];
+  if (context.counters[loop] >= allowed) {
+    const reason = { tag: "LoopLimitReached", message: loops[loop].describe(allowed, outcome) };
+    return {
+      exhausted: true as const,
+      context: { facts: { ...taught.facts, feedback: null }, ...blockedOn(loop, reason) },
+    };
+  }
+  return {
+    exhausted: false as const,
+    context: { ...taught, counters: { ...context.counters, [loop]: context.counters[loop] + 1 } },
+  };
+};

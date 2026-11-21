@@ -2,17 +2,10 @@ import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
 import { fakeSandboxTeardown } from "./fake-sandbox-teardown.ts";
-import type { Route, Waypoint } from "./golden-route.ts";
 import { goldenRefs, inputAfter, reviewer, stageInputWith } from "./golden-route.ts";
-import { startWorkItem } from "./lifecycle-harness.ts";
+import { startWorkItem, startWorkItemAt } from "./lifecycle-harness.ts";
 import { defaultLifecycle } from "./lifecycle.ts";
 import { createWorkItem } from "./work-item-actor.ts";
-
-const startAt = Effect.fnUntraced(function* (waypoint: Waypoint, route: Route = {}) {
-  const workItem = yield* startWorkItem();
-  workItem.advanceTo(waypoint, route);
-  return workItem;
-});
 
 describe("lifecycle", () => {
   it.effect("blocks a work item on a stage nothing implements", () =>
@@ -52,7 +45,7 @@ describe("lifecycle", () => {
 
   it.effect("waits at the spec gate until a human approves, and records the decision", () =>
     Effect.gen(function* () {
-      const workItem = yield* startAt("specGate", { kind: "bug" });
+      const workItem = yield* startWorkItemAt("specGate", { kind: "bug" });
       expect(workItem.state()).toStrictEqual("specGate");
       workItem.send({ type: "approve", ...reviewer, comment: "looks right" });
       expect(workItem.state()).toStrictEqual("provision");
@@ -70,7 +63,7 @@ describe("lifecycle", () => {
 
   it.effect("sends a rejected spec back to Spec with the reviewer's comment as feedback", () =>
     Effect.gen(function* () {
-      const workItem = yield* startAt("specGate", { kind: "bug" });
+      const workItem = yield* startWorkItemAt("specGate", { kind: "bug" });
       workItem.send({ type: "reject", ...reviewer, comment: "missing edge case" });
       expect(workItem.state()).toStrictEqual("spec");
       expect(workItem.stageInput("spec")).toStrictEqual(
@@ -81,7 +74,7 @@ describe("lifecycle", () => {
 
   it.effect("passes the written spec on to the stages after Spec", () =>
     Effect.gen(function* () {
-      const workItem = yield* startAt("provision", { kind: "feature" });
+      const workItem = yield* startWorkItemAt("provision", { kind: "feature" });
       expect(workItem.stageInput("provision")).toStrictEqual(
         stageInputWith({ kind: "feature", specRef: "spec-1" }),
       );
@@ -90,7 +83,7 @@ describe("lifecycle", () => {
 
   it.effect("sends a bug from Provision to Reproduce, then to Plan with its reproduction", () =>
     Effect.gen(function* () {
-      const workItem = yield* startAt("provision", { kind: "bug" });
+      const workItem = yield* startWorkItemAt("provision", { kind: "bug" });
       workItem.finish("provision", { _tag: "provisioned", sandboxRef: "box-1", sampleRef: null });
       expect(workItem.state()).toStrictEqual("reproduce");
       workItem.finish("reproduce", { _tag: "reproduced", reproductionRef: "repro-1" });
@@ -101,7 +94,7 @@ describe("lifecycle", () => {
 
   it.effect("sends a feature from Provision straight to Plan", () =>
     Effect.gen(function* () {
-      const workItem = yield* startAt("provision", { kind: "feature" });
+      const workItem = yield* startWorkItemAt("provision", { kind: "feature" });
       workItem.finish("provision", { _tag: "provisioned", sandboxRef: "box-1", sampleRef: null });
       expect(workItem.state()).toStrictEqual("plan");
     }),
@@ -111,7 +104,7 @@ describe("lifecycle", () => {
     "clears the feedback Reproduce acted on when it finds the bug cannot be reproduced",
     () =>
       Effect.gen(function* () {
-        const workItem = yield* startAt("reproduce", { kind: "bug" });
+        const workItem = yield* startWorkItemAt("reproduce", { kind: "bug" });
         workItem.fail("reproduce", { tag: "ReproducerGaveUp", message: "the sandbox timed out" });
         workItem.send({ type: "retry", ...reviewer, comment: "use the staging data" });
         workItem.finish("reproduce", { _tag: "cannotReproduce", reason: "works on staging" });
@@ -122,7 +115,7 @@ describe("lifecycle", () => {
 
   it.effect("blocks a bug that cannot be reproduced, and a human can send it back to Spec", () =>
     Effect.gen(function* () {
-      const workItem = yield* startAt("provision", { kind: "bug" });
+      const workItem = yield* startWorkItemAt("provision", { kind: "bug" });
       workItem.finish("provision", { _tag: "provisioned", sandboxRef: "box-1", sampleRef: null });
       workItem.finish("reproduce", { _tag: "cannotReproduce", reason: "works on staging" });
       expect(workItem.state()).toStrictEqual("blocked");
@@ -141,7 +134,7 @@ describe("lifecycle", () => {
 
   it.effect("blocks a bug whose check passed, keeping the reproduction for a retry to revise", () =>
     Effect.gen(function* () {
-      const workItem = yield* startAt("reproduce", { kind: "bug" });
+      const workItem = yield* startWorkItemAt("reproduce", { kind: "bug" });
       workItem.finish("reproduce", {
         _tag: "checkPassed",
         reproductionRef: "repro-1",
@@ -169,7 +162,7 @@ describe("lifecycle", () => {
     "runs Reproduce again before Plan when a bug whose check passed goes back to Spec",
     () =>
       Effect.gen(function* () {
-        const workItem = yield* startAt("reproduce", { kind: "bug" });
+        const workItem = yield* startWorkItemAt("reproduce", { kind: "bug" });
         workItem.finish("reproduce", {
           _tag: "checkPassed",
           reproductionRef: "repro-1",
@@ -185,7 +178,7 @@ describe("lifecycle", () => {
     "passes Reproduce's sample request to Provision, and the sample it took to Reproduce",
     () =>
       Effect.gen(function* () {
-        const workItem = yield* startAt("provision", { kind: "bug" });
+        const workItem = yield* startWorkItemAt("provision", { kind: "bug" });
         workItem.finish("provision", { _tag: "provisioned", sandboxRef: "box-1", sampleRef: null });
         workItem.finish("reproduce", { _tag: "needsSample", sampleRequest: "orders over 100" });
         expect(workItem.stageInput("provision")).toMatchObject({
@@ -212,7 +205,7 @@ describe("lifecycle", () => {
     "goes back to Provision for a sample, and blocks once the reproduce loop limit is reached",
     () =>
       Effect.gen(function* () {
-        const workItem = yield* startAt("provision", { kind: "bug" });
+        const workItem = yield* startWorkItemAt("provision", { kind: "bug" });
         const askForSample = () => {
           workItem.finish("provision", {
             _tag: "provisioned",
@@ -239,7 +232,7 @@ describe("lifecycle", () => {
     "waits at the sample gate for an extraction run, then approving sends it back to Provision with its loop count kept",
     () =>
       Effect.gen(function* () {
-        const workItem = yield* startAt("provision", { kind: "bug" });
+        const workItem = yield* startWorkItemAt("provision", { kind: "bug" });
         workItem.finish("provision", { _tag: "provisioned", sandboxRef: "box-1", sampleRef: null });
         workItem.finish("reproduce", { _tag: "needsSample", sampleRequest: "orders over 100" });
         workItem.finish("provision", {
@@ -267,7 +260,7 @@ describe("lifecycle", () => {
     "sends a rejected extraction script back to Provision with the comment as feedback",
     () =>
       Effect.gen(function* () {
-        const workItem = yield* startAt("provision", { kind: "bug" });
+        const workItem = yield* startWorkItemAt("provision", { kind: "bug" });
         workItem.finish("provision", { _tag: "provisioned", sandboxRef: "box-1", sampleRef: null });
         workItem.finish("reproduce", { _tag: "needsSample", sampleRequest: "orders over 100" });
         workItem.finish("provision", {
@@ -294,7 +287,7 @@ describe("lifecycle", () => {
     "blocks a failed stage, and retrying re-enters that stage with fresh loop counters",
     () =>
       Effect.gen(function* () {
-        const workItem = yield* startAt("provision", { kind: "bug" });
+        const workItem = yield* startWorkItemAt("provision", { kind: "bug" });
         workItem.finish("provision", { _tag: "provisioned", sandboxRef: "box-1", sampleRef: null });
         workItem.finish("reproduce", { _tag: "needsSample", sampleRequest: "orders over 100" });
         workItem.fail("provision", { tag: "SandboxUnavailable", message: "docker is not running" });
@@ -318,7 +311,7 @@ describe("lifecycle", () => {
 
   it.effect("gives a retry's comment to the stage it re-runs as feedback", () =>
     Effect.gen(function* () {
-      const workItem = yield* startAt("plan");
+      const workItem = yield* startWorkItemAt("plan");
       workItem.fail("plan", { tag: "PlannerGaveUp", message: "the spec is ambiguous" });
       workItem.send({ type: "retry", ...reviewer, comment: "totals exclude VAT" });
       expect(workItem.stageInput("plan")).toStrictEqual(
@@ -329,7 +322,7 @@ describe("lifecycle", () => {
 
   it.effect("keeps the feedback a failed stage never acted on when a retry has no comment", () =>
     Effect.gen(function* () {
-      const workItem = yield* startAt("shipGate");
+      const workItem = yield* startWorkItemAt("shipGate");
       workItem.send({ type: "reject", ...reviewer, comment: "wait for the release freeze" });
       workItem.fail("build", { tag: "BuilderGaveUp", message: "the build timed out" });
       workItem.send({ type: "retry", ...reviewer });
@@ -339,9 +332,9 @@ describe("lifecycle", () => {
     }),
   );
 
-  it.effect("passes the plan and its demo decision on to Build", () =>
+  it.effect("passes the plan on to Build", () =>
     Effect.gen(function* () {
-      const workItem = yield* startAt("plan", { kind: "feature" });
+      const workItem = yield* startWorkItemAt("plan", { kind: "feature" });
       workItem.finish("plan", { _tag: "planned", planRef: "plan-1", demo: true });
       expect(workItem.stageInput("build")).toStrictEqual(
         stageInputWith({
@@ -349,7 +342,6 @@ describe("lifecycle", () => {
           specRef: "spec-1",
           sandboxRef: "box-1",
           planRef: "plan-1",
-          demoPlanned: true,
         }),
       );
     }),
@@ -357,7 +349,7 @@ describe("lifecycle", () => {
 
   it.effect("runs a planned demo between Build and Review", () =>
     Effect.gen(function* () {
-      const workItem = yield* startAt("build", { demo: true });
+      const workItem = yield* startWorkItemAt("build", { demo: true });
       expect(workItem.state()).toStrictEqual("build");
       workItem.finish("build", { _tag: "built" });
       expect(workItem.state()).toStrictEqual("demo");
@@ -368,7 +360,7 @@ describe("lifecycle", () => {
 
   it.effect("passes the demo on to Review", () =>
     Effect.gen(function* () {
-      const workItem = yield* startAt("demo", { demo: true });
+      const workItem = yield* startWorkItemAt("demo", { demo: true });
       workItem.finish("demo", { _tag: "demonstrated", demoRef: "demo-1" });
       expect(workItem.stageInput("review")).toStrictEqual(
         stageInputWith({
@@ -376,7 +368,6 @@ describe("lifecycle", () => {
           specRef: "spec-1",
           sandboxRef: "box-1",
           planRef: "plan-1",
-          demoPlanned: true,
           demoRef: "demo-1",
         }),
       );
@@ -385,7 +376,7 @@ describe("lifecycle", () => {
 
   it.effect("skips the demo when none is planned", () =>
     Effect.gen(function* () {
-      const workItem = yield* startAt("build", { demo: false });
+      const workItem = yield* startWorkItemAt("build", { demo: false });
       workItem.finish("build", { _tag: "built" });
       expect(workItem.state()).toStrictEqual("review");
     }),
@@ -395,7 +386,7 @@ describe("lifecycle", () => {
     "sends requested changes back to Build, and blocks once the review loop limit is reached",
     () =>
       Effect.gen(function* () {
-        const workItem = yield* startAt("build", { demo: false });
+        const workItem = yield* startWorkItemAt("build", { demo: false });
         const requestChanges = () => {
           workItem.finish("build", { _tag: "built" });
           workItem.finish("review", { _tag: "changesRequested", feedback: "rename the flag" });
@@ -414,7 +405,8 @@ describe("lifecycle", () => {
           from: "review",
           reason: {
             tag: "LoopLimitReached",
-            message: "Review sent the change back to Build 3 times",
+            message:
+              "Review sent the change back to Build 3 times, and last asked: rename the flag",
           },
         });
       }),
@@ -422,7 +414,7 @@ describe("lifecycle", () => {
 
   it.effect("keeps a bug's references when a later decision sets other facts", () =>
     Effect.gen(function* () {
-      const workItem = yield* startAt("shipGate", { kind: "bug" });
+      const workItem = yield* startWorkItemAt("shipGate", { kind: "bug" });
       workItem.send({ type: "reject", ...reviewer, comment: "the flag is still on" });
       expect(workItem.stageInput("build")).toStrictEqual(
         stageInputWith({
@@ -432,7 +424,6 @@ describe("lifecycle", () => {
           sandboxRef: "box-1",
           reproductionRef: "repro-1",
           planRef: "plan-1",
-          demoPlanned: false,
         }),
       );
     }),
@@ -440,7 +431,7 @@ describe("lifecycle", () => {
 
   it.effect("ships an approved change once a human approves the ship gate", () =>
     Effect.gen(function* () {
-      const workItem = yield* startAt("shipGate");
+      const workItem = yield* startWorkItemAt("shipGate");
       expect(workItem.state()).toStrictEqual("shipGate");
       workItem.send({ type: "approve", ...reviewer });
       expect(workItem.state()).toStrictEqual("ship");
@@ -453,7 +444,7 @@ describe("lifecycle", () => {
 
   it.effect("shows stages no demo once the latest plan calls for none, but keeps it", () =>
     Effect.gen(function* () {
-      const workItem = yield* startAt("review", { demo: true });
+      const workItem = yield* startWorkItemAt("review", { demo: true });
       workItem.fail("review", { tag: "ReviewerGaveUp", message: "plan is wrong" });
       workItem.send({ type: "backToSpec", ...reviewer });
       workItem.finish("spec", { _tag: "written", specRef: goldenRefs.specRef });
@@ -471,7 +462,7 @@ describe("lifecycle", () => {
 
   it.effect("sends a change rejected at the ship gate back to Build with the comment", () =>
     Effect.gen(function* () {
-      const workItem = yield* startAt("shipGate");
+      const workItem = yield* startWorkItemAt("shipGate");
       workItem.send({ type: "reject", ...reviewer, comment: "wait for the release freeze" });
       expect(workItem.state()).toStrictEqual("build");
       expect(workItem.stageInput("build")).toStrictEqual(
@@ -484,7 +475,7 @@ describe("lifecycle", () => {
     "cancels from any stage, stops the running stage machine and records who cancelled",
     () =>
       Effect.gen(function* () {
-        const workItem = yield* startAt("build", { demo: false });
+        const workItem = yield* startWorkItemAt("build", { demo: false });
         workItem.send({ type: "cancel", ...reviewer, comment: "out of scope" });
         expect(workItem.state()).toStrictEqual("cancelled");
         expect(workItem.status()).toStrictEqual("done");
@@ -513,7 +504,7 @@ describe("lifecycle", () => {
 
   it.effect("cancels a work item waiting at a gate", () =>
     Effect.gen(function* () {
-      const workItem = yield* startAt("specGate", { kind: "bug" });
+      const workItem = yield* startWorkItemAt("specGate", { kind: "bug" });
       workItem.send({ type: "cancel", ...reviewer });
       expect(workItem.state()).toStrictEqual("cancelled");
       expect(workItem.context().decisions.at(-1)?.state).toStrictEqual("specGate");

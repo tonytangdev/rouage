@@ -1,6 +1,7 @@
 import { Schema } from "effect";
 
 import { BlockedSchema } from "./blocked.ts";
+import { demoOnReturnToSpec, demoRequiredByHuman, demoSkippedByHuman } from "./demo-decision.ts";
 import { learned } from "./facts.ts";
 import type { LoopLimits } from "./loops.ts";
 import { PerLoopCount, noLoopsYet } from "./loops.ts";
@@ -13,7 +14,7 @@ export interface WorkItemInput {
   readonly limits: LoopLimits;
 }
 
-/** What a human sends to decide at a gate or for a blocked work item. `at` is an ISO timestamp set by the sender, because transitions read no clock. */
+/** What a human sends to decide at a gate, for a blocked work item, or on whether a demo is made. `at` is an ISO timestamp set by the sender, because transitions read no clock. */
 export interface HumanDecision {
   readonly by: string;
   readonly at: string;
@@ -26,6 +27,8 @@ export const DecisionActionSchema = Schema.Literals([
   "retry",
   "backToSpec",
   "cancel",
+  "requireDemo",
+  "skipDemo",
 ]);
 export type DecisionAction = typeof DecisionActionSchema.Type;
 
@@ -41,7 +44,7 @@ export type Decision = typeof DecisionSchema.Type;
 /** Everything a work item saves, checked against this Schema when it is restored (ADR 0002). */
 export const WorkItemContextSchema = Schema.Struct({
   id: Schema.String,
-  /** What every stage sees, changed only through `learned`. */
+  /** What stages are given to work from, changed only through `learned`. */
   facts: StageFactsSchema,
   limits: PerLoopCount,
   counters: PerLoopCount,
@@ -71,6 +74,12 @@ export const rejected = (context: WorkItemContext, gate: Gate, decision: HumanDe
   decisions: recordDecision(context, "reject", gate, decision),
 });
 
+/** The context change for a spec gate rejection: a gate rejection that also returns the demo decision to the new spec's plan. */
+export const specRejected = (context: WorkItemContext, decision: HumanDecision) => ({
+  ...learned(context, { feedback: decision.comment ?? null, ...demoOnReturnToSpec }),
+  decisions: recordDecision(context, "reject", "specGate", decision),
+});
+
 const unblocked = { blocked: null, counters: noLoopsYet };
 
 /**
@@ -85,9 +94,28 @@ export const retried = (context: WorkItemContext, decision: HumanDecision) => ({
   decisions: recordDecision(context, "retry", "blocked", decision),
 });
 
-/** The context change for sending a blocked work item back to Spec: unblocked with fresh loop counters, and the comment as the only feedback. */
+/**
+ * The context change for sending a blocked work item back to Spec: unblocked
+ * with fresh loop counters, the comment as the only feedback, and the demo
+ * decision returned to the new spec's plan.
+ */
 export const sentBack = (context: WorkItemContext, decision: HumanDecision) => ({
   ...unblocked,
-  ...learned(context, { feedback: decision.comment ?? null }),
+  ...learned(context, { feedback: decision.comment ?? null, ...demoOnReturnToSpec }),
   decisions: recordDecision(context, "backToSpec", "blocked", decision),
+});
+
+// An override's comment is recorded but is not feedback, so it never displaces
+// what the next stage must address (ADR 0011).
+
+/** The context change when a human requires a demo in `state`: the requirement stands over any later plan. */
+export const demoRequired = (context: WorkItemContext, state: string, decision: HumanDecision) => ({
+  ...learned(context, demoRequiredByHuman),
+  decisions: recordDecision(context, "requireDemo", state, decision),
+});
+
+/** The context change when a human skips a demo in `state`: the skip stands over any later plan. */
+export const demoSkipped = (context: WorkItemContext, state: string, decision: HumanDecision) => ({
+  ...learned(context, demoSkippedByHuman),
+  decisions: recordDecision(context, "skipDemo", state, decision),
 });

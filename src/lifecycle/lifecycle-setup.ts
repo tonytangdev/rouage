@@ -68,6 +68,8 @@ export const lifecycleSetup = setup({
       retry: types<HumanDecision>(),
       backToSpec: types<HumanDecision>(),
       cancel: types<HumanDecision>(),
+      requireDemo: types<HumanDecision>(),
+      skipDemo: types<HumanDecision>(),
     },
     // Declared so a stage's error event names the stage by its literal id.
     children: {

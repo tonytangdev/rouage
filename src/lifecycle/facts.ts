@@ -1,5 +1,6 @@
 import { Match } from "effect";
 
+import { demoMade, demoOutdatedByBuild, demoPlannedBy } from "./demo-decision.ts";
 import type { OutcomeOf, StageFacts, StageName } from "./stage.ts";
 import type { WorkItemContext } from "./work-item.ts";
 
@@ -37,10 +38,10 @@ const factsTaught: FactsTaught = {
     }),
   plan: (outcome) =>
     Match.valueTags(outcome, {
-      planned: ({ planRef, demo }) => ({ planRef, demoPlanned: demo }),
+      planned: ({ planRef, demo }) => ({ planRef, ...demoPlannedBy(demo) }),
     }),
-  build: (outcome) => Match.valueTags(outcome, { built: nothing }),
-  demo: (outcome) => Match.valueTags(outcome, { demonstrated: ({ demoRef }) => ({ demoRef }) }),
+  build: (outcome) => Match.valueTags(outcome, { built: () => demoOutdatedByBuild }),
+  demo: (outcome) => Match.valueTags(outcome, { demonstrated: ({ demoRef }) => demoMade(demoRef) }),
   review: (outcome) =>
     Match.valueTags(outcome, {
       approved: nothing,

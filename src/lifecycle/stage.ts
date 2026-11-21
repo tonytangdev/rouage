@@ -1,4 +1,13 @@
-import { Data, Predicate, Schema } from "effect";
+import { Data, Predicate, Schema, Struct } from "effect";
+
+import type { DemoFacts } from "./demo-decision.ts";
+import {
+  DemoFactsSchema,
+  demoFactNames,
+  demoShown,
+  demoToRevise,
+  noDemoYet,
+} from "./demo-decision.ts";
 
 export const KindSchema = Schema.Literals(["bug", "feature"]);
 export type Kind = typeof KindSchema.Type;
@@ -42,7 +51,7 @@ export const failureReasonOf = (error: unknown): FailureReason => {
 
 const Reference = Schema.NullOr(Schema.String);
 
-/** What the work item holds that every stage sees. */
+/** What the work item holds that every stage sees, except the demo facts, which stages see only through `StageInput.demoRef`. */
 export const StageFactsSchema = Schema.Struct({
   issueRef: Schema.String,
   kind: Schema.NullOr(KindSchema),
@@ -62,10 +71,7 @@ export const StageFactsSchema = Schema.Struct({
   reproductionRef: Reference,
   /** The reference to the latest plan, opaque to Rouage; only the next plan replaces it (ADR 0004). */
   planRef: Reference,
-  /** Whether the latest plan calls for a demo, or `null` before Plan has run. */
-  demoPlanned: Schema.NullOr(Schema.Boolean),
-  /** The reference to the latest demo, opaque to Rouage; only the next demo replaces it (ADR 0004). */
-  demoRef: Reference,
+  ...DemoFactsSchema.fields,
   /** The reference to where Ship delivered the change, opaque to Rouage (ADR 0004); `null` until shipped. */
   deliveryRef: Reference,
 });
@@ -82,28 +88,42 @@ export const noFactsYet: Omit<StageFacts, "issueRef"> = {
   scriptRef: null,
   reproductionRef: null,
   planRef: null,
-  demoPlanned: null,
-  demoRef: null,
+  ...noDemoYet,
   deliveryRef: null,
 };
 
-/** What the lifecycle passes to every stage machine it starts. */
-export interface StageInput extends StageFacts {
+/**
+ * What the lifecycle passes to every stage machine it starts: the work item's
+ * facts, with the demo decision reduced to the one demo the stage may see,
+ * because a stage reading the raw demo facts could disagree with the lifecycle
+ * on whether a demo is called for (ADR 0011).
+ */
+export interface StageInput extends Omit<StageFacts, keyof DemoFacts> {
   readonly workItemId: string;
-  /** The demo of the current change, or `null` when the latest plan calls for none, because a demo made for an earlier plan no longer shows the change. */
+  /** The demo of the current change, or `null` when there is none to show. */
   readonly demoRef: string | null;
 }
 
-/** Builds a stage's input from the work item; takes XState's input-function argument so it can be passed as is. */
-export const stageInput = ({
-  context: { id, facts },
-}: {
+interface InputArgument {
   readonly context: { readonly id: string; readonly facts: StageFacts };
-}): StageInput => ({
+}
+
+const inputWith = (
+  { context: { id, facts } }: InputArgument,
+  demoRef: string | null,
+): StageInput => ({
   workItemId: id,
-  ...facts,
-  demoRef: facts.demoPlanned === true ? facts.demoRef : null,
+  ...Struct.omit(facts, demoFactNames),
+  demoRef,
 });
+
+/** Builds a stage's input from the work item; takes XState's input-function argument so it can be passed as is. */
+export const stageInput = (argument: InputArgument): StageInput =>
+  inputWith(argument, demoShown(argument.context.facts));
+
+/** `stageInput` for Demo, which gets the demo to revise. */
+export const demoStageInput = (argument: InputArgument): StageInput =>
+  inputWith(argument, demoToRevise(argument.context.facts));
 
 /**
  * Each stage of the default lifecycle and the outcome its stage machine

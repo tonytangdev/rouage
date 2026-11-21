@@ -1,12 +1,22 @@
 import { absurd } from "effect/Function";
 
 import { reproduceBlocked, stageErrored } from "./blocked.ts";
+import { demoCalledFor, retrySkipsDemo } from "./demo-decision.ts";
 import { soleOutcomeFinished, stageFinished } from "./facts.ts";
 import { lifecycleSetup } from "./lifecycle-setup.ts";
-import { loopExhausted, loopLimitReached, noLoopsYet, wentAround } from "./loops.ts";
-import { noFactsYet, stageInput } from "./stage.ts";
+import { aroundLoop, noLoopsYet } from "./loops.ts";
+import { demoStageInput, noFactsYet, stageInput } from "./stage.ts";
 import { innermostState } from "./state-value.ts";
-import { approved, recordDecision, rejected, retried, sentBack } from "./work-item.ts";
+import {
+  approved,
+  demoRequired,
+  demoSkipped,
+  recordDecision,
+  rejected,
+  specRejected,
+  retried,
+  sentBack,
+} from "./work-item.ts";
 
 // Every transition names its target as a literal, even where a helper could
 // compute it, so Stately's editor can draw every arrow (ADR 0002).
@@ -33,6 +43,12 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           event,
         ),
       },
+    }),
+    requireDemo: ({ context, event, self }) => ({
+      context: demoRequired(context, innermostState(self.getSnapshot().value), event),
+    }),
+    skipDemo: ({ context, event, self }) => ({
+      context: demoSkipped(context, innermostState(self.getSnapshot().value), event),
     }),
   },
   states: {
@@ -75,7 +91,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             }),
             reject: ({ context, event }) => ({
               target: "spec",
-              context: rejected(context, "specGate", event),
+              context: specRejected(context, event),
             }),
           },
         },
@@ -132,13 +148,10 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
                   return { target: "#blocked", context: reproduceBlocked(context, output) };
                 }
                 case "needsSample": {
-                  if (loopExhausted(context, "reproduce")) {
-                    return { target: "#blocked", context: loopLimitReached(context, "reproduce") };
-                  }
-                  return {
-                    target: "provision",
-                    context: wentAround(context, "reproduce", output),
-                  };
+                  const trip = aroundLoop(context, "reproduce", output);
+                  return trip.exhausted
+                    ? { target: "#blocked", context: trip.context }
+                    : { target: "provision", context: trip.context };
                 }
                 default: {
                   return absurd(output);
@@ -165,7 +178,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
             input: stageInput,
             onDone: ({ context, event: { output } }) => {
               const built = soleOutcomeFinished(context, "build", output);
-              return context.facts.demoPlanned === true
+              return demoCalledFor(context.facts)
                 ? { target: "demo", context: built }
                 : { target: "review", context: built };
             },
@@ -175,10 +188,16 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           invoke: {
             id: "demo",
             src: "demo",
-            input: stageInput,
+            input: demoStageInput,
             onDone: ({ context, event: { output } }) => ({
               target: "review",
               context: soleOutcomeFinished(context, "demo", output),
+            }),
+          },
+          on: {
+            skipDemo: ({ context, event }) => ({
+              target: "review",
+              context: demoSkipped(context, "demo", event),
             }),
           },
         },
@@ -193,10 +212,10 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
                   return { target: "shipGate", context: stageFinished(context, "review", output) };
                 }
                 case "changesRequested": {
-                  if (loopExhausted(context, "review")) {
-                    return { target: "#blocked", context: loopLimitReached(context, "review") };
-                  }
-                  return { target: "build", context: wentAround(context, "review", output) };
+                  const trip = aroundLoop(context, "review", output);
+                  return trip.exhausted
+                    ? { target: "#blocked", context: trip.context }
+                    : { target: "build", context: trip.context };
                 }
                 default: {
                   return absurd(output);
@@ -234,10 +253,10 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
     blocked: {
       id: "blocked",
       on: {
-        retry: ({ context, event }) => ({
-          target: "working.lastStage",
-          context: retried(context, event),
-        }),
+        retry: ({ context, event }) =>
+          retrySkipsDemo(context.blocked.from, context.facts)
+            ? { target: "working.review", context: retried(context, event) }
+            : { target: "working.lastStage", context: retried(context, event) },
         backToSpec: ({ context, event }) =>
           // An unclassified work item would reach Provision without a kind and be routed as a feature.
           context.facts.kind === null

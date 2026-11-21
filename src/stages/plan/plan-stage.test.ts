@@ -15,7 +15,6 @@ describe("plan stage", () => {
           sampleRef: "sample-1",
           reproductionRef: "repro-1",
           planRef: "plan-1",
-          demoPlanned: true,
         },
       );
       expect(fake.tasks()).toStrictEqual([
