@@ -67,6 +67,40 @@ describe("the Claude Code builder", () => {
       }).pipe(Effect.scoped, Effect.provide(nodeFiles)),
   );
 
+  it.effect(
+    "runs the implement role's Bash in Claude Code's sandbox, writing only in the workspace",
+    () =>
+      Effect.gen(function* () {
+        const { args } = yield* builtOn(
+          { runs: [{ _tag: "replays", transcript: "implement-done" }] },
+          (builder, workspace) => builder.implement(buildTaskIn(workspace)),
+        );
+        expect(JSON.parse(flagValue(args, "--settings") ?? "")).toStrictEqual({
+          disableAllHooks: true,
+          sandbox: {
+            enabled: true,
+            failIfUnavailable: true,
+            allowUnsandboxedCommands: false,
+            network: { allowedDomains: ["*"] },
+          },
+        });
+        expect(args).not.toContain("--add-dir");
+      }).pipe(Effect.scoped, Effect.provide(nodeFiles)),
+  );
+
+  it.effect("leaves Bash unsandboxed when the role bypasses permissions", () =>
+    Effect.gen(function* () {
+      const { args } = yield* builtOn(
+        {
+          runs: [{ _tag: "replays", transcript: "implement-done" }],
+          options: { permissionMode: "bypassPermissions" },
+        },
+        (builder, workspace) => builder.implement(buildTaskIn(workspace)),
+      );
+      expect(flagValue(args, "--settings")).toBe('{"disableAllHooks":true}');
+    }).pipe(Effect.scoped, Effect.provide(nodeFiles)),
+  );
+
   it.effect("gives up with Claude's reason when it cannot make the change", () =>
     Effect.gen(function* () {
       const gaveUp = yield* Effect.flip(

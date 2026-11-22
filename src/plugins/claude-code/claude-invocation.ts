@@ -103,6 +103,27 @@ const permissionArgs = (settings: RoleSettings) => [
   ]),
 ];
 
+// Claude Code confines a command-running tool only through its sandbox,
+// which lets Bash write in the working directory alone. Its network goes
+// through the sandbox's proxy, so a tool that ignores the proxy env vars
+// gets none; a role that needs one runs in an isolated sandbox under
+// bypassPermissions instead, where Bash is left unsandboxed. Narrow rules
+// such as `Bash(git log:*)` already keep a read-only role from writing.
+const sandboxesBash = (settings: RoleSettings) =>
+  settings.allowedTools.includes("Bash") && settings.permissionMode !== "bypassPermissions";
+
+const bashSandbox = {
+  enabled: true,
+  failIfUnavailable: true,
+  allowUnsandboxedCommands: false,
+  network: { allowedDomains: ["*"] },
+};
+
+const runSettingsOf = (settings: RoleSettings) => ({
+  disableAllHooks: true,
+  ...(sandboxesBash(settings) ? { sandbox: bashSandbox } : {}),
+});
+
 // The prompt comes right after -p, since a variadic flag such as
 // --mcp-config would take a word after it for one of its own.
 const argsOf = (request: RunRequest) => {
@@ -127,7 +148,7 @@ const argsOf = (request: RunRequest) => {
     ...optional("--max-budget-usd", settings.maxBudgetUsd),
     "--no-session-persistence",
     "--settings",
-    JSON.stringify({ disableAllHooks: true }),
+    JSON.stringify(runSettingsOf(settings)),
     // Left out when undeclared skills are allowed, because this flag takes
     // the Skill tool away along with every slash command.
     ...(settings.allowUndeclaredSkills ? [] : ["--disable-slash-commands"]),
