@@ -87,6 +87,7 @@ describe("the Claude Code reproducer", () => {
         const [run] = plugin.claude.spawned();
         expect(run?.cwd).toBe(sandbox);
         expect(flagValue(run?.args ?? [], "--agent")).toBe("rouage-confirm");
+        expect(flagValue(run?.args ?? [], "--permission-mode")).toBe("acceptEdits");
         expect(yield* promptOf(run?.args ?? [], "rouage-confirm")).toContain(
           "/work/acme/.rouage/artifacts/work-item-7/reproduction.md",
         );
@@ -172,6 +173,33 @@ describe("the Claude Code reproducer", () => {
       );
       expect(gaveUp._tag).toBe("ReproducerGaveUp");
       expect(gaveUp.message).toBe("claude exited with code 2 without a result: Error: boom");
+    }).pipe(Effect.scoped, Effect.provide(nodeFiles)),
+  );
+
+  it.effect("reads the test command from ROUAGE_CLAUDE_CODE_TEST_COMMAND, over the option", () =>
+    Effect.gen(function* () {
+      const { confirmation } = yield* confirmedOn({
+        runs: [{ _tag: "crashes", stderr: "claude should not run", exitCode: 1 }],
+        options: { testCommand: "exit 0" },
+        env: { ROUAGE_CLAUDE_CODE_TEST_COMMAND: "exit 1" },
+      });
+      expect(confirmation).toStrictEqual({ _tag: "failed" });
+    }).pipe(Effect.scoped, Effect.provide(nodeFiles)),
+  );
+
+  it.effect("gives up when the test command cannot start in the workspace", () =>
+    Effect.gen(function* () {
+      const plugin = yield* pluginUnderTest({
+        runs: [{ _tag: "crashes", stderr: "claude should not run", exitCode: 1 }],
+        options: { testCommand: "exit 0" },
+      });
+      const gaveUp = yield* Effect.flip(
+        Effect.flatMap(Reproducer, (reproducer) =>
+          reproducer.confirm(confirmTaskIn("/no/such/sandbox/work-item-7")),
+        ).pipe(Effect.provide(plugin.layer)),
+      );
+      expect(gaveUp._tag).toBe("ReproducerGaveUp");
+      expect(gaveUp.message).toContain("The test command `exit 0` could not run");
     }).pipe(Effect.scoped, Effect.provide(nodeFiles)),
   );
 });
