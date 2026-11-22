@@ -28,3 +28,6 @@ export const reviewUnderTest = portStageUnderTest({
   outcome: approval,
   firstTask: firstReview,
 });
+
+/** A fake reviewer following the Review stage's passing script. */
+export const passingReviewer = fakeReviewer(reviewUnderTest.passing());

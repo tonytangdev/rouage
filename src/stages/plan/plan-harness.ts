@@ -26,3 +26,6 @@ export const planUnderTest = portStageUnderTest({
   outcome: { _tag: "planned", ...plannedWithDemo },
   firstTask: firstPlan,
 });
+
+/** A fake planner following the Plan stage's passing script. */
+export const passingPlanner = fakePlanner(planUnderTest.passing());

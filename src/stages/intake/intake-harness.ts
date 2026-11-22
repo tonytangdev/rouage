@@ -25,3 +25,6 @@ export const intakeUnderTest = portStageUnderTest({
   outcome: { _tag: "classified", kind: "bug" },
   firstTask: firstClassify,
 });
+
+/** A fake classifier following the Intake stage's passing script. */
+export const passingClassifier = fakeClassifier(intakeUnderTest.passing());

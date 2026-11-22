@@ -4,12 +4,14 @@ import { Effect, Record } from "effect";
 import { defaultLifecycle } from "../lifecycle/lifecycle.ts";
 import { expectPinned } from "../lifecycle/saved-shape-pin.ts";
 import { stageSavedShape } from "../lifecycle/saved-shape.ts";
-import { realStages } from "./real-stages.ts";
+import { defaultStages } from "./default-stages.ts";
+import { passingPorts } from "./passing-ports.ts";
 
 const { version } = defaultLifecycle;
 
 const savedShapes = Effect.gen(function* () {
-  const { stages } = yield* realStages();
+  const { layer } = yield* passingPorts;
+  const stages = yield* defaultStages().pipe(Effect.provide(layer));
   return Record.map(stages, stageSavedShape);
 });
 

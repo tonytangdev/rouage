@@ -36,3 +36,6 @@ export const reproduceUnderTest = portStageUnderTest({
   firstTask: firstCapture,
   reached: ["capture", "confirm"],
 });
+
+/** A fake reproducer following the Reproduce stage's passing script. */
+export const passingReproducer = fakeReproducer(reproduceUnderTest.passing());

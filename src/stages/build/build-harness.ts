@@ -88,3 +88,6 @@ export const buildUnderTest = portStageUnderTest(
     }),
   ],
 );
+
+/** A fake builder following the Build stage's passing script. */
+export const passingBuilder = fakeBuilder(buildUnderTest.passing());

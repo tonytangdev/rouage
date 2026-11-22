@@ -30,3 +30,6 @@ export const shipUnderTest = portStageUnderTest({
   outcome: delivered,
   firstTask: firstShipment,
 });
+
+/** A fake shipper following the Ship stage's passing script. */
+export const passingShipper = fakeShipper(shipUnderTest.passing());

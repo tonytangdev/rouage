@@ -27,3 +27,6 @@ export const demoUnderTest = portStageUnderTest({
   route: { demo: true },
   firstTask: firstDemo,
 });
+
+/** A fake demonstrator following the Demo stage's passing script. */
+export const passingDemonstrator = fakeDemonstrator(demoUnderTest.passing());

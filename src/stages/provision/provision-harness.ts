@@ -69,3 +69,10 @@ export const provisionUnderTest = portStageUnderTest(
     }),
   ],
 );
+
+/** A fake provisioner following the Provision stage's passing script, and a sampler with nothing to sample, as one layer. */
+export const passingProvisionPorts = Effect.gen(function* () {
+  const provisioner = yield* fakeProvisioner(provisionUnderTest.passing().provisioner);
+  const sampler = yield* fakeSampler({ results: [] });
+  return { layer: Layer.merge(provisioner.layer, sampler.layer) };
+});

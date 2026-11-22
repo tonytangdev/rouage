@@ -27,3 +27,6 @@ export const specUnderTest = portStageUnderTest({
   route: { kind: "bug" },
   firstTask: firstWrite,
 });
+
+/** A fake spec writer following the Spec stage's passing script. */
+export const passingSpecWriter = fakeSpecWriter(specUnderTest.passing());
