@@ -1,7 +1,7 @@
 import type { Effect } from "effect";
 import { Context, Data, Schema } from "effect";
 
-import type { Kind } from "../../lifecycle/kind.ts";
+import { KindSchema } from "../../lifecycle/kind.ts";
 import { RunBriefSchema } from "../run-brief.ts";
 
 export const ClassifyTaskSchema = Schema.Struct({
@@ -10,10 +10,15 @@ export const ClassifyTaskSchema = Schema.Struct({
 });
 export type ClassifyTask = typeof ClassifyTaskSchema.Type;
 
-/** The classifier's verdict on an issue; `unclear` when it cannot tell a bug from a feature. */
-export type Classification =
-  | { readonly _tag: "classified"; readonly kind: Kind }
-  | { readonly _tag: "unclear"; readonly reason: string };
+/**
+ * The classifier's verdict on an issue; `unclear` when it cannot tell a bug
+ * from a feature, with the reason a human reads at Blocked.
+ */
+export const ClassificationSchema = Schema.Union([
+  Schema.TaggedStruct("classified", { kind: KindSchema }),
+  Schema.TaggedStruct("unclear", { reason: Schema.NonEmptyString }),
+]);
+export type Classification = typeof ClassificationSchema.Type;
 
 /** The classifier could not read or judge the issue at all, as opposed to judging it unclear. */
 export class ClassifierGaveUp extends Data.TaggedError("ClassifierGaveUp")<{
