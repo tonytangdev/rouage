@@ -3,10 +3,11 @@ import { Data, Effect, Schema } from "effect";
 import type { LifecycleIdentity } from "./lifecycle-logic.ts";
 import type { UnreadableSnapshot } from "./readable-snapshot.ts";
 import { unreadable } from "./readable-snapshot.ts";
+import type { SavedWorkItem } from "./saved-work-item.ts";
+import { SavedWorkItemSchema } from "./saved-work-item.ts";
 
-/** A saved work item as plain JSON, as a work item saves it and a store gives it back. */
-export const SavedWorkItemSchema = Schema.Record(Schema.String, Schema.Unknown);
-export type SavedWorkItem = typeof SavedWorkItemSchema.Type;
+export type { SavedWorkItem } from "./saved-work-item.ts";
+export { SavedWorkItemSchema } from "./saved-work-item.ts";
 
 /**
  * One step between two versions of a lifecycle: `migrate` is given a work

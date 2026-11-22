@@ -1,11 +1,15 @@
-import { Effect, Schema } from "effect";
+import { Effect } from "effect";
 
 import type { FakeSandboxTeardown } from "./fake-sandbox-teardown.ts";
 import { fakeSandboxTeardown } from "./fake-sandbox-teardown.ts";
 import type { RealStages, Route, Running, Waypoint } from "./golden-route.ts";
 import { StageNotRunning, advance, newWorkItem, stubController } from "./golden-route.ts";
 import type { LifecycleMigration } from "./lifecycle-migration.ts";
-import { SavedWorkItemSchema } from "./lifecycle-migration.ts";
+import {
+  withSavedStageContext,
+  withSavedStateInput,
+  withSavedStepTask,
+} from "./saved-work-item.ts";
 import type { FailureReason, OutcomeOf, StageName } from "./stage.ts";
 import type { WorkItem } from "./work-item-actor.ts";
 import { createWorkItem, restoreWorkItem } from "./work-item-actor.ts";
@@ -49,40 +53,17 @@ const drive = (workItem: WorkItem, running: Running, sandbox: FakeSandboxTeardow
 /** A test work item: a work item plus the controls that drive its stub stages. */
 export type TestWorkItem = ReturnType<typeof drive>;
 
-const objectIn = Schema.decodeUnknownSync(SavedWorkItemSchema);
-
-const withStageSnapshot = (
-  persisted: unknown,
-  stage: StageName,
-  change: (snapshot: Readonly<Record<string, unknown>>) => Readonly<Record<string, unknown>>,
-) => {
-  const saved = objectIn(persisted);
-  const children = objectIn(saved["children"]);
-  const entry = objectIn(children[stage]);
-  const snapshot = change(objectIn(entry["snapshot"]));
-  return { ...saved, children: { ...children, [stage]: { ...entry, snapshot } } };
-};
-
 /** `persisted` with the saved context of its running `stage` replaced by `context`, as a stage machine whose context has changed since would find it; throws if `stage` is not running in it. */
 export const withStageContext = (persisted: unknown, stage: StageName, context: unknown) =>
-  withStageSnapshot(persisted, stage, (snapshot) => ({ ...snapshot, context }));
+  Effect.runSync(withSavedStageContext(persisted, stage, context));
 
 /** `persisted` with the saved task of each step running in its `stage` replaced by `task`, as a port whose task has changed since would find it; throws if `stage` is not running in it. */
 export const withStepTask = (persisted: unknown, stage: StageName, task: unknown) =>
-  withStageSnapshot(persisted, stage, (snapshot) => {
-    const steps = Object.entries(objectIn(snapshot["children"])).map(([id, step]) => {
-      const entry = objectIn(step);
-      return [id, { ...entry, snapshot: { ...objectIn(entry["snapshot"]), input: task } }];
-    });
-    return { ...snapshot, children: Object.fromEntries(steps) };
-  });
+  Effect.runSync(withSavedStepTask(persisted, stage, task));
 
 /** `persisted` with the saved input of each state active in its running `stage` replaced by `input`, as a stage machine whose state input has changed since would find it; throws if `stage` is not running in it. */
 export const withStateInput = (persisted: unknown, stage: StageName, input: unknown) =>
-  withStageSnapshot(persisted, stage, (snapshot) => {
-    const states = Object.keys(objectIn(snapshot["stateInputs"]));
-    return { ...snapshot, stateInputs: Object.fromEntries(states.map((state) => [state, input])) };
-  });
+  Effect.runSync(withSavedStateInput(persisted, stage, input));
 
 /** Round-trips a saved work item through JSON, as a store that keeps it as text would. */
 export const throughJson = (persisted: unknown): unknown => JSON.parse(JSON.stringify(persisted));
