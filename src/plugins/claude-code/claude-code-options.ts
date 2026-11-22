@@ -23,6 +23,12 @@ export interface ClaudeCodeOptions extends RoleSettingsLayer {
   readonly configDir?: string | undefined;
   /** How many Claude runs may run at once, the rest queued; 1 by default. */
   readonly maxConcurrentRuns?: number | undefined;
+  /**
+   * The shell command that runs the tests in the sandbox's workspace. When
+   * set, the test-judged steps run it and are judged by its exit code
+   * instead of by Claude (ADR 0010).
+   */
+  readonly testCommand?: string | undefined;
   /** The directory Claude works in for a sandbox reference; the reference as a path by default. */
   readonly workspace?: ((sandboxRef: string) => string) | undefined;
   /** Settings for one role, over the global ones. */
@@ -38,6 +44,7 @@ export interface PluginSettings {
   readonly rolesDir: string | undefined;
   readonly configDir: string | undefined;
   readonly maxConcurrentRuns: number;
+  readonly testCommand: string | undefined;
   readonly workspace: (sandboxRef: string) => string;
 }
 
@@ -52,6 +59,7 @@ const pluginEnv = Config.all({
   artifactsDir: env(Config.String(`${envPrefix}ARTIFACTS_DIR`)),
   rolesDir: env(Config.String(`${envPrefix}ROLES_DIR`)),
   configDir: env(Config.String(`${envPrefix}CONFIG_DIR`)),
+  testCommand: env(Config.String(`${envPrefix}TEST_COMMAND`)),
   maxConcurrentRuns: env(
     Config.schema(Schema.Int.check(Schema.isGreaterThan(0)), `${envPrefix}MAX_CONCURRENT_RUNS`),
   ),
@@ -73,6 +81,7 @@ export const resolvePluginSettings = Effect.fnUntraced(function* (options: Claud
     rolesDir: firstSet(fromEnv.rolesDir, options.rolesDir),
     configDir: firstSet(fromEnv.configDir, options.configDir),
     maxConcurrentRuns: firstSet(fromEnv.maxConcurrentRuns, options.maxConcurrentRuns) ?? 1,
+    testCommand: firstSet(fromEnv.testCommand, options.testCommand),
     workspace: options.workspace ?? sandboxRefAsPath,
   } satisfies PluginSettings;
 });

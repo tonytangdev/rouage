@@ -1,15 +1,17 @@
 import { Context, Effect, Layer } from "effect";
 
-import { Classifier, Planner, Reviewer, SpecWriter } from "../../index.ts";
+import { Classifier, Planner, Reproducer, Reviewer, SpecWriter } from "../../index.ts";
 import { makeArtifactStore } from "./artifacts.ts";
 import { claudeClassifier } from "./claude-classifier.ts";
 import type { ClaudeCodeOptions } from "./claude-code-options.ts";
 import { resolvePluginSettings } from "./claude-code-options.ts";
 import { claudePlanner } from "./claude-planner.ts";
+import { claudeReproducer } from "./claude-reproducer.ts";
 import { claudeReviewer } from "./claude-reviewer.ts";
 import { makeClaudeRunner } from "./claude-runner.ts";
 import { claudeSpecWriter } from "./claude-spec-writer.ts";
 import { loadRole } from "./roles.ts";
+import { makeTestCommandRunner } from "./test-command.ts";
 
 /**
  * The Claude Code Agent plugin: fills the Agent ports by running the user's
@@ -27,12 +29,24 @@ export const claudeCode = (options: ClaudeCodeOptions = {}) =>
       const plugin = yield* resolvePluginSettings(options);
       const runner = yield* makeClaudeRunner(plugin);
       const store = yield* makeArtifactStore(plugin.artifactsDir);
+      const tests = yield* makeTestCommandRunner(plugin.testCommand);
       const role = (name: Parameters<typeof loadRole>[0]) => loadRole(name, plugin, options);
       return Context.make(
         Classifier,
         claudeClassifier(runner, yield* role("classify"), plugin),
       ).pipe(
         Context.add(SpecWriter, claudeSpecWriter(runner, yield* role("write"), plugin, store)),
+        Context.add(
+          Reproducer,
+          claudeReproducer({
+            runner,
+            capture: yield* role("capture"),
+            confirm: yield* role("confirm"),
+            plugin,
+            store,
+            tests,
+          }),
+        ),
         Context.add(Planner, claudePlanner(runner, yield* role("plan"), plugin, store)),
         Context.add(Reviewer, claudeReviewer(runner, yield* role("review"), plugin, store)),
       );

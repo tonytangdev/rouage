@@ -5,9 +5,11 @@ import { createWorkItem, withDefaultStages } from "../../index.ts";
 import { fakeSandboxTeardown } from "../../lifecycle/fake-sandbox-teardown.ts";
 import { newWorkItem, reviewer } from "../../lifecycle/test-fixtures.ts";
 import { passingPorts } from "../../stages/passing-ports.ts";
+import { passingReproducer } from "../../stages/reproduce/reproduce-harness.ts";
 import { flagValue, nodeFiles, pluginUnderTest } from "./claude-code-harness.ts";
 
-// Rouage's own passing fakes fill the ports this slice of the plugin does not fill yet.
+// Rouage's own passing fakes fill the ports this slice of the plugin does not
+// fill yet, and the Reproducer too, which needs a real sandbox to run in (#60).
 describe("the default lifecycle with the Claude Code plugin filling the ports it fills", () => {
   it.effect(
     "classifies, specs, plans and reviews a bug with claude, carrying it to the ship gate",
@@ -24,7 +26,9 @@ describe("the default lifecycle with the Claude Code plugin filling the ports it
           ],
         });
         const lifecycle = yield* withDefaultStages().pipe(
-          Effect.provide(Layer.merge(ports.layer, plugin.layer)),
+          Effect.provide(
+            Layer.mergeAll(ports.layer, plugin.layer, (yield* passingReproducer).layer),
+          ),
         );
         const workItem = yield* createWorkItem(lifecycle, newWorkItem).pipe(
           Effect.provide(fakeSandboxTeardown().layer),

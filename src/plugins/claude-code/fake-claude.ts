@@ -1,3 +1,4 @@
+import * as NodeChildProcessSpawner from "@effect/platform-node/NodeChildProcessSpawner";
 import { Deferred, Effect, FileSystem, Layer, Path, Redacted, Sink, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
@@ -84,6 +85,9 @@ const handleOf = (run: FakeRun, transcripts: ReadonlyMap<Transcript, string>, pi
   });
 };
 
+const isClaude = (command: ChildProcess.Command) =>
+  ChildProcess.isStandardCommand(command) && /(?:^|\/)claude$/u.test(command.command);
+
 const loadTranscripts = Effect.fnUntraced(function* (runs: readonly FakeRun[]) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -104,13 +108,18 @@ const loadTranscripts = Effect.fnUntraced(function* (runs: readonly FakeRun[]) {
  * next of `runs` says, the last repeating. It records what each run was
  * started with, signals when the nth has started, and counts the runs
  * stopped while still running, as a timeout or an interruption stops them.
+ * Any other command, such as a test command, really runs.
  */
 export const fakeClaude = Effect.fnUntraced(function* (runs: readonly [FakeRun, ...FakeRun[]]) {
   const transcripts = yield* loadTranscripts(runs);
+  const real = yield* Effect.provide(
+    ChildProcessSpawner.ChildProcessSpawner,
+    NodeChildProcessSpawner.layer,
+  );
   const spawned: Spawned[] = [];
   const starts = yield* Effect.forEach(runs, () => Deferred.make<boolean>());
   let stopped = 0;
-  const spawn = (command: ChildProcess.Command) =>
+  const fake = (command: ChildProcess.Command) =>
     Effect.gen(function* () {
       const index = spawned.length;
       const run = runs[Math.min(index, runs.length - 1)] ?? runs[0];
@@ -124,6 +133,8 @@ export const fakeClaude = Effect.fnUntraced(function* (runs: readonly [FakeRun, 
       }
       return handleOf(run, transcripts, 1000 + index);
     });
+  const spawn = (command: ChildProcess.Command) =>
+    isClaude(command) ? fake(command) : real.spawn(command);
   return {
     layer: Layer.succeed(ChildProcessSpawner.ChildProcessSpawner, ChildProcessSpawner.make(spawn)),
     spawned: () => spawned,
