@@ -1,22 +1,49 @@
-import { Data, Predicate, Schema, Struct } from "effect";
+import { Data, Predicate, Record, Schema, Struct } from "effect";
 
 import { demoFactNames, demoShown, demoToRevise } from "./demo-decision.ts";
 import type { StageFacts } from "./facts.ts";
 import { StageFactsSchema } from "./facts.ts";
 import { KindSchema } from "./kind.ts";
 
-/** Every stage of the default lifecycle; `StageOutcomeSchemas` gives each its outcome. */
-export const StageNameSchema = Schema.Literals([
-  "intake",
-  "spec",
-  "provision",
-  "reproduce",
-  "plan",
-  "build",
-  "demo",
-  "review",
-  "ship",
-]);
+/**
+ * Each stage of the default lifecycle and the outcome its stage machine
+ * finishes with, in the order the lifecycle first runs them. The one list of
+ * the stages: every other list of them is derived from it or checked against
+ * it. A stage implementation fits a slot when it accepts `StageInput` and
+ * finishes with that slot's outcome. Schemas, so a stage machine that keeps an
+ * outcome in a state's input can check a restored one (ADR 0017).
+ */
+export const StageOutcomeSchemas = {
+  intake: Schema.TaggedStruct("classified", { kind: KindSchema }),
+  spec: Schema.TaggedStruct("written", { specRef: Schema.String }),
+  provision: Schema.Union([
+    Schema.TaggedStruct("provisioned", {
+      sandboxRef: Schema.String,
+      sampleRef: Schema.NullOr(Schema.String),
+    }),
+    Schema.TaggedStruct("awaitingRun", { sandboxRef: Schema.String, scriptRef: Schema.String }),
+  ]),
+  reproduce: Schema.Union([
+    Schema.TaggedStruct("reproduced", { reproductionRef: Schema.String }),
+    Schema.TaggedStruct("needsSample", { sampleRequest: Schema.String }),
+    Schema.TaggedStruct("cannotReproduce", { reason: Schema.String }),
+    Schema.TaggedStruct("checkPassed", { reproductionRef: Schema.String, output: Schema.String }),
+  ]),
+  plan: Schema.TaggedStruct("planned", { planRef: Schema.String, demo: Schema.Boolean }),
+  build: Schema.TaggedStruct("built", {}),
+  demo: Schema.TaggedStruct("demonstrated", { demoRef: Schema.String }),
+  review: Schema.Union([
+    Schema.TaggedStruct("approved", {}),
+    Schema.TaggedStruct("changesRequested", { feedback: Schema.String }),
+  ]),
+  ship: Schema.Union([
+    Schema.TaggedStruct("shipped", { deliveryRef: Schema.String }),
+    Schema.TaggedStruct("needsRebuild", { feedback: Schema.String }),
+  ]),
+} as const satisfies Readonly<Record<string, Schema.Codec<unknown, unknown>>>;
+
+/** Every stage of the default lifecycle, in the order of `StageOutcomeSchemas`. */
+export const StageNameSchema = Schema.Literals(Record.keys(StageOutcomeSchemas));
 export type StageName = typeof StageNameSchema.Type;
 
 /** Why a stage could not finish, as plain data so it survives persistence. */
@@ -76,57 +103,18 @@ const inputWith = (
 const shownInput = (argument: InputArgument): StageInput =>
   inputWith(argument, demoShown(argument.context.facts));
 
+const revisedInput = (argument: InputArgument): StageInput =>
+  inputWith(argument, demoToRevise(argument.context.facts));
+
 /**
  * The input the lifecycle gives each stage, built from the work item. Each
  * takes XState's input-function argument so a state can pass it as is. Demo
  * alone gets the demo to revise, even when outdated (ADR 0011).
  */
-export const stageInputs: Readonly<Record<StageName, (argument: InputArgument) => StageInput>> = {
-  intake: shownInput,
-  spec: shownInput,
-  provision: shownInput,
-  reproduce: shownInput,
-  plan: shownInput,
-  build: shownInput,
-  demo: (argument) => inputWith(argument, demoToRevise(argument.context.facts)),
-  review: shownInput,
-  ship: shownInput,
-};
-
-/**
- * Each stage of the default lifecycle and the outcome its stage machine
- * finishes with. A stage implementation fits a slot when it accepts
- * `StageInput` and finishes with that slot's outcome. Schemas, so a stage
- * machine that keeps an outcome in a state's input can check a restored one
- * (ADR 0017).
- */
-export const StageOutcomeSchemas = {
-  intake: Schema.TaggedStruct("classified", { kind: KindSchema }),
-  spec: Schema.TaggedStruct("written", { specRef: Schema.String }),
-  provision: Schema.Union([
-    Schema.TaggedStruct("provisioned", {
-      sandboxRef: Schema.String,
-      sampleRef: Schema.NullOr(Schema.String),
-    }),
-    Schema.TaggedStruct("awaitingRun", { sandboxRef: Schema.String, scriptRef: Schema.String }),
-  ]),
-  reproduce: Schema.Union([
-    Schema.TaggedStruct("reproduced", { reproductionRef: Schema.String }),
-    Schema.TaggedStruct("needsSample", { sampleRequest: Schema.String }),
-    Schema.TaggedStruct("cannotReproduce", { reason: Schema.String }),
-    Schema.TaggedStruct("checkPassed", { reproductionRef: Schema.String, output: Schema.String }),
-  ]),
-  plan: Schema.TaggedStruct("planned", { planRef: Schema.String, demo: Schema.Boolean }),
-  build: Schema.TaggedStruct("built", {}),
-  demo: Schema.TaggedStruct("demonstrated", { demoRef: Schema.String }),
-  review: Schema.Union([
-    Schema.TaggedStruct("approved", {}),
-    Schema.TaggedStruct("changesRequested", { feedback: Schema.String }),
-  ]),
-  ship: Schema.Union([
-    Schema.TaggedStruct("shipped", { deliveryRef: Schema.String }),
-    Schema.TaggedStruct("needsRebuild", { feedback: Schema.String }),
-  ]),
-} as const satisfies Readonly<Record<StageName, Schema.Codec<unknown, unknown>>>;
+export const stageInputs = Record.map(
+  StageOutcomeSchemas,
+  (_, stage): ((argument: InputArgument) => StageInput) =>
+    stage === "demo" ? revisedInput : shownInput,
+);
 
 export type OutcomeOf<Stage extends StageName> = (typeof StageOutcomeSchemas)[Stage]["Type"];
