@@ -108,7 +108,8 @@ const permissionArgs = (settings: RoleSettings) => [
 // through the sandbox's proxy, so a tool that ignores the proxy env vars
 // gets none; a role that needs one runs in an isolated sandbox under
 // bypassPermissions instead, where Bash is left unsandboxed. Narrow rules
-// such as `Bash(git log:*)` already keep a read-only role from writing.
+// such as `Bash(git log:*)` already keep a read-only role from writing
+// (ADR 0020).
 const sandboxesBash = (settings: RoleSettings) =>
   settings.allowedTools.includes("Bash") && settings.permissionMode !== "bypassPermissions";
 
