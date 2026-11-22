@@ -12,6 +12,7 @@ import { BuildTaskSchema, Builder, FixTaskSchema, ReproductionCheckTaskSchema } 
 // A Schema, so a Build restored mid-run with a context saved before it changed fails to restore (ADR 0014).
 const BuildContextSchema = Schema.Struct({
   input: StageInputSchema,
+  task: BuildTaskSchema,
   fixAttempts: Schema.Int,
   fixesMade: Schema.Int,
   reproductionCheck: Schema.NullOr(ReproductionCheckTaskSchema),
@@ -34,8 +35,7 @@ const buildTaskOf = (input: StageInput): BuildTask => {
   return task;
 };
 
-const buildTask = ({ context }: { readonly context: BuildContext }): BuildTask =>
-  buildTaskOf(context.input);
+const buildTask = ({ context }: { readonly context: BuildContext }): BuildTask => context.task;
 
 const fixTask = ({
   context,
@@ -43,7 +43,7 @@ const fixTask = ({
 }: {
   readonly context: BuildContext;
   readonly input: typeof FailuresSchema.Type;
-}): FixTask => ({ ...buildTaskOf(context.input), failures: input.failures });
+}): FixTask => ({ ...context.task, failures: input.failures });
 
 const reproductionMissing = new StageFailure({
   reason: {
@@ -123,17 +123,25 @@ const buildSetup = (step: PortStep<Builder["Service"]>) =>
     },
   });
 
+const startingContext = (input: StageInput, fixAttempts: number): BuildContext => ({
+  input,
+  task: buildTaskOf(input),
+  fixAttempts,
+  fixesMade: 0,
+  reproductionCheck: null,
+});
+
 const buildMachine = (step: PortStep<Builder["Service"]>, fixAttempts: number) =>
   buildSetup(step).createMachine({
     id: "build",
-    context: ({ input }) => ({ input, fixAttempts, fixesMade: 0, reproductionCheck: null }),
+    context: ({ input }) => startingContext(input, fixAttempts),
     initial: "checkingPrerequisites",
     states: {
       checkingPrerequisites: {
         type: "choice",
         choice: ({ context }) => ({
           target: "implementing",
-          context: { reproductionCheck: reproductionCheckOf(buildTaskOf(context.input)) },
+          context: { reproductionCheck: reproductionCheckOf(context.task) },
         }),
       },
       implementing: {

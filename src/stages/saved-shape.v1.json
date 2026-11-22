@@ -879,6 +879,65 @@
               ],
               "additionalProperties": true
             },
+            "task": {
+              "type": "object",
+              "properties": {
+                "workItemId": { "type": "string" },
+                "feedback": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                "issueRef": { "type": "string" },
+                "kind": {
+                  "anyOf": [{ "type": "string", "enum": ["bug", "feature"] }, { "type": "null" }]
+                },
+                "specRef": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                "planRef": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                "sandboxRef": { "type": "string" },
+                "reproductionRef": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                "changeRequest": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "from": { "type": "string", "enum": ["review"] },
+                        "text": { "type": "string" }
+                      },
+                      "required": ["from", "text"],
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "from": { "type": "string", "enum": ["shipGate"] },
+                        "text": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                      },
+                      "required": ["from", "text"],
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "from": { "type": "string", "enum": ["ship"] },
+                        "text": { "type": "string" }
+                      },
+                      "required": ["from", "text"],
+                      "additionalProperties": true
+                    },
+                    { "type": "null" }
+                  ]
+                }
+              },
+              "required": [
+                "workItemId",
+                "feedback",
+                "issueRef",
+                "kind",
+                "specRef",
+                "planRef",
+                "sandboxRef",
+                "reproductionRef",
+                "changeRequest"
+              ],
+              "additionalProperties": true
+            },
             "fixAttempts": {
               "type": "integer",
               "minimum": -9007199254740991,
@@ -905,7 +964,7 @@
               ]
             }
           },
-          "required": ["input", "fixAttempts", "fixesMade", "reproductionCheck"],
+          "required": ["input", "task", "fixAttempts", "fixesMade", "reproductionCheck"],
           "additionalProperties": true
         },
         "definitions": {}
