@@ -54,6 +54,7 @@ export const reviewTask: ReviewTask = {
   changeRequest: null,
 };
 
+/** How a test sets up the plugin: the fake runs, the options and the env it reads. */
 export interface PluginUnderTest {
   /** The fake `claude` runs go as. */
   readonly runs: readonly [FakeRun, ...FakeRun[]];
@@ -79,15 +80,24 @@ export const pluginUnderTest = Effect.fnUntraced(function* (setup: PluginUnderTe
 });
 
 const AgentsSchema = Schema.fromJsonString(
-  Schema.Record(Schema.String, Schema.Struct({ prompt: Schema.String })),
+  Schema.Record(
+    Schema.String,
+    Schema.Struct({
+      description: Schema.String,
+      prompt: Schema.String,
+      tools: Schema.Array(Schema.String),
+      model: Schema.optional(Schema.String),
+    }),
+  ),
 );
+
+/** The agents a run started with `args` was given in `--agents`, by name. */
+export const agentsIn = (args: readonly string[]) =>
+  Schema.decodeUnknownEffect(AgentsSchema)(flagValue(args, "--agents"));
 
 /** The instructions the `agent` of a run started with `args` was given. */
 export const promptOf = (args: readonly string[], agent: string) =>
-  Effect.map(
-    Schema.decodeUnknownEffect(AgentsSchema)(flagValue(args, "--agents")),
-    (agents) => agents[agent]?.prompt ?? "",
-  );
+  Effect.map(agentsIn(args), (agents) => agents[agent]?.prompt ?? "");
 
 /** The value `flag` was given in `args`, or undefined when it was not passed. */
 export const flagValue = (args: readonly string[], flag: string) => {

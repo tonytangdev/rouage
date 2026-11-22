@@ -4,6 +4,7 @@ import type { PluginSettings } from "./claude-code-options.ts";
 import { agentNameOf } from "./role-name.ts";
 import type { RoleSettings } from "./role-settings.ts";
 import type { Role } from "./roles.ts";
+import type { PreloadedSkill } from "./skills.ts";
 
 /** One run of `claude` for one port call, before it is turned into a command line. */
 export interface RunRequest {
@@ -18,8 +19,7 @@ export interface RunRequest {
 }
 
 // Set by a Claude Code session that launched Rouage; a child that inherits
-// them takes itself for part of that session. CLAUDE_CODE_SIMPLE is bare
-// mode, which never reads a subscription login (ADR 0019).
+// them takes itself for part of that session.
 const launchingSessionVars = [
   "CLAUDECODE",
   "CLAUDE_CODE_ENTRYPOINT",
@@ -30,24 +30,37 @@ const launchingSessionVars = [
   "CLAUDE_CODE_MESSAGING_TOKEN",
   "CLAUDE_CODE_EXECPATH",
   "CLAUDE_CODE_CHILD_NOTES_DIR",
-  "CLAUDE_CODE_SIMPLE",
   "CLAUDE_AGENT_SDK_VERSION",
   "CLAUDE_PID",
   "CLAUDE_EFFORT",
 ] as const;
 
-/** The env a run gets over the inherited one: the launching session's variables removed, nothing else touched. */
+/**
+ * The env a run gets over the inherited one: the launching session's
+ * variables removed, bare mode turned off, nothing else touched.
+ */
 export const runEnv = (configDir: string | undefined) => ({
   ...Object.fromEntries(launchingSessionVars.map((name) => [name, undefined])),
   CLAUDE_CODE_ENTRYPOINT: "rouage",
+  // Set to a false value rather than removed because bare mode never reads a
+  // subscription login, and Claude Code plans to make it print mode's
+  // default (ADR 0019).
+  CLAUDE_CODE_SIMPLE: "0",
   ...(configDir === undefined ? {} : { CLAUDE_CONFIG_DIR: configDir }),
 });
 
 const prompt =
   "Do the job your instructions describe, then give your answer through the structured output.";
 
-const deniesUndeclaredSkills = (settings: RoleSettings) =>
-  settings.skills.length === 0 && !settings.allowUndeclaredSkills;
+// Claude Code ignores an agent's `skills` when the agent runs the main
+// thread, and an allow rule for one skill does not fence off the others, so
+// the plugin preloads declared skills itself and takes the Skill tool away
+// (ADR 0020).
+const skillSectionOf = (skill: PreloadedSkill) =>
+  `## The ${skill.name} skill\n\nThis skill is preloaded for you; the files it mentions are in ${skill.dir}.\n\n${skill.instructions}`;
+
+const agentPromptOf = (request: RunRequest) =>
+  [request.instructions, ...request.role.skills.map(skillSectionOf)].join("\n\n");
 
 const mcpToolsOf = (settings: RoleSettings) =>
   Object.keys(settings.mcpServers).map((server) => `mcp__${server}`);
@@ -57,6 +70,7 @@ const mcpToolsOf = (settings: RoleSettings) =>
 const agentToolsOf = (settings: RoleSettings) => [
   ...settings.allowedTools,
   ...mcpToolsOf(settings),
+  ...(settings.allowUndeclaredSkills ? ["Skill"] : []),
   "StructuredOutput",
 ];
 
@@ -65,11 +79,10 @@ const agentsOf = (request: RunRequest) => {
   return {
     [agentNameOf(request.role.name)]: {
       description: request.role.description,
-      prompt: request.instructions,
+      prompt: agentPromptOf(request),
       tools: agentToolsOf(settings),
       ...(settings.disallowedTools.length > 0 ? { disallowedTools: settings.disallowedTools } : {}),
       ...(settings.model === null ? {} : { model: settings.model }),
-      ...(settings.skills.length > 0 ? { skills: settings.skills } : {}),
     },
   };
 };
@@ -86,7 +99,7 @@ const permissionArgs = (settings: RoleSettings) => [
   ...listFlag("--allowedTools", [...settings.allowedTools, ...mcpToolsOf(settings)]),
   ...listFlag("--disallowedTools", [
     ...settings.disallowedTools,
-    ...(deniesUndeclaredSkills(settings) ? ["Skill"] : []),
+    ...(settings.allowUndeclaredSkills ? [] : ["Skill"]),
   ]),
 ];
 
@@ -115,7 +128,9 @@ const argsOf = (request: RunRequest) => {
     "--no-session-persistence",
     "--settings",
     JSON.stringify({ disableAllHooks: true }),
-    ...(deniesUndeclaredSkills(settings) ? ["--disable-slash-commands"] : []),
+    // Left out when undeclared skills are allowed, because this flag takes
+    // the Skill tool away along with every slash command.
+    ...(settings.allowUndeclaredSkills ? [] : ["--disable-slash-commands"]),
   ];
 };
 

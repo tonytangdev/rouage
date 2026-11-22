@@ -28,7 +28,11 @@ export interface RoleSettings {
   /** The tools the role may use, in Claude Code's permission-rule syntax, such as `Bash(git log:*)`. */
   readonly allowedTools: readonly string[];
   readonly disallowedTools: readonly string[];
-  /** The skills the role preloads; any other skill is denied unless `allowUndeclaredSkills`. */
+  /**
+   * The skills the plugin preloads into the role's instructions, from its
+   * skills folder or the repository's `.claude/skills`; any other skill is
+   * denied unless `allowUndeclaredSkills`.
+   */
   readonly skills: readonly string[];
   readonly allowUndeclaredSkills: boolean;
   readonly mcpServers: McpServers;

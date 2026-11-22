@@ -19,6 +19,11 @@ export interface ClaudeCodeOptions extends RoleSettingsLayer {
   readonly artifactsDir?: string | undefined;
   /** A folder of role files, each replacing the default role of the same name. */
   readonly rolesDir?: string | undefined;
+  /**
+   * A folder of skills, each a `<name>/SKILL.md`, that roles can declare;
+   * searched before the repository's own `.claude/skills`.
+   */
+  readonly skillsDir?: string | undefined;
   /** The Claude config folder the runs use, set as CLAUDE_CONFIG_DIR; Claude Code's own by default. */
   readonly configDir?: string | undefined;
   /** How many Claude runs may run at once, the rest queued; 1 by default. */
@@ -42,6 +47,7 @@ export interface PluginSettings {
   /** Absolute, since an artifact's reference is its absolute path (ADR 0004). */
   readonly artifactsDir: string;
   readonly rolesDir: string | undefined;
+  readonly skillsDir: string | undefined;
   readonly configDir: string | undefined;
   readonly maxConcurrentRuns: number;
   readonly testCommand: string | undefined;
@@ -58,6 +64,7 @@ const pluginEnv = Config.all({
   repoDir: env(Config.String(`${envPrefix}REPO_DIR`)),
   artifactsDir: env(Config.String(`${envPrefix}ARTIFACTS_DIR`)),
   rolesDir: env(Config.String(`${envPrefix}ROLES_DIR`)),
+  skillsDir: env(Config.String(`${envPrefix}SKILLS_DIR`)),
   configDir: env(Config.String(`${envPrefix}CONFIG_DIR`)),
   testCommand: env(Config.String(`${envPrefix}TEST_COMMAND`)),
   maxConcurrentRuns: env(
@@ -79,6 +86,7 @@ export const resolvePluginSettings = Effect.fnUntraced(function* (options: Claud
     repoDir,
     artifactsDir: path.resolve(repoDir ?? ".", artifactsDir),
     rolesDir: firstSet(fromEnv.rolesDir, options.rolesDir),
+    skillsDir: firstSet(fromEnv.skillsDir, options.skillsDir),
     configDir: firstSet(fromEnv.configDir, options.configDir),
     maxConcurrentRuns: firstSet(fromEnv.maxConcurrentRuns, options.maxConcurrentRuns) ?? 1,
     testCommand: firstSet(fromEnv.testCommand, options.testCommand),

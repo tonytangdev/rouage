@@ -1,25 +1,19 @@
 import { describe, expect, it } from "@effect/vitest";
-import { Effect, FileSystem, Layer, Path, Schema } from "effect";
+import { Effect, FileSystem, Layer, Path } from "effect";
 
 import { Classifier } from "../../index.ts";
 import type { PluginUnderTest } from "./claude-code-harness.ts";
-import { classifyTask, flagValue, nodeFiles, pluginUnderTest } from "./claude-code-harness.ts";
+import {
+  agentsIn,
+  classifyTask,
+  flagValue,
+  nodeFiles,
+  pluginUnderTest,
+} from "./claude-code-harness.ts";
 
 const answers = [{ _tag: "replays", transcript: "classified-as-bug" }] as const;
 
-const AgentsSchema = Schema.fromJsonString(
-  Schema.Record(
-    Schema.String,
-    Schema.Struct({
-      description: Schema.String,
-      prompt: Schema.String,
-      tools: Schema.Array(Schema.String),
-      model: Schema.optional(Schema.String),
-    }),
-  ),
-);
-
-/** The command line, cwd and env of the one run a classification started, with the plugin's artifacts folder. */
+// The command line, cwd and env of the one run a classification started, with the plugin's artifacts folder.
 const runOfClassifying = (setup: Omit<PluginUnderTest, "runs">) =>
   Effect.gen(function* () {
     const plugin = yield* pluginUnderTest({ runs: answers, ...setup });
@@ -41,9 +35,7 @@ describe("the Claude Code run a classification starts", () => {
       expect(run.args.slice(0, 1)).toStrictEqual(["-p"]);
       expect(flagValue(run.args, "--output-format")).toBe("stream-json");
       expect(flagValue(run.args, "--agent")).toBe("rouage-classify");
-      const agents = yield* Schema.decodeUnknownEffect(AgentsSchema)(
-        flagValue(run.args, "--agents"),
-      );
+      const agents = yield* agentsIn(run.args);
       expect(agents["rouage-classify"]?.prompt).toContain("The issue is: tonytangdev/rouage#7");
       expect(agents["rouage-classify"]?.tools).toContain("StructuredOutput");
       expect(run.args).toContain("--no-session-persistence");
@@ -95,11 +87,17 @@ describe("the Claude Code run a classification starts", () => {
       expect(run.env).toMatchObject({
         CLAUDECODE: undefined,
         CLAUDE_CODE_SESSION_ID: undefined,
-        CLAUDE_CODE_SIMPLE: undefined,
         CLAUDE_CODE_ENTRYPOINT: "rouage",
       });
       expect(Object.keys(run.env)).not.toContain("CLAUDE_CONFIG_DIR");
       expect(Object.keys(run.env)).not.toContain("HOME");
+    }).pipe(Effect.scoped, Effect.provide(nodeFiles)),
+  );
+
+  it.effect("turns bare mode explicitly off, since it never reads a subscription login", () =>
+    Effect.gen(function* () {
+      const run = yield* runOfClassifying({});
+      expect(run.env["CLAUDE_CODE_SIMPLE"]).toBe("0");
     }).pipe(Effect.scoped, Effect.provide(nodeFiles)),
   );
 
@@ -152,9 +150,7 @@ describe("the Claude Code run a classification starts", () => {
         "---\ndescription: Our own classifier\ntools:\n  - Read\nmodel: haiku\n---\nTriage {{issueRef}} our way.\n",
       );
       const run = yield* runOfClassifying({ options: { rolesDir } });
-      const agents = yield* Schema.decodeUnknownEffect(AgentsSchema)(
-        flagValue(run.args, "--agents"),
-      );
+      const agents = yield* agentsIn(run.args);
       expect(agents).toMatchObject({
         "rouage-classify": {
           description: "Our own classifier",
@@ -163,6 +159,86 @@ describe("the Claude Code run a classification starts", () => {
           model: "haiku",
         },
       });
+    }).pipe(Effect.scoped, Effect.provide(nodeFiles)),
+  );
+});
+
+const skillIn = Effect.fnUntraced(function* (dir: string, name: string, body: string) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const skillDir = path.join(dir, name);
+  yield* fs.makeDirectory(skillDir, { recursive: true });
+  yield* fs.writeFileString(
+    path.join(skillDir, "SKILL.md"),
+    `---\nname: ${name}\ndescription: The ${name} skill.\n---\n${body}\n`,
+  );
+  return skillDir;
+});
+
+describe("the skills of a Claude Code run", () => {
+  it.effect("preloads a declared skill from the skills folder into the role's instructions", () =>
+    Effect.gen(function* () {
+      const skillsDir = yield* tempDir;
+      const skillDir = yield* skillIn(skillsDir, "house-style", "Name things plainly.");
+      const run = yield* runOfClassifying({ options: { skillsDir, skills: ["house-style"] } });
+      const prompt = (yield* agentsIn(run.args))["rouage-classify"]?.prompt ?? "";
+      expect(prompt).toContain("Name things plainly.");
+      expect(prompt).toContain(skillDir);
+      expect(prompt).not.toContain("description: The house-style skill.");
+    }).pipe(Effect.scoped, Effect.provide(nodeFiles)),
+  );
+
+  it.effect("denies every skill the role did not declare, even when it declares some", () =>
+    Effect.gen(function* () {
+      const skillsDir = yield* tempDir;
+      yield* skillIn(skillsDir, "house-style", "Name things plainly.");
+      const run = yield* runOfClassifying({ options: { skillsDir, skills: ["house-style"] } });
+      expect(flagValue(run.args, "--disallowedTools")).toBe("Skill");
+      expect(run.args).toContain("--disable-slash-commands");
+      expect((yield* agentsIn(run.args))["rouage-classify"]?.tools).not.toContain("Skill");
+    }).pipe(Effect.scoped, Effect.provide(nodeFiles)),
+  );
+
+  it.effect("finds a declared skill in the repository's own skills folder", () =>
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      const repoDir = yield* tempDir;
+      yield* skillIn(path.join(repoDir, ".claude", "skills"), "triage", "Label every issue.");
+      const run = yield* runOfClassifying({ options: { repoDir, skills: ["triage"] } });
+      expect((yield* agentsIn(run.args))["rouage-classify"]?.prompt).toContain(
+        "Label every issue.",
+      );
+    }).pipe(Effect.scoped, Effect.provide(nodeFiles)),
+  );
+
+  it.effect("reads the skills folder from env over the option", () =>
+    Effect.gen(function* () {
+      const fromEnv = yield* tempDir;
+      yield* skillIn(fromEnv, "house-style", "Name things from env.");
+      const run = yield* runOfClassifying({
+        options: { skillsDir: "/no/such/skills", skills: ["house-style"] },
+        env: { ROUAGE_CLAUDE_CODE_SKILLS_DIR: fromEnv },
+      });
+      expect((yield* agentsIn(run.args))["rouage-classify"]?.prompt).toContain(
+        "Name things from env.",
+      );
+    }).pipe(Effect.scoped, Effect.provide(nodeFiles)),
+  );
+
+  it.effect("fails to build when a declared skill is in no skills folder", () =>
+    Effect.gen(function* () {
+      const plugin = yield* pluginUnderTest({ runs: answers, options: { skills: ["missing"] } });
+      const error = yield* Effect.flip(Layer.build(plugin.layer));
+      expect(error._tag).toBe("SkillNotFound");
+    }).pipe(Effect.scoped, Effect.provide(nodeFiles)),
+  );
+
+  it.effect("gives the role the Skill tool when undeclared skills are allowed", () =>
+    Effect.gen(function* () {
+      const run = yield* runOfClassifying({ options: { allowUndeclaredSkills: true } });
+      expect((yield* agentsIn(run.args))["rouage-classify"]?.tools).toContain("Skill");
+      expect(flagValue(run.args, "--disallowedTools")).toBeUndefined();
+      expect(run.args).not.toContain("--disable-slash-commands");
     }).pipe(Effect.scoped, Effect.provide(nodeFiles)),
   );
 });

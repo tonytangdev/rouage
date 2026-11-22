@@ -33,6 +33,12 @@ const FrontmatterSchema = Schema.Struct({
 type Frontmatter = typeof FrontmatterSchema.Type;
 
 const frontmatterPattern = /^---\r?\n(?<head>[\s\S]*?)\r?\n---\r?\n?(?<body>[\s\S]*)$/u;
+
+/** The frontmatter of agent or skill markdown, undefined when it has none, and its trimmed body. */
+export const splitFrontmatter = (text: string) => {
+  const parts = frontmatterPattern.exec(text)?.groups;
+  return { head: parts?.["head"], body: (parts?.["body"] ?? text).trim() };
+};
 const keyPattern = /^(?<key>[A-Za-z]\w*):\s*(?<value>.*)$/u;
 const itemPattern = /^\s+-\s+(?<item>.*)$/u;
 
@@ -91,16 +97,16 @@ const invalid = (path: string, reason: string) =>
 
 /** The role `text`, the content of the role file at `path`, describes. */
 export const parseRoleFile = Effect.fnUntraced(function* (path: string, text: string) {
-  const parts = frontmatterPattern.exec(text)?.groups;
-  if (parts?.["head"] === undefined) {
+  const { head, body } = splitFrontmatter(text);
+  if (head === undefined) {
     return yield* invalid(path, "it has no frontmatter between --- lines");
   }
-  const frontmatter = yield* Schema.decodeEffect(FrontmatterSchema)(
-    rawFrontmatter(parts["head"]),
-  ).pipe(Effect.mapError((error) => invalid(path, error.message)));
+  const frontmatter = yield* Schema.decodeEffect(FrontmatterSchema)(rawFrontmatter(head)).pipe(
+    Effect.mapError((error) => invalid(path, error.message)),
+  );
   return {
     description: frontmatter.description ?? frontmatter.name ?? path,
     settings: settingsOf(frontmatter),
-    template: (parts["body"] ?? "").trim(),
+    template: body,
   } satisfies RoleFile;
 });
