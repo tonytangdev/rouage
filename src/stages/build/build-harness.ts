@@ -18,7 +18,11 @@ export const reproductionFailed = {
 /** What the builder is asked to implement on a feature's first build. */
 export const firstImplement = {
   workItemId: goldenRefs.workItemId,
+  issueRef: goldenRefs.issueRef,
+  kind: "feature",
+  specRef: goldenRefs.specRef,
   planRef: goldenRefs.planRef,
+  sandboxRef: goldenRefs.sandboxRef,
   reproductionRef: null,
   changeRequest: null,
   feedback: null,
@@ -37,6 +41,7 @@ export const bugCheck = {
 /** What the builder is asked to implement on a bug's first build. */
 export const bugImplement = {
   ...firstImplement,
+  kind: "bug",
   reproductionRef: goldenRefs.reproductionRef,
 } as const;
 

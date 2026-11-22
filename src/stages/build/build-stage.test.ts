@@ -28,10 +28,7 @@ describe("build stage", () => {
       expect(fake.calls()).toStrictEqual([
         { step: "implement", task: implement },
         { step: "test", task: implement },
-        {
-          step: "fix",
-          task: { workItemId: firstImplement.workItemId, failures: testsFailed.failures },
-        },
+        { step: "fix", task: { ...implement, failures: testsFailed.failures } },
         { step: "test", task: implement },
       ]);
     }),
@@ -74,7 +71,7 @@ describe("build stage", () => {
       ]);
       expect(fake.calls()).toContainEqual({
         step: "fix",
-        task: { workItemId: "wi-1", failures: reproductionFailed.failures },
+        task: { ...bugImplement, failures: reproductionFailed.failures },
       });
     }),
   );
@@ -99,14 +96,25 @@ describe("build stage", () => {
       }),
   );
 
-  it.effect("builds a feature without a reproduction or a sandbox, and checks nothing", () =>
+  it.effect("builds a feature without a reproduction, and checks nothing", () =>
     Effect.gen(function* () {
       const { settled, fake } = yield* buildUnderTest.run(
         { testReports: [testsPassed], reproductionChecks: [reproductionPassed] },
-        { ...buildUnderTest.input, reproductionRef: null, sandboxRef: null },
+        { ...buildUnderTest.input, reproductionRef: null },
       );
       expect(settled.output).toStrictEqual({ _tag: "built" });
       expect(fake.steps()).toStrictEqual(["implement", "test"]);
+    }),
+  );
+
+  it.effect("fails a feature that reaches it without a sandbox", () =>
+    Effect.gen(function* () {
+      const { settled, fake } = yield* buildUnderTest.run(
+        { testReports: [testsPassed] },
+        { ...buildUnderTest.input, sandboxRef: null },
+      );
+      expect(failureReasonOf(settled.error)).toStrictEqual(sandboxMissing("Build").reason);
+      expect(fake.steps()).toStrictEqual([]);
     }),
   );
 
@@ -166,7 +174,7 @@ describe("build stage", () => {
       const { fake } = yield* buildUnderTest.run({ testReports: [testsFailed, testsPassed] });
       expect(fake.calls()).toContainEqual({
         step: "fix",
-        task: { workItemId: "wi-1", failures: "1 test failed: totals add VAT" },
+        task: { ...firstImplement, failures: "1 test failed: totals add VAT" },
       });
     }),
   );

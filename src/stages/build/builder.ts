@@ -2,14 +2,11 @@ import type { Effect } from "effect";
 import { Context, Data, Schema } from "effect";
 
 import { ChangeRequestSchema } from "../../lifecycle/change-request.ts";
-import { RunBriefSchema } from "../run-brief.ts";
+import { BuiltChangeSchema } from "../built-change.ts";
 
+/** The change to make: the sandbox to make it in, what it is built from, and what it was last sent back to address. For a bug, `reproductionRef` is the reproduction confirmed failing before the change. */
 export const BuildTaskSchema = Schema.Struct({
-  ...RunBriefSchema.fields,
-  /** The plan to follow, or null when the lifecycle runs no Plan before Build. */
-  planRef: Schema.NullOr(Schema.String),
-  /** The bug's reproduction, confirmed failing before the change; null for a feature. */
-  reproductionRef: Schema.NullOr(Schema.String),
+  ...BuiltChangeSchema.fields,
   /** What the change was last sent back to address, which outlives this run's feedback (ADR 0012); null until the change is first sent back, and again after a return to Spec. When it comes `from: "ship"`, the builder brings the change up to date with its target first (ADR 0013). */
   changeRequest: Schema.NullOr(ChangeRequestSchema),
 });
@@ -23,7 +20,8 @@ export const ReproductionCheckTaskSchema = Schema.Struct({
 });
 export type ReproductionCheckTask = typeof ReproductionCheckTaskSchema.Type;
 
-export const FixTaskSchema = Schema.Struct({ workItemId: Schema.String, failures: Schema.String });
+/** The change being made, with the failures of the last test run or reproduction check to fix. */
+export const FixTaskSchema = Schema.Struct({ ...BuildTaskSchema.fields, failures: Schema.String });
 export type FixTask = typeof FixTaskSchema.Type;
 
 export type TestReport =

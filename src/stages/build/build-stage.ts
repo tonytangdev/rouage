@@ -3,10 +3,9 @@ import { setup, types } from "xstate";
 
 import type { OutcomeOf, StageInput } from "../../lifecycle/stage.ts";
 import { StageFailure, StageInputSchema } from "../../lifecycle/stage.ts";
+import { builtChangeTask } from "../built-change.ts";
 import type { PortStep } from "../port-stage.ts";
 import { portStage } from "../port-stage.ts";
-import { briefOf } from "../run-brief.ts";
-import { sandboxMissing } from "../sandbox-missing.ts";
 import type { BuildTask, FixTask, ReproductionCheckTask } from "./builder.ts";
 import { BuildTaskSchema, Builder, FixTaskSchema, ReproductionCheckTaskSchema } from "./builder.ts";
 
@@ -27,12 +26,16 @@ export interface BuildOptions {
   readonly fixAttempts?: number;
 }
 
-const buildTask = ({ context }: { readonly context: BuildContext }): BuildTask => ({
-  ...briefOf(context.input),
-  planRef: context.input.planRef,
-  reproductionRef: context.input.reproductionRef,
-  changeRequest: context.input.changeRequest,
-});
+const buildTaskOf = (input: StageInput): BuildTask => {
+  const task = builtChangeTask("Build", input, { changeRequest: input.changeRequest });
+  if (task instanceof StageFailure) {
+    throw task;
+  }
+  return task;
+};
+
+const buildTask = ({ context }: { readonly context: BuildContext }): BuildTask =>
+  buildTaskOf(context.input);
 
 const fixTask = ({
   context,
@@ -40,7 +43,7 @@ const fixTask = ({
 }: {
   readonly context: BuildContext;
   readonly input: typeof FailuresSchema.Type;
-}): FixTask => ({ workItemId: context.input.workItemId, failures: input.failures });
+}): FixTask => ({ ...buildTaskOf(context.input), failures: input.failures });
 
 const reproductionMissing = new StageFailure({
   reason: {
@@ -50,20 +53,17 @@ const reproductionMissing = new StageFailure({
   },
 });
 
-const reproductionCheckOf = (input: StageInput): ReproductionCheckTask | null => {
-  if (input.kind !== "bug") {
+const reproductionCheckOf = (task: BuildTask): ReproductionCheckTask | null => {
+  if (task.kind !== "bug") {
     return null;
   }
-  if (input.reproductionRef === null) {
+  if (task.reproductionRef === null) {
     throw reproductionMissing;
   }
-  if (input.sandboxRef === null) {
-    throw sandboxMissing("Build");
-  }
   return {
-    workItemId: input.workItemId,
-    sandboxRef: input.sandboxRef,
-    reproductionRef: input.reproductionRef,
+    workItemId: task.workItemId,
+    sandboxRef: task.sandboxRef,
+    reproductionRef: task.reproductionRef,
   };
 };
 
@@ -133,7 +133,7 @@ const buildMachine = (step: PortStep<Builder["Service"]>, fixAttempts: number) =
         type: "choice",
         choice: ({ context }) => ({
           target: "implementing",
-          context: { reproductionCheck: reproductionCheckOf(context.input) },
+          context: { reproductionCheck: reproductionCheckOf(buildTaskOf(context.input)) },
         }),
       },
       implementing: {
@@ -189,7 +189,7 @@ const buildMachine = (step: PortStep<Builder["Service"]>, fixAttempts: number) =
  * once the reproduction's check passes too, fixing it within the same budget
  * (ADR 0010). Fails with a `StageFailure` when the builder cannot finish a
  * step, the tests or the reproduction still fail after the last fix attempt,
- * or a bug arrives without its reproduction or sandbox.
+ * or the work item arrives without a sandbox, or a bug without its reproduction.
  */
 export const buildStage = Effect.fnUntraced(function* (options: BuildOptions = {}) {
   const fixAttempts = yield* resolveFixAttempts(options.fixAttempts);
