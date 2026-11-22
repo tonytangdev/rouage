@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { Effect, FileSystem } from "effect";
+import { Effect, FileSystem, Path } from "effect";
 
 import type { ConfirmTask } from "../../index.ts";
 import { Reproducer } from "../../index.ts";
@@ -33,5 +33,23 @@ describe("the Claude Code reproducer", () => {
       expect(confirmation).toStrictEqual({ _tag: "failed" });
       expect(plugin.claude.spawned()).toStrictEqual([]);
     }).pipe(Effect.scoped, Effect.provide(nodeFiles)),
+  );
+
+  it.effect(
+    "reports the bug did not show when the test command passes in the workspace, with all it printed",
+    () =>
+      Effect.gen(function* () {
+        const { confirmation, sandbox } = yield* confirmedOn({
+          runs: [{ _tag: "crashes", stderr: "claude should not run", exitCode: 1 }],
+          options: {
+            testCommand: 'echo "1 passed in $(basename "$PWD")"; echo \'no warnings\' >&2',
+          },
+        });
+        const path = yield* Path.Path;
+        expect(confirmation).toStrictEqual({
+          _tag: "passed",
+          output: `1 passed in ${path.basename(sandbox)}\nno warnings\n`,
+        });
+      }).pipe(Effect.scoped, Effect.provide(nodeFiles)),
   );
 });
