@@ -194,10 +194,14 @@ export const inputOnReaching = (stage: StageName, route: Route = {}): StageInput
     return input;
   });
 
-/** Where the lifecycle sends the work item once `stage` finishes with its golden outcome on `route`. Runs at once, outside any Effect. */
-export const nextAfter = (stage: StageName, route: Route = {}): Place =>
+/** Where the lifecycle sends the work item once `stage`, reached along `route`, finishes with `outcome`. Runs at once, outside any Effect. */
+export const nextAfter = <Stage extends StageName>(
+  stage: Stage,
+  outcome: OutcomeOf<Stage>,
+  route: Route = {},
+): Place =>
   readAtOnce((workItem) => {
     workItem.advanceTo(stage, route);
-    workItem.finish(stage, goldenOutcome(stage, route));
+    workItem.finish(stage, outcome);
     return workItem.state();
   });

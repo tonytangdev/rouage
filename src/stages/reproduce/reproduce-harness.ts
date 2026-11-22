@@ -3,7 +3,7 @@ import { portStageUnderTest, scriptedStage } from "../port-stage-under-test.ts";
 import { fakeReproducer, reproducerPort } from "./fake-reproducer.ts";
 import { reproduceStage } from "./reproduce-stage.ts";
 
-export const captured = { _tag: "captured", reproductionRef: "repro-1" } as const;
+export const captured = { _tag: "captured", reproductionRef: goldenRefs.reproductionRef } as const;
 export const checkFailed = { _tag: "failed" } as const;
 export const checkPassed = { _tag: "passed", output: "1 test passed: totals add VAT" } as const;
 

@@ -13,7 +13,7 @@ export const testsFailed = { _tag: "failed", failures: "1 test failed: totals ad
 export const reproductionPassed = { _tag: "passed" } as const;
 export const reproductionFailed = {
   _tag: "failed",
-  failures: "repro-1 still failed: total is 0",
+  failures: `${goldenRefs.reproductionRef} still failed: total is 0`,
 } as const;
 
 /** What the builder is asked to implement on a feature's first build. */

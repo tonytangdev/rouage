@@ -17,11 +17,12 @@ import type { PortStageUnderTest, ScriptedPortStage } from "./port-stage-under-t
 const lifecycleWith = (name: StageName, stage: AnyStateMachine): RealStages => ({ [name]: stage });
 
 const itGivesARetrysCommentToItsFirstStep = <
+  Stage extends StageName,
   Step extends string,
   Script,
   Scripted extends ScriptedPortStage<Step>,
 >(
-  stage: PortStageUnderTest<Step, Script, Scripted>,
+  stage: PortStageUnderTest<Stage, Step, Script, Scripted>,
 ) => {
   it.effect("gives a retry's comment to its first step as feedback", () =>
     Effect.gen(function* () {
@@ -42,11 +43,12 @@ const itGivesARetrysCommentToItsFirstStep = <
 };
 
 const itRestoresMidFirstStep = <
+  Stage extends StageName,
   Step extends string,
   Script,
   Scripted extends ScriptedPortStage<Step>,
 >(
-  stage: PortStageUnderTest<Step, Script, Scripted>,
+  stage: PortStageUnderTest<Stage, Step, Script, Scripted>,
 ) => {
   const { firstStep } = stage;
   const savedMidFirstStep = Effect.fnUntraced(function* () {
@@ -108,11 +110,12 @@ const itRestoresMidFirstStep = <
  * its running step, no longer fits is refused before any step runs.
  */
 export const describePortStageInLifecycle = <
+  Stage extends StageName,
   Step extends string,
   Script,
   Scripted extends ScriptedPortStage<Step>,
 >(
-  stage: PortStageUnderTest<Step, Script, Scripted>,
+  stage: PortStageUnderTest<Stage, Step, Script, Scripted>,
 ) => {
   describe(`port stage contract in the lifecycle, ${stage.name}`, () => {
     for (const step of stage.steps) {

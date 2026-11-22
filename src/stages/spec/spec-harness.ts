@@ -3,7 +3,7 @@ import { portStageUnderTest, scriptedStage } from "../port-stage-under-test.ts";
 import { fakeSpecWriter, specWriterPort } from "./fake-spec-writer.ts";
 import { specStage } from "./spec-stage.ts";
 
-export const writtenSpec = { _tag: "written", specRef: "spec-1" } as const;
+export const writtenSpec = { _tag: "written", specRef: goldenRefs.specRef } as const;
 export const unclearIssue = {
   _tag: "unclear",
   reason: "The issue names the page but not what it should show",

@@ -3,7 +3,7 @@ import { portStageUnderTest, scriptedStage } from "../port-stage-under-test.ts";
 import { demoStage } from "./demo-stage.ts";
 import { demonstratorPort, fakeDemonstrator } from "./fake-demonstrator.ts";
 
-export const firstDemoMade = { demoRef: "demo-1" } as const;
+export const firstDemoMade = { demoRef: goldenRefs.demoRef } as const;
 
 /** What the demonstrator is asked on a feature's first demo. */
 export const firstDemo = {

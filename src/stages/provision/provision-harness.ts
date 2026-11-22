@@ -8,7 +8,7 @@ import type { FakeSamplerScript } from "./fake-sampler.ts";
 import { fakeSampler, samplerPort } from "./fake-sampler.ts";
 import { provisionStage } from "./provision-stage.ts";
 
-export const sandbox = { sandboxRef: "box-1" } as const;
+export const sandbox = { sandboxRef: goldenRefs.sandboxRef } as const;
 export const sample = { _tag: "sampled", sampleRef: "sample-1" } as const;
 export const awaitingRun = { _tag: "awaitingRun", scriptRef: "script-1" } as const;
 

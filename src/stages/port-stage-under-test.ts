@@ -1,13 +1,13 @@
 import { Data, Effect, Function } from "effect";
 import type { Scope } from "effect";
-import type { Actor, AnyActorLogic, AnyStateMachine, OutputFrom } from "xstate";
+import type { Actor, AnyActorLogic, AnyStateMachine, InputFrom, OutputFrom } from "xstate";
 import { createActor, toPromise } from "xstate";
 
 import type { TestWorkItem } from "../lifecycle/lifecycle-harness.ts";
 import { inputOnReaching, nextAfter, startWorkItem } from "../lifecycle/lifecycle-harness.ts";
 import type { Place } from "../lifecycle/place.ts";
 import type { Settled } from "../lifecycle/stage-contract.ts";
-import type { FailureReason, StageInput, StageName } from "../lifecycle/stage.ts";
+import type { FailureReason, OutcomeOf, StageInput, StageName } from "../lifecycle/stage.ts";
 import { stageInputs } from "../lifecycle/stage.ts";
 import type { Route } from "../lifecycle/test-fixtures.ts";
 import type { Fake, FakePort, Misbehaviour, Misbehaving } from "./fake-script.ts";
@@ -119,17 +119,18 @@ export interface DeclaredPort {
 
 /** What a stage folder declares once about its port stage, for its tests and both contract suites. */
 export interface PortStageDeclaration<
+  Stage extends StageName,
   Step extends string,
   Script,
   Scripted extends ScriptedPortStage<Step>,
 > {
-  readonly name: StageName;
+  readonly name: Stage;
   readonly port: FakePort<Step, PortGaveUp>;
   /** Builds the stage with fresh fakes that follow `script`. */
   readonly scripted: (script: Script) => Effect.Effect<Scripted, unknown, Scope.Scope>;
   /** A script that finishes the stage with `outcome`, unless `misbehaving` says otherwise. */
   readonly passing: (misbehaving?: Misbehaving<Step>) => NoInfer<Script>;
-  readonly outcome: unknown;
+  readonly outcome: NoInfer<OutcomeOf<Stage>>;
   /** The route the work item takes to reach the stage; a feature with no demo unless set. */
   readonly route?: Route;
   /** What the stage's first step is asked when it is reached along `route`. */
@@ -140,13 +141,14 @@ export interface PortStageDeclaration<
 
 /** A declared port stage, ready to run outside any lifecycle. */
 export interface PortStageUnderTest<
+  Stage extends StageName,
   Step extends string,
   Script,
   Scripted extends ScriptedPortStage<Step>,
-> extends PortStageDeclaration<Step, Script, Scripted> {
+> extends PortStageDeclaration<Stage, Step, Script, Scripted> {
   /** The input the stage receives when the work item first reaches it along `route`. */
   readonly input: StageInput;
-  /** Where the lifecycle sends the work item once the stage finishes on `route`. */
+  /** Where the lifecycle sends the work item once the stage, reached along `route`, finishes with `outcome`. */
   readonly next: Place;
   /** The step the stage asks its port first, which the contract suites make misbehave. */
   readonly firstStep: Step;
@@ -167,6 +169,31 @@ export interface PortStageUnderTest<
     script: Script,
     input?: StageInput,
   ) => Effect.Effect<Scripted & { readonly settled: Settled<unknown> }, unknown, Scope.Scope>;
+}
+
+// Checks the output and input only, as XState v6 does when the lifecycle is
+// given a stage for a slot, because a machine's transition takes its own
+// snapshot type and so is never assignable to the slot's logic type itself.
+type FitsSlot<Stage extends StageName, Machine extends AnyStateMachine> = [
+  OutputFrom<Machine>,
+] extends [OutcomeOf<Stage>]
+  ? [StageInput] extends [InputFrom<Machine>]
+    ? Machine
+    : never
+  : never;
+
+interface FitsItsSlot<
+  Stage extends StageName,
+  Script,
+  Scripted extends { readonly stage: AnyStateMachine },
+> {
+  readonly scripted: (
+    script: NoInfer<Script>,
+  ) => Effect.Effect<
+    { readonly stage: NoInfer<FitsSlot<Stage, Scripted["stage"]>> },
+    unknown,
+    Scope.Scope
+  >;
 }
 
 /** Builds a port stage's `scripted` from its fake and its stage, the fake's layer providing the port the stage takes from context. */
@@ -205,8 +232,13 @@ const portsOf = (
   );
 
 /** The `declare` a stage folder declares its unreached steps through, its own port's steps defaulting to the stage's fake. */
-const declarer = <Step extends string, Script, Scripted extends ScriptedPortStage<Step>>(
-  declaration: PortStageDeclaration<Step, Script, Scripted>,
+const declarer = <
+  Stage extends StageName,
+  Step extends string,
+  Script,
+  Scripted extends ScriptedPortStage<Step>,
+>(
+  declaration: PortStageDeclaration<Stage, Step, Script, Scripted>,
 ): DeclareUnreached<Step, Script, Scripted> => {
   const reachedBy = (declared: UnreachedOwnStep<string, Script>) =>
     inputOnReach(
@@ -214,15 +246,9 @@ const declarer = <Step extends string, Script, Scripted extends ScriptedPortStag
       declaration.scripted(declared.misbehaving("hanging")),
       declared.reach,
     );
-  function declare(declared: UnreachedOwnStep<Step, Script>): ReachableStep<Script, Scripted>;
-  function declare<Other extends string>(
-    declared: UnreachedStep<Other, Script, Scripted>,
-  ): ReachableStep<Script, Scripted>;
-  function declare<Other extends string>(
-    declared: UnreachedOwnStep<Step, Script> | UnreachedStep<Other, Script, Scripted>,
-  ): ReachableStep<Script, Scripted> {
+  return (declared: UnreachedOwnStep<Step, Script> | UnreachedStep<string, Script, Scripted>) => {
     if ("port" in declared) {
-      return reachableStep(declared.port, declared.step, {
+      return reachableStep<Script, Scripted>(declared.port, declared.step, {
         misbehaving: declared.misbehaving,
         started: (scripted) => declared.fake(scripted).started(declared.step),
         interrupted: (scripted) => declared.fake(scripted).interrupted(declared.step),
@@ -230,15 +256,14 @@ const declarer = <Step extends string, Script, Scripted extends ScriptedPortStag
         reach: declared.reach,
       });
     }
-    return reachableStep(declaration.port, declared.step, {
+    return reachableStep<Script, Scripted>(declaration.port, declared.step, {
       misbehaving: declared.misbehaving,
       started: (scripted) => scripted.fake.started(declared.step),
       interrupted: (scripted) => scripted.fake.interrupted(declared.step),
       input: reachedBy(declared),
       reach: declared.reach,
     });
-  }
-  return declare;
+  };
 };
 
 /**
@@ -248,15 +273,17 @@ const declarer = <Step extends string, Script, Scripted extends ScriptedPortStag
  * declares through `declare`.
  */
 export const portStageUnderTest = <
+  Stage extends StageName,
   Step extends string,
   Script,
   Scripted extends ScriptedPortStage<Step>,
 >(
-  declaration: PortStageDeclaration<Step, Script, Scripted>,
+  declaration: PortStageDeclaration<Stage, Step, Script, Scripted> &
+    FitsItsSlot<Stage, Script, Scripted>,
   unreached: (
     declare: DeclareUnreached<NoInfer<Step>, NoInfer<Script>, NoInfer<Scripted>>,
   ) => ReadonlyArray<ReachableStep<NoInfer<Script>, NoInfer<Scripted>>> = () => [],
-): PortStageUnderTest<Step, Script, Scripted> => {
+): PortStageUnderTest<Stage, Step, Script, Scripted> => {
   const input = inputOnReaching(declaration.name, declaration.route);
   const { port, route } = declaration;
   const [firstStep] = port.steps;
@@ -274,11 +301,15 @@ export const portStageUnderTest = <
   const first = ownStep(firstStep);
   const passingReaches = declaration.reached ?? [firstStep];
   const [, ...laterReached] = passingReaches;
-  const steps = [first, ...laterReached.map(ownStep), ...unreached(declarer(declaration))];
+  const steps = [
+    first,
+    ...laterReached.map(ownStep),
+    ...unreached(declarer<Stage, Step, Script, Scripted>(declaration)),
+  ];
   return {
     ...declaration,
     input,
-    next: nextAfter(declaration.name, route),
+    next: nextAfter(declaration.name, declaration.outcome, route),
     firstStep,
     gaveUp: first.gaveUp,
     crashMessage: first.crashMessage,
