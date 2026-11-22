@@ -1,0 +1,7 @@
+{"type": "system", "subtype": "init", "cwd": "/private/tmp/rouage-spike", "session_id": "3e54034c-cdf6-48cf-93dd-f779c82891ba", "tools": ["Read"], "mcp_servers": [], "model": "claude-haiku-5-5", "permissionMode": "dontAsk", "apiKeySource": "none", "claude_code_version": "2.1.330"}
+{"type": "system", "subtype": "thinking_tokens", "session_id": "3e54034c-cdf6-48cf-93dd-f779c82891ba"}
+{"type": "system", "subtype": "thinking_tokens", "session_id": "3e54034c-cdf6-48cf-93dd-f779c82891ba"}
+{"type": "assistant", "message": {"role": "assistant", "content": [], "model": "claude-haiku-5-5"}, "session_id": "3e54034c-cdf6-48cf-93dd-f779c82891ba"}
+{"type": "rate_limit_event", "rate_limit_info": {"status": "allowed", "resetsAt": 1795359600, "rateLimitType": "five_hour"}, "session_id": "3e54034c-cdf6-48cf-93dd-f779c82891ba"}
+{"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": "**Bug.** A null pointer crash on Save is unintended behavior, not a requested feature."}], "model": "claude-haiku-5-5"}, "session_id": "3e54034c-cdf6-48cf-93dd-f779c82891ba"}
+{"type": "result", "subtype": "success", "is_error": false, "api_error_status": null, "duration_ms": 1100, "num_turns": 1, "result": "**Bug.** A null pointer crash on Save is unintended behavior, not a requested feature.", "stop_reason": "end_turn", "session_id": "3e54034c-cdf6-48cf-93dd-f779c82891ba", "total_cost_usd": 0.0005434, "terminal_reason": "completed"}
