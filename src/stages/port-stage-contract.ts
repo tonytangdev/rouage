@@ -3,14 +3,20 @@ import { Effect } from "effect";
 
 import type { StageAdapter } from "../lifecycle/stage-contract.ts";
 import { describeStageContract } from "../lifecycle/stage-contract.ts";
+import type { StageName } from "../lifecycle/stage.ts";
 import { failureReasonOf } from "../lifecycle/stage.ts";
 import type { Misbehaving } from "./fake-script.ts";
 import type { PortStageUnderTest, ScriptedPortStage } from "./port-stage-under-test.ts";
 
 // A stage that runs its steps through a port fails and crashes the way its
 // port does, so those cases come from making its first step misbehave.
-const portAdapter = <Step extends string, Script, Scripted extends ScriptedPortStage<Step>>(
-  stage: PortStageUnderTest<Step, Script, Scripted>,
+const portAdapter = <
+  Stage extends StageName,
+  Step extends string,
+  Script,
+  Scripted extends ScriptedPortStage<Step>,
+>(
+  stage: PortStageUnderTest<Stage, Step, Script, Scripted>,
 ): StageAdapter => {
   const { firstStep } = stage;
   const settled = (misbehaving?: Misbehaving<Step>) =>
@@ -34,11 +40,12 @@ const portAdapter = <Step extends string, Script, Scripted extends ScriptedPortS
  * steps and what its passing script reaches.
  */
 export const describePortStage = <
+  Stage extends StageName,
   Step extends string,
   Script,
   Scripted extends ScriptedPortStage<Step>,
 >(
-  stage: PortStageUnderTest<Step, Script, Scripted>,
+  stage: PortStageUnderTest<Stage, Step, Script, Scripted>,
 ) => {
   describeStageContract(portAdapter(stage));
 

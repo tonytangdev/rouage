@@ -1,4 +1,4 @@
-import { goldenRefs } from "../../lifecycle/golden-route.ts";
+import { goldenRefs } from "../../lifecycle/test-fixtures.ts";
 import { portStageUnderTest, scriptedStage } from "../port-stage-under-test.ts";
 import { fakeReviewer, reviewerPort } from "./fake-reviewer.ts";
 import { reviewStage } from "./review-stage.ts";
@@ -28,3 +28,6 @@ export const reviewUnderTest = portStageUnderTest({
   outcome: approval,
   firstTask: firstReview,
 });
+
+/** A fake reviewer following the Review stage's passing script. */
+export const passingReviewer = fakeReviewer(reviewUnderTest.passing());

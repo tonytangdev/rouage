@@ -1,10 +1,12 @@
-import { Data, Effect, Schema } from "effect";
+import type { Schema } from "effect";
+import { Data, Effect } from "effect";
 import type { AnyStateMachine, StandardSchemaV1 } from "xstate";
 import { StateMachine } from "xstate";
 import { snapshotSchema } from "xstate/persist";
 
 import type { LifecycleSources } from "./lifecycle-logic.ts";
 import { defaultLifecycle } from "./lifecycle.ts";
+import { savedStagesOf, savedStateInputsOf, savedStepsOf } from "./saved-work-item.ts";
 import { stateInputSchemasOf } from "./state-nodes.ts";
 import { taskSchemaOf } from "./step-task.ts";
 
@@ -29,60 +31,21 @@ const validated = Effect.fnUntraced(function* <Output>(
   return result.value;
 });
 
-const SavedChildren = Schema.Struct({
-  children: Schema.Record(
-    Schema.String,
-    Schema.Struct({
-      src: Schema.optional(Schema.String),
-      snapshot: Schema.optional(Schema.Unknown),
-    }),
-  ),
-});
-
-const SavedStep = Schema.Struct({
-  status: Schema.optional(Schema.String),
-  input: Schema.optional(Schema.Unknown),
-});
-
-const savedChildren = Effect.fnUntraced(function* (parent: LifecycleSources, persisted: unknown) {
-  const { children } = yield* Schema.decodeUnknownEffect(SavedChildren)(persisted).pipe(
-    Effect.mapError((error) => unreadable(error.message)),
-  );
-  return Object.entries(children).flatMap(([id, { src, snapshot }]) => {
-    const source = src === undefined ? undefined : parent.sources.actors[src];
-    return source === undefined || snapshot === undefined ? [] : [{ id, source, snapshot }];
-  });
-});
-
-// A step that finished or failed drops its input, so only a running one is checked.
-const checkSavedStep = Effect.fnUntraced(function* (
-  task: StandardSchemaV1<unknown, unknown>,
-  snapshot: unknown,
-  what: string,
-) {
-  const { status, input } = yield* Schema.decodeUnknownEffect(SavedStep)(snapshot).pipe(
-    Effect.mapError((error) => unreadable(error.message)),
-  );
-  if (status === "active") {
-    yield* validated(task, input, what);
-  }
-});
+const readable = <A, R>(effect: Effect.Effect<A, Schema.SchemaError, R>) =>
+  effect.pipe(Effect.mapError((error) => unreadable(error.message)));
 
 const checkSavedSteps = Effect.fnUntraced(function* (
   stage: string,
-  parent: LifecycleSources,
-  persisted: unknown,
+  machine: AnyStateMachine,
+  snapshot: unknown,
 ) {
-  for (const { id, source, snapshot } of yield* savedChildren(parent, persisted)) {
-    const task = taskSchemaOf(source);
-    if (task !== undefined) {
-      yield* checkSavedStep(task, snapshot, `The task of the saved ${stage} stage's ${id} step`);
+  for (const { id, src, task } of yield* readable(savedStepsOf(snapshot))) {
+    const source = machine.sources.actors[src];
+    const schema = source === undefined ? undefined : taskSchemaOf(source);
+    if (schema !== undefined) {
+      yield* validated(schema, task, `The task of the saved ${stage} stage's ${id} step`);
     }
   }
-});
-
-const SavedStateInputs = Schema.Struct({
-  stateInputs: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
 });
 
 // XState's snapshotSchema checks a machine's context but not its state
@@ -92,11 +55,9 @@ const SavedStateInputs = Schema.Struct({
 const checkSavedStateInputs = Effect.fnUntraced(function* (
   stage: string,
   machine: AnyStateMachine,
-  persisted: unknown,
+  snapshot: unknown,
 ) {
-  const { stateInputs = {} } = yield* Schema.decodeUnknownEffect(SavedStateInputs)(persisted).pipe(
-    Effect.mapError((error) => unreadable(error.message)),
-  );
+  const stateInputs = yield* readable(savedStateInputsOf(snapshot));
   const declared = stateInputSchemasOf(machine.root);
   for (const [id, input] of Object.entries(stateInputs)) {
     const state = declared.get(id);
@@ -119,7 +80,8 @@ const checkSavedStages = Effect.fnUntraced(function* (
   lifecycle: LifecycleSources,
   persisted: unknown,
 ) {
-  for (const { id, source, snapshot } of yield* savedChildren(lifecycle, persisted)) {
+  for (const { id, src, snapshot } of yield* readable(savedStagesOf(persisted))) {
+    const source = lifecycle.sources.actors[src];
     if (source instanceof StateMachine) {
       yield* validated(snapshotSchema(source), snapshot, `The saved ${id} stage`);
       yield* checkSavedStateInputs(id, source, snapshot);

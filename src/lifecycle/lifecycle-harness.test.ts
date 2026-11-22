@@ -1,8 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { StageNotRunning, WaypointNotOnRoute } from "./golden-route.ts";
-import { startWorkItem } from "./lifecycle-harness.ts";
+import { StageNotRunning, WaypointNotOnRoute, startWorkItem } from "./lifecycle-harness.ts";
 
 describe("lifecycle harness", () => {
   it.effect("fails at once when a test finishes a stage the work item is not in", () =>

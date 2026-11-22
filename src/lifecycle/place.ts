@@ -1,7 +1,8 @@
-import { Data, Option, Record, Schema } from "effect";
+import { Data, Option, Record, Schema, Struct } from "effect";
 import type { StateValue } from "xstate";
 
-import type { OuterPlace, WorkingPlace } from "./lifecycle-setup.ts";
+import type { OuterPlace, WorkingPlace } from "./lifecycle-states.ts";
+import { lifecycleStates, workingStates } from "./lifecycle-states.ts";
 import type { StageName } from "./stage.ts";
 
 /** Every place a work item can be in: a stage, a gate, Blocked, or a final state, as the lifecycle declares them. */
@@ -10,31 +11,13 @@ export type Place = WorkingPlace | OuterPlace;
 /** Every place where the work item waits for a human decision. */
 export type Gate = Exclude<WorkingPlace, StageName>;
 
-// Records rather than lists, so the compiler rejects both a missing place or
-// gate and one the lifecycle no longer has.
-const workingPlaces: Readonly<Record<WorkingPlace, true>> = {
-  intake: true,
-  spec: true,
-  specGate: true,
-  provision: true,
-  sampleGate: true,
-  reproduce: true,
-  plan: true,
-  build: true,
-  demo: true,
-  review: true,
-  shipGate: true,
-  ship: true,
-};
-const outerPlaces: Readonly<Record<OuterPlace, true>> = {
-  blocked: true,
-  shipped: true,
-  cancelled: true,
-};
+// A record rather than a list, so the compiler rejects both a missing gate and
+// one the lifecycle no longer has. A working state for a stage the stage
+// outcomes lack is rejected here too, as a gate nobody listed.
 const gates: Readonly<Record<Gate, true>> = { specGate: true, sampleGate: true, shipGate: true };
 
-const WorkingPlaceSchema = Schema.Literals(Record.keys(workingPlaces));
-const OuterPlaceSchema = Schema.Literals(Record.keys(outerPlaces));
+const WorkingPlaceSchema = Schema.Literals(Record.keys(Struct.omit(workingStates, ["lastStage"])));
+const OuterPlaceSchema = Schema.Literals(Record.keys(Struct.omit(lifecycleStates, ["working"])));
 
 /** Every place as a Schema, so a saved decision can only name a place the lifecycle has. */
 export const PlaceSchema = Schema.Union([WorkingPlaceSchema, OuterPlaceSchema]);

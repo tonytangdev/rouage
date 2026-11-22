@@ -1,9 +1,9 @@
-import { goldenRefs } from "../../lifecycle/golden-route.ts";
+import { goldenRefs } from "../../lifecycle/test-fixtures.ts";
 import { portStageUnderTest, scriptedStage } from "../port-stage-under-test.ts";
 import { fakePlanner, plannerPort } from "./fake-planner.ts";
 import { planStage } from "./plan-stage.ts";
 
-export const plannedWithDemo = { planRef: "plan-1", demo: true } as const;
+export const plannedWithDemo = { planRef: goldenRefs.planRef, demo: true } as const;
 
 /** What the planner is asked on a feature's first plan. */
 export const firstPlan = {
@@ -26,3 +26,6 @@ export const planUnderTest = portStageUnderTest({
   outcome: { _tag: "planned", ...plannedWithDemo },
   firstTask: firstPlan,
 });
+
+/** A fake planner following the Plan stage's passing script. */
+export const passingPlanner = fakePlanner(planUnderTest.passing());

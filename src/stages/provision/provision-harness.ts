@@ -1,6 +1,6 @@
 import { Effect, Layer } from "effect";
 
-import { goldenRefs } from "../../lifecycle/golden-route.ts";
+import { goldenRefs } from "../../lifecycle/test-fixtures.ts";
 import { portStageUnderTest } from "../port-stage-under-test.ts";
 import type { FakeProvisionerScript } from "./fake-provisioner.ts";
 import { fakeProvisioner, provisionerPort } from "./fake-provisioner.ts";
@@ -8,7 +8,7 @@ import type { FakeSamplerScript } from "./fake-sampler.ts";
 import { fakeSampler, samplerPort } from "./fake-sampler.ts";
 import { provisionStage } from "./provision-stage.ts";
 
-export const sandbox = { sandboxRef: "box-1" } as const;
+export const sandbox = { sandboxRef: goldenRefs.sandboxRef } as const;
 export const sample = { _tag: "sampled", sampleRef: "sample-1" } as const;
 export const awaitingRun = { _tag: "awaitingRun", scriptRef: "script-1" } as const;
 
@@ -69,3 +69,10 @@ export const provisionUnderTest = portStageUnderTest(
     }),
   ],
 );
+
+/** A fake provisioner following the Provision stage's passing script, and a sampler with nothing to sample, as one layer. */
+export const passingProvisionPorts = Effect.gen(function* () {
+  const provisioner = yield* fakeProvisioner(provisionUnderTest.passing().provisioner);
+  const sampler = yield* fakeSampler({ results: [] });
+  return { layer: Layer.merge(provisioner.layer, sampler.layer) };
+});

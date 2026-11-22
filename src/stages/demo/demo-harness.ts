@@ -1,9 +1,9 @@
-import { goldenRefs } from "../../lifecycle/golden-route.ts";
+import { goldenRefs } from "../../lifecycle/test-fixtures.ts";
 import { portStageUnderTest, scriptedStage } from "../port-stage-under-test.ts";
 import { demoStage } from "./demo-stage.ts";
 import { demonstratorPort, fakeDemonstrator } from "./fake-demonstrator.ts";
 
-export const firstDemoMade = { demoRef: "demo-1" } as const;
+export const firstDemoMade = { demoRef: goldenRefs.demoRef } as const;
 
 /** What the demonstrator is asked on a feature's first demo. */
 export const firstDemo = {
@@ -27,3 +27,6 @@ export const demoUnderTest = portStageUnderTest({
   route: { demo: true },
   firstTask: firstDemo,
 });
+
+/** A fake demonstrator following the Demo stage's passing script. */
+export const passingDemonstrator = fakeDemonstrator(demoUnderTest.passing());

@@ -1,4 +1,4 @@
-import { goldenRefs } from "../../lifecycle/golden-route.ts";
+import { goldenRefs } from "../../lifecycle/test-fixtures.ts";
 import { portStageUnderTest, scriptedStage } from "../port-stage-under-test.ts";
 import { classifierPort, fakeClassifier } from "./fake-classifier.ts";
 import { intakeStage } from "./intake-stage.ts";
@@ -25,3 +25,6 @@ export const intakeUnderTest = portStageUnderTest({
   outcome: { _tag: "classified", kind: "bug" },
   firstTask: firstClassify,
 });
+
+/** A fake classifier following the Intake stage's passing script. */
+export const passingClassifier = fakeClassifier(intakeUnderTest.passing());

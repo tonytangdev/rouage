@@ -1,4 +1,4 @@
-import { goldenRefs } from "../../lifecycle/golden-route.ts";
+import { goldenRefs } from "../../lifecycle/test-fixtures.ts";
 import { portStageUnderTest, scriptedStage } from "../port-stage-under-test.ts";
 import { fakeShipper, shipperPort } from "./fake-shipper.ts";
 import { shipStage } from "./ship-stage.ts";
@@ -30,3 +30,6 @@ export const shipUnderTest = portStageUnderTest({
   outcome: delivered,
   firstTask: firstShipment,
 });
+
+/** A fake shipper following the Ship stage's passing script. */
+export const passingShipper = fakeShipper(shipUnderTest.passing());

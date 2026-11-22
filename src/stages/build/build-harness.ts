@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 
-import { goldenRefs, inputOnReaching } from "../../lifecycle/golden-route.ts";
+import { inputOnReaching } from "../../lifecycle/lifecycle-harness.ts";
+import { goldenRefs } from "../../lifecycle/test-fixtures.ts";
 import { portStageUnderTest } from "../port-stage-under-test.ts";
 import type { BuildOptions } from "./build-stage.ts";
 import { buildStage } from "./build-stage.ts";
@@ -12,13 +13,17 @@ export const testsFailed = { _tag: "failed", failures: "1 test failed: totals ad
 export const reproductionPassed = { _tag: "passed" } as const;
 export const reproductionFailed = {
   _tag: "failed",
-  failures: "repro-1 still failed: total is 0",
+  failures: `${goldenRefs.reproductionRef} still failed: total is 0`,
 } as const;
 
 /** What the builder is asked to implement on a feature's first build. */
 export const firstImplement = {
   workItemId: goldenRefs.workItemId,
+  issueRef: goldenRefs.issueRef,
+  kind: "feature",
+  specRef: goldenRefs.specRef,
   planRef: goldenRefs.planRef,
+  sandboxRef: goldenRefs.sandboxRef,
   reproductionRef: null,
   changeRequest: null,
   feedback: null,
@@ -37,6 +42,7 @@ export const bugCheck = {
 /** What the builder is asked to implement on a bug's first build. */
 export const bugImplement = {
   ...firstImplement,
+  kind: "bug",
   reproductionRef: goldenRefs.reproductionRef,
 } as const;
 
@@ -83,3 +89,6 @@ export const buildUnderTest = portStageUnderTest(
     }),
   ],
 );
+
+/** A fake builder following the Build stage's passing script. */
+export const passingBuilder = fakeBuilder(buildUnderTest.passing());

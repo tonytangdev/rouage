@@ -1,9 +1,9 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { reviewer } from "./golden-route.ts";
 import type { TestWorkItem } from "./lifecycle-harness.ts";
 import { startWorkItemAt } from "./lifecycle-harness.ts";
+import { reviewer } from "./test-fixtures.ts";
 
 const conflict = "conflicts in src/totals.ts against main";
 

@@ -1,8 +1,9 @@
+import { Record } from "effect";
 import type { AnyActorRef } from "xstate";
 import { createStepLogic } from "xstate";
 
 import type { FailureReason, OutcomeOf, StageInput, StageName } from "./stage.ts";
-import { StageFailure } from "./stage.ts";
+import { StageFailure, StageOutcomeSchemas } from "./stage.ts";
 
 export type StubEvent<Stage extends StageName> =
   | { readonly type: "finish"; readonly outcome: OutcomeOf<Stage> }
@@ -48,14 +49,5 @@ export const stubStage = <Stage extends StageName>(stage: Stage, attach: AttachS
   });
 
 /** A stub for every stage, each passing itself to `attach` when it starts. */
-export const stubStages = (attach: AttachStub = detached) => ({
-  intake: stubStage("intake", attach),
-  spec: stubStage("spec", attach),
-  provision: stubStage("provision", attach),
-  reproduce: stubStage("reproduce", attach),
-  plan: stubStage("plan", attach),
-  build: stubStage("build", attach),
-  demo: stubStage("demo", attach),
-  review: stubStage("review", attach),
-  ship: stubStage("ship", attach),
-});
+export const stubStages = (attach: AttachStub = detached) =>
+  Record.map(StageOutcomeSchemas, (_, stage) => stubStage(stage, attach));
