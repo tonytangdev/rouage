@@ -20,6 +20,7 @@ import { claudeReproducer } from "./claude-reproducer.ts";
 import { claudeReviewer } from "./claude-reviewer.ts";
 import { makeClaudeRunner } from "./claude-runner.ts";
 import { claudeSpecWriter } from "./claude-spec-writer.ts";
+import type { PluginParts } from "./port-run.ts";
 import { loadRole } from "./roles.ts";
 import { makeTestCommandRunner } from "./test-command.ts";
 
@@ -41,40 +42,34 @@ export const claudeCode = (options: ClaudeCodeOptions = {}) =>
       const store = yield* makeArtifactStore(plugin.artifactsDir);
       const tests = yield* makeTestCommandRunner(plugin.testCommand);
       const role = (name: Parameters<typeof loadRole>[0]) => loadRole(name, plugin, options);
+      const parts: PluginParts = { runner, plugin, store, tests };
       return Context.make(
         Classifier,
-        claudeClassifier(runner, yield* role("classify"), plugin),
+        claudeClassifier(parts, { classify: yield* role("classify") }),
       ).pipe(
-        Context.add(SpecWriter, claudeSpecWriter(runner, yield* role("write"), plugin, store)),
+        Context.add(SpecWriter, claudeSpecWriter(parts, { write: yield* role("write") })),
         Context.add(
           Reproducer,
-          claudeReproducer({
-            runner,
+          claudeReproducer(parts, {
             capture: yield* role("capture"),
             confirm: yield* role("confirm"),
-            plugin,
-            store,
-            tests,
           }),
         ),
         Context.add(
           Builder,
-          claudeBuilder({
-            runner,
+          claudeBuilder(parts, {
             implement: yield* role("implement"),
             test: yield* role("test"),
             fix: yield* role("fix"),
             checkReproduction: yield* role("checkReproduction"),
-            plugin,
-            tests,
           }),
         ),
-        Context.add(Planner, claudePlanner(runner, yield* role("plan"), plugin, store)),
+        Context.add(Planner, claudePlanner(parts, { plan: yield* role("plan") })),
         Context.add(
           Demonstrator,
-          claudeDemonstrator(runner, yield* role("demonstrate"), plugin, store),
+          claudeDemonstrator(parts, { demonstrate: yield* role("demonstrate") }),
         ),
-        Context.add(Reviewer, claudeReviewer(runner, yield* role("review"), plugin, store)),
+        Context.add(Reviewer, claudeReviewer(parts, { review: yield* role("review") })),
       );
     }),
   );
