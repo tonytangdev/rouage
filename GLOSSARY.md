@@ -105,7 +105,11 @@ What a stage asks a port to do in one step, as plain data; a work item has many 
 _Avoid_: Job, request, command
 
 **Agent**:
-A plugin kind that does work using AI, such as Claude Code.
+A plugin kind that does work using AI, such as Claude Code. It does each job it is given in a role.
+
+**Role**:
+The instructions, tools and skills an agent does one port's job with, such as the Reviewer role or the Classifier role. Each job an agent is asked to do has its own role, so the same skills can be given to a role whichever agent plays it.
+_Avoid_: Persona, subagent, agent (for this meaning)
 
 **Script**:
 A plugin kind that does work deterministically, without AI.
@@ -115,7 +119,7 @@ A plugin kind that isolates where a work item's work runs, such as Docker. A wor
 _Avoid_: Environment, container
 
 **Skill**:
-A plugin kind holding instructions an agent loads.
+A plugin kind holding instructions a role loads.
 
 **Data source**:
 A plugin kind that gives access to a user's real data, such as a database.
