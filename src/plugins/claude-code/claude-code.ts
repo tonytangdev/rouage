@@ -1,7 +1,8 @@
 import { Context, Effect, Layer } from "effect";
 
-import { Classifier, Planner, Reproducer, Reviewer, SpecWriter } from "../../index.ts";
+import { Builder, Classifier, Planner, Reproducer, Reviewer, SpecWriter } from "../../index.ts";
 import { makeArtifactStore } from "./artifacts.ts";
+import { claudeBuilder } from "./claude-builder.ts";
 import { claudeClassifier } from "./claude-classifier.ts";
 import type { ClaudeCodeOptions } from "./claude-code-options.ts";
 import { resolvePluginSettings } from "./claude-code-options.ts";
@@ -44,6 +45,18 @@ export const claudeCode = (options: ClaudeCodeOptions = {}) =>
             confirm: yield* role("confirm"),
             plugin,
             store,
+            tests,
+          }),
+        ),
+        Context.add(
+          Builder,
+          claudeBuilder({
+            runner,
+            implement: yield* role("implement"),
+            test: yield* role("test"),
+            fix: yield* role("fix"),
+            checkReproduction: yield* role("checkReproduction"),
+            plugin,
             tests,
           }),
         ),
