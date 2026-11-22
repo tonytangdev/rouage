@@ -10,6 +10,7 @@ import {
 } from "../../index.ts";
 import { runGit } from "./git.ts";
 
+/** Options of the git-worktree Sandbox plugin; only `repoDir` is required. */
 export interface GitWorktreeOptions {
   /** The repository the worktrees are made from. */
   readonly repoDir: string;
@@ -45,7 +46,7 @@ const settingsOf = Effect.fnUntraced(function* (options: GitWorktreeOptions) {
   };
 });
 
-/** A work item ID that cannot name a worktree folder and a branch. */
+// A work item ID that cannot name a worktree folder and a branch.
 class UnsafeWorkItemId extends Data.TaggedError("UnsafeWorkItemId")<{
   readonly message: string;
 }> {}

@@ -2,9 +2,15 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { Effect, FileSystem, Layer, Path } from "effect";
 
-import { createWorkItem, withDefaultStages } from "../../index.ts";
-import { newWorkItem, reviewer } from "../../lifecycle/test-fixtures.ts";
-import { passingPorts } from "../../stages/passing-ports.ts";
+import type { NewWorkItem } from "../../index.ts";
+import {
+  Sampler,
+  SamplerGaveUp,
+  Shipper,
+  ShipperGaveUp,
+  createWorkItem,
+  withDefaultStages,
+} from "../../index.ts";
 import { sandboxUnderTest } from "../git-worktree/git-worktree-harness.ts";
 import { flagValue, pluginUnderTest } from "./claude-code-harness.ts";
 
@@ -13,8 +19,25 @@ import { flagValue, pluginUnderTest } from "./claude-code-harness.ts";
 // bug, and passes on every run after, when Build tests the fix.
 const failsFirstThenPasses = "[ -f .rouage-ran ] || { touch .rouage-ran; exit 1; }";
 
-// Rouage's own passing fakes fill only the ports neither plugin fills, the
-// Sampler and the Shipper; the plugins' Layers override every other fake.
+const newWorkItem: NewWorkItem = { id: "work-item-7", issueRef: "tonytangdev/rouage#7" };
+
+const reviewer = { by: "ada", at: "2026-11-19T10:00:00.000Z" } as const;
+
+// Neither plugin fills the Sampler or the Shipper, and a bug that needs no
+// sample and stops at the ship gate never calls them.
+const portsNeitherPluginFills = Layer.mergeAll(
+  Layer.succeed(Sampler)(
+    Sampler.of({
+      sample: () => Effect.fail(new SamplerGaveUp({ message: "no sample is expected" })),
+    }),
+  ),
+  Layer.succeed(Shipper)(
+    Shipper.of({
+      ship: () => Effect.fail(new ShipperGaveUp({ message: "no ship is expected" })),
+    }),
+  ),
+);
+
 describe("the default lifecycle with the Claude Code and git-worktree plugins", () => {
   it.effect(
     "carries a bug to the ship gate with claude filling every Agent port, in a git worktree",
@@ -22,7 +45,6 @@ describe("the default lifecycle with the Claude Code and git-worktree plugins", 
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const ports = yield* passingPorts;
         const sandbox = yield* sandboxUnderTest();
         const plugin = yield* pluginUnderTest({
           runs: [
@@ -36,7 +58,7 @@ describe("the default lifecycle with the Claude Code and git-worktree plugins", 
           ],
           options: { repoDir: sandbox.repoDir, testCommand: failsFirstThenPasses },
         });
-        const layer = Layer.mergeAll(ports.layer, sandbox.layer, plugin.layer);
+        const layer = Layer.mergeAll(portsNeitherPluginFills, sandbox.layer, plugin.layer);
         const lifecycle = yield* withDefaultStages().pipe(Effect.provide(layer));
         const workItem = yield* createWorkItem(lifecycle, newWorkItem).pipe(Effect.provide(layer));
         yield* workItem.reaches("specGate");

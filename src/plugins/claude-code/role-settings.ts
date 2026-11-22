@@ -3,6 +3,7 @@ import { Config, Duration, Effect, Option, Schema } from "effect";
 import type { RoleName } from "./role-name.ts";
 import { envSegmentOf } from "./role-name.ts";
 
+/** The permission modes a role can run in, as Claude Code's `--permission-mode` takes them. */
 export const PermissionModeSchema = Schema.Literals([
   "acceptEdits",
   "bypassPermissions",
@@ -49,6 +50,7 @@ export type RoleSettingsLayer = {
   readonly [Key in keyof RoleSettings]?: RoleSettings[Key] | undefined;
 };
 
+/** The settings a role gets where neither its file, an option nor an env var sets one. */
 export const builtInRoleSettings: RoleSettings = {
   model: null,
   maxTurns: null,
