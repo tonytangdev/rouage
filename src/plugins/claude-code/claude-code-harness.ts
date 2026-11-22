@@ -1,8 +1,8 @@
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import * as NodePath from "@effect/platform-node/NodePath";
-import { ConfigProvider, Effect, FileSystem, Layer } from "effect";
+import { ConfigProvider, Effect, FileSystem, Layer, Schema } from "effect";
 
-import type { ClassifyTask } from "../../index.ts";
+import type { ClassifyTask, PlanTask, ReviewTask, WriteTask } from "../../index.ts";
 import type { ClaudeCodeOptions } from "./claude-code-options.ts";
 import { claudeCode } from "./claude-code.ts";
 import type { FakeRun } from "./fake-claude.ts";
@@ -16,6 +16,42 @@ export const classifyTask: ClassifyTask = {
   workItemId: "work-item-7",
   issueRef: "tonytangdev/rouage#7",
   feedback: null,
+};
+
+/** A write task as Spec first asks it, for a bug Intake classified. */
+export const writeTask: WriteTask = {
+  workItemId: "work-item-7",
+  issueRef: "tonytangdev/rouage#7",
+  kind: "bug",
+  feedback: null,
+  previousSpecRef: null,
+};
+
+/** A plan task as Plan first asks it, for a reproduced bug in its sandbox. */
+export const planTask: PlanTask = {
+  workItemId: "work-item-7",
+  issueRef: "tonytangdev/rouage#7",
+  kind: "bug",
+  feedback: null,
+  specRef: "/work/acme/.rouage/artifacts/work-item-7/spec.md",
+  sandboxRef: "/sandboxes/work-item-7",
+  sampleRef: null,
+  reproductionRef: "/work/acme/.rouage/artifacts/work-item-7/reproduction.md",
+  previousPlanRef: null,
+};
+
+/** A review task as Review first asks it, for a built and demonstrated bug fix. */
+export const reviewTask: ReviewTask = {
+  workItemId: "work-item-7",
+  issueRef: "tonytangdev/rouage#7",
+  kind: "bug",
+  feedback: null,
+  specRef: "/work/acme/.rouage/artifacts/work-item-7/spec.md",
+  planRef: "/work/acme/.rouage/artifacts/work-item-7/plan.md",
+  sandboxRef: "/sandboxes/work-item-7",
+  reproductionRef: "/work/acme/.rouage/artifacts/work-item-7/reproduction.md",
+  demoRef: null,
+  changeRequest: null,
 };
 
 export interface PluginUnderTest {
@@ -41,6 +77,17 @@ export const pluginUnderTest = Effect.fnUntraced(function* (setup: PluginUnderTe
   );
   return { claude, layer, artifactsDir };
 });
+
+const AgentsSchema = Schema.fromJsonString(
+  Schema.Record(Schema.String, Schema.Struct({ prompt: Schema.String })),
+);
+
+/** The instructions the `agent` of a run started with `args` was given. */
+export const promptOf = (args: readonly string[], agent: string) =>
+  Effect.map(
+    Schema.decodeUnknownEffect(AgentsSchema)(flagValue(args, "--agents")),
+    (agents) => agents[agent]?.prompt ?? "",
+  );
 
 /** The value `flag` was given in `args`, or undefined when it was not passed. */
 export const flagValue = (args: readonly string[], flag: string) => {

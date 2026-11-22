@@ -5,6 +5,11 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 export type Transcript =
   | "classified-as-bug"
   | "not-logged-in"
+  | "planned-with-demo"
+  | "review-approved"
+  | "review-changes-requested"
+  | "spec-unclear"
+  | "spec-written"
   | "turn-limit"
   | "unreadable-answer"
   | "usage-limit"
