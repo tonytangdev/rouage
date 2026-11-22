@@ -11,6 +11,8 @@ export type Transcript =
   | "classified-as-bug"
   | "confirm-failed"
   | "confirm-passed"
+  | "demonstrate-demonstrated"
+  | "demonstrate-stuck"
   | "fix-done"
   | "implement-done"
   | "implement-stuck"

@@ -1,11 +1,20 @@
 import { Context, Effect, Layer } from "effect";
 
-import { Builder, Classifier, Planner, Reproducer, Reviewer, SpecWriter } from "../../index.ts";
+import {
+  Builder,
+  Classifier,
+  Demonstrator,
+  Planner,
+  Reproducer,
+  Reviewer,
+  SpecWriter,
+} from "../../index.ts";
 import { makeArtifactStore } from "./artifacts.ts";
 import { claudeBuilder } from "./claude-builder.ts";
 import { claudeClassifier } from "./claude-classifier.ts";
 import type { ClaudeCodeOptions } from "./claude-code-options.ts";
 import { resolvePluginSettings } from "./claude-code-options.ts";
+import { claudeDemonstrator } from "./claude-demonstrator.ts";
 import { claudePlanner } from "./claude-planner.ts";
 import { claudeReproducer } from "./claude-reproducer.ts";
 import { claudeReviewer } from "./claude-reviewer.ts";
@@ -61,6 +70,10 @@ export const claudeCode = (options: ClaudeCodeOptions = {}) =>
           }),
         ),
         Context.add(Planner, claudePlanner(runner, yield* role("plan"), plugin, store)),
+        Context.add(
+          Demonstrator,
+          claudeDemonstrator(runner, yield* role("demonstrate"), plugin, store),
+        ),
         Context.add(Reviewer, claudeReviewer(runner, yield* role("review"), plugin, store)),
       );
     }),

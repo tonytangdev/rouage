@@ -1,56 +1,71 @@
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
-import { Effect, Layer, Path } from "effect";
+import { Effect, FileSystem, Layer, Path } from "effect";
 
 import { createWorkItem, withDefaultStages } from "../../index.ts";
-import { fakeSandboxTeardown } from "../../lifecycle/fake-sandbox-teardown.ts";
 import { newWorkItem, reviewer } from "../../lifecycle/test-fixtures.ts";
-import { passingBuilder } from "../../stages/build/build-harness.ts";
 import { passingPorts } from "../../stages/passing-ports.ts";
-import { passingReproducer } from "../../stages/reproduce/reproduce-harness.ts";
-import { flagValue, nodeFiles, pluginUnderTest } from "./claude-code-harness.ts";
+import { sandboxUnderTest } from "../git-worktree/git-worktree-harness.ts";
+import { flagValue, pluginUnderTest } from "./claude-code-harness.ts";
 
-// Rouage's own passing fakes fill the ports this slice of the plugin does not
-// fill yet, and the Reproducer and Builder too, which need a real sandbox to run in (#60).
-describe("the default lifecycle with the Claude Code plugin filling the ports it fills", () => {
+// Fake claude writes no files, so the reproduction cannot really start
+// passing; this command fails on its first run, when Reproduce confirms the
+// bug, and passes on every run after, when Build tests the fix.
+const failsFirstThenPasses = "[ -f .rouage-ran ] || { touch .rouage-ran; exit 1; }";
+
+// Rouage's own passing fakes fill only the ports neither plugin fills, the
+// Sampler and the Shipper; the plugins' Layers override every other fake.
+describe("the default lifecycle with the Claude Code and git-worktree plugins", () => {
   it.effect(
-    "classifies, specs, plans and reviews a bug with claude, carrying it to the ship gate",
+    "carries a bug to the ship gate with claude filling every Agent port, in a git worktree",
     () =>
       Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
         const ports = yield* passingPorts;
+        const sandbox = yield* sandboxUnderTest();
         const plugin = yield* pluginUnderTest({
           runs: [
             { _tag: "replays", transcript: "classified-as-bug" },
             { _tag: "replays", transcript: "spec-written" },
+            { _tag: "replays", transcript: "capture-captured" },
             { _tag: "replays", transcript: "planned-with-demo" },
+            { _tag: "replays", transcript: "implement-done" },
+            { _tag: "replays", transcript: "demonstrate-demonstrated" },
             { _tag: "replays", transcript: "review-approved" },
           ],
+          options: { repoDir: sandbox.repoDir, testCommand: failsFirstThenPasses },
         });
-        const lifecycle = yield* withDefaultStages().pipe(
-          Effect.provide(
-            Layer.mergeAll(
-              ports.layer,
-              plugin.layer,
-              (yield* passingReproducer).layer,
-              (yield* passingBuilder).layer,
-            ),
-          ),
-        );
-        const workItem = yield* createWorkItem(lifecycle, newWorkItem).pipe(
-          Effect.provide(fakeSandboxTeardown().layer),
-        );
+        const layer = Layer.mergeAll(ports.layer, sandbox.layer, plugin.layer);
+        const lifecycle = yield* withDefaultStages().pipe(Effect.provide(layer));
+        const workItem = yield* createWorkItem(lifecycle, newWorkItem).pipe(Effect.provide(layer));
         yield* workItem.reaches("specGate");
         workItem.send({ type: "approve", ...reviewer });
         yield* workItem.reaches("shipGate");
+        const worktree = yield* fs.realPath(
+          path.join(sandbox.repoDir, ".rouage", "worktrees", newWorkItem.id),
+        );
         const artifactOf = (name: string) => path.join(plugin.artifactsDir, newWorkItem.id, name);
         expect(workItem.context().facts).toMatchObject({
           kind: "bug",
           specRef: artifactOf("spec.md"),
+          sandboxRef: worktree,
+          reproductionRef: artifactOf("reproduction.md"),
           planRef: artifactOf("plan.md"),
+          demoRef: artifactOf("demo.md"),
         });
-        expect(plugin.claude.spawned().map(({ args }) => flagValue(args, "--agent"))).toStrictEqual(
-          ["rouage-classify", "rouage-write", "rouage-plan", "rouage-review"],
-        );
-      }).pipe(Effect.scoped, Effect.provide(nodeFiles)),
+        expect(yield* fs.exists(artifactOf("demo.md"))).toBe(true);
+        expect(
+          plugin.claude.spawned().map(({ args, cwd }) => [flagValue(args, "--agent"), cwd]),
+        ).toStrictEqual([
+          ["rouage-classify", sandbox.repoDir],
+          ["rouage-write", sandbox.repoDir],
+          ["rouage-capture", worktree],
+          ["rouage-plan", worktree],
+          ["rouage-implement", worktree],
+          ["rouage-demonstrate", worktree],
+          ["rouage-review", worktree],
+        ]);
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 });
