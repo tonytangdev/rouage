@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { reviewer } from "./golden-route.ts";
 import { restoredWorkItem, startWorkItemAt, throughJson } from "./lifecycle-harness.ts";
+import { reviewer } from "./test-fixtures.ts";
 
 describe("demo override", () => {
   it.effect("skips a planned demo a human skipped, and records the decision", () =>

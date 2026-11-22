@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { reviewer } from "./golden-route.ts";
 import { startWorkItemAt } from "./lifecycle-harness.ts";
+import { reviewer } from "./test-fixtures.ts";
 
 describe("change request", () => {
   it.effect("shows Review the changes it requested when it judges the change again", () =>

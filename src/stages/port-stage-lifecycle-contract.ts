@@ -2,8 +2,6 @@ import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 import type { AnyStateMachine } from "xstate";
 
-import type { RealStages } from "../lifecycle/golden-route.ts";
-import { reviewer } from "../lifecycle/golden-route.ts";
 import {
   restoredWorkItem,
   startWorkItem,
@@ -12,6 +10,8 @@ import {
   withStepTask,
 } from "../lifecycle/lifecycle-harness.ts";
 import type { StageName } from "../lifecycle/stage.ts";
+import type { RealStages } from "../lifecycle/stub-controller.ts";
+import { reviewer } from "../lifecycle/test-fixtures.ts";
 import type { PortStageUnderTest, ScriptedPortStage } from "./port-stage-under-test.ts";
 
 const lifecycleWith = (name: StageName, stage: AnyStateMachine): RealStages => ({ [name]: stage });

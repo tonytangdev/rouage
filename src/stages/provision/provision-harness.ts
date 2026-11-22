@@ -1,6 +1,6 @@
 import { Effect, Layer } from "effect";
 
-import { goldenRefs } from "../../lifecycle/golden-route.ts";
+import { goldenRefs } from "../../lifecycle/test-fixtures.ts";
 import { portStageUnderTest } from "../port-stage-under-test.ts";
 import type { FakeProvisionerScript } from "./fake-provisioner.ts";
 import { fakeProvisioner, provisionerPort } from "./fake-provisioner.ts";

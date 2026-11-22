@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
 import { fakeSandboxTeardown } from "../lifecycle/fake-sandbox-teardown.ts";
-import { newWorkItem, reviewer } from "../lifecycle/golden-route.ts";
+import { newWorkItem, reviewer } from "../lifecycle/test-fixtures.ts";
 import { createWorkItem } from "../lifecycle/work-item-actor.ts";
 import { withDefaultStages } from "./default-stages.ts";
 import { firstDemoMade } from "./demo/demo-harness.ts";

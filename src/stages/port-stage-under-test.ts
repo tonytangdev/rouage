@@ -3,14 +3,13 @@ import type { Scope } from "effect";
 import type { Actor, AnyActorLogic, AnyStateMachine, OutputFrom } from "xstate";
 import { createActor, toPromise } from "xstate";
 
-import type { Route } from "../lifecycle/golden-route.ts";
-import { inputOnReaching, nextAfter } from "../lifecycle/golden-route.ts";
 import type { TestWorkItem } from "../lifecycle/lifecycle-harness.ts";
-import { startWorkItem } from "../lifecycle/lifecycle-harness.ts";
+import { inputOnReaching, nextAfter, startWorkItem } from "../lifecycle/lifecycle-harness.ts";
 import type { Place } from "../lifecycle/place.ts";
 import type { Settled } from "../lifecycle/stage-contract.ts";
 import type { FailureReason, StageInput, StageName } from "../lifecycle/stage.ts";
 import { stageInputs } from "../lifecycle/stage.ts";
+import type { Route } from "../lifecycle/test-fixtures.ts";
 import type { Fake, FakePort, Misbehaviour, Misbehaving } from "./fake-script.ts";
 import { crashMessage, gaveUpMessage } from "./fake-script.ts";
 import type { PortGaveUp } from "./port-stage.ts";

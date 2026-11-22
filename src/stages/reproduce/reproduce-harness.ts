@@ -1,4 +1,4 @@
-import { goldenRefs } from "../../lifecycle/golden-route.ts";
+import { goldenRefs } from "../../lifecycle/test-fixtures.ts";
 import { portStageUnderTest, scriptedStage } from "../port-stage-under-test.ts";
 import { fakeReproducer, reproducerPort } from "./fake-reproducer.ts";
 import { reproduceStage } from "./reproduce-stage.ts";
