@@ -16,9 +16,9 @@ export const RoleNameSchema = Schema.Literals([
 ]);
 export type RoleName = typeof RoleNameSchema.Type;
 
-/** `role` as it appears in an env var name, such as CHECK_REPRODUCTION. */
-export const envSegmentOf = (role: RoleName) =>
-  role.replaceAll(/[A-Z]/gu, (letter) => `_${letter}`).toUpperCase();
+/** A camelCase role or setting name as it appears in an env var name, such as CHECK_REPRODUCTION. */
+export const envSegmentOf = (name: string) =>
+  name.replaceAll(/[A-Z]/gu, (letter) => `_${letter}`).toUpperCase();
 
 /** The name the role's agent goes by in the claude invocation, such as `rouage-classify`. */
 export const agentNameOf = (role: RoleName) => `rouage-${role}`;

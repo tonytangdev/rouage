@@ -2,7 +2,7 @@ import { Config, Effect, Option, Path, Schema } from "effect";
 
 import type { RoleName } from "./role-name.ts";
 import type { RoleSettingsLayer } from "./role-settings.ts";
-import { envPrefix } from "./role-settings.ts";
+import { envPrefix, firstSet } from "./role-settings.ts";
 
 /**
  * Options of the Claude Code plugin. Every plain option can also be set by
@@ -71,9 +71,6 @@ const pluginEnv = Config.all({
     Config.schema(Schema.Int.check(Schema.isGreaterThan(0)), `${envPrefix}MAX_CONCURRENT_RUNS`),
   ),
 });
-
-const firstSet = <A>(...values: ReadonlyArray<A | undefined>) =>
-  values.find((value) => value !== undefined);
 
 /** The plugin-wide settings `options` and env give, env winning; fails at once when an env var does not parse. */
 export const resolvePluginSettings = Effect.fnUntraced(function* (options: ClaudeCodeOptions) {

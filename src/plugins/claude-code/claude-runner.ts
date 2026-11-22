@@ -2,7 +2,7 @@ import { Clock, Duration, Effect, FileSystem, Path, Schema, Semaphore, Stream } 
 import type { PlatformError } from "effect/PlatformError";
 import { ChildProcessSpawner } from "effect/process";
 
-import { runsDirOf } from "./artifacts.ts";
+import { workItemFilesOf } from "./artifacts.ts";
 import type { PluginSettings } from "./claude-code-options.ts";
 import type { RunRequest } from "./claude-invocation.ts";
 import { invocationOf } from "./claude-invocation.ts";
@@ -28,7 +28,7 @@ const transcriptWriter = Effect.fnUntraced(function* (plugin: PluginSettings, re
   if (!request.role.settings.keepTranscripts) {
     return (_line: string) => Effect.void;
   }
-  const dir = runsDirOf(path, plugin.artifactsDir, request.workItemId);
+  const dir = workItemFilesOf(path, plugin.artifactsDir, request.workItemId).runsDir;
   yield* fs.makeDirectory(dir, { recursive: true });
   const file = path.join(dir, `${request.role.name}-${yield* Clock.currentTimeMillis}.jsonl`);
   yield* fs.writeFileString(file, "");
@@ -88,7 +88,7 @@ export const makeClaudeRunner = Effect.fnUntraced(function* (plugin: PluginSetti
     ChildProcessSpawner.ChildProcessSpawner | FileSystem.FileSystem | Path.Path
   >();
   const slots = yield* Semaphore.make(plugin.maxConcurrentRuns);
-  const once = (request: RunRequest) =>
+  const runOnce = (request: RunRequest) =>
     finishedRun(plugin, request).pipe(
       Effect.scoped,
       Effect.mapError(couldNotRun),
@@ -107,7 +107,7 @@ export const makeClaudeRunner = Effect.fnUntraced(function* (plugin: PluginSetti
     request: RunRequest,
     answer: Schema.Decoder<A>,
   ): Effect.Effect<A, ClaudeRunFailure> =>
-    once(request).pipe(
+    runOnce(request).pipe(
       Effect.flatMap((finished) => answerOf(finished, answer)),
       Effect.catchTag("UsageLimitReached", (limit) =>
         request.role.settings.waitOnUsageLimit && limit.resetsAt !== null

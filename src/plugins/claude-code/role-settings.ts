@@ -71,7 +71,7 @@ export const builtInRoleSettings: RoleSettings = {
 export const envPrefix = "ROUAGE_CLAUDE_CODE_";
 
 const envNameOf = (scope: string, setting: string) =>
-  `${envPrefix}${scope}${setting.replaceAll(/[A-Z]/gu, (letter) => `_${letter}`).toUpperCase()}`;
+  `${envPrefix}${scope}${envSegmentOf(setting)}`;
 
 const fromEnv = <A>(read: (name: string) => Config.Config<A>, scope: string, setting: string) =>
   Config.map(Config.option(read(envNameOf(scope, setting))), Option.getOrUndefined);
@@ -107,34 +107,30 @@ export const globalSettingsFromEnv = roleSettingsFromEnv("");
 export const roleSettingsFromEnvFor = (role: RoleName) =>
   roleSettingsFromEnv(`${envSegmentOf(role)}_`);
 
-const firstSet = <Key extends keyof RoleSettings>(
+/** The first of `values` that is set, or undefined when none is. */
+export const firstSet = <A>(...values: ReadonlyArray<A | undefined>) =>
+  values.find((value) => value !== undefined);
+
+const settingFrom = <Key extends keyof RoleSettings>(
   key: Key,
   layers: readonly RoleSettingsLayer[],
-): RoleSettings[Key] => {
-  for (const layer of layers) {
-    const value = layer[key];
-    if (value !== undefined) {
-      return value;
-    }
-  }
-  return builtInRoleSettings[key];
-};
+): RoleSettings[Key] => firstSet(...layers.map((layer) => layer[key])) ?? builtInRoleSettings[key];
 
 /** The settings `layers` give, the first that sets a value winning, and the built-in default where none does. */
 export const settingsFrom = (layers: readonly RoleSettingsLayer[]): RoleSettings => ({
-  model: firstSet("model", layers),
-  maxTurns: firstSet("maxTurns", layers),
-  maxBudgetUsd: firstSet("maxBudgetUsd", layers),
-  timeout: firstSet("timeout", layers),
-  permissionMode: firstSet("permissionMode", layers),
-  allowedTools: firstSet("allowedTools", layers),
-  disallowedTools: firstSet("disallowedTools", layers),
-  skills: firstSet("skills", layers),
-  allowUndeclaredSkills: firstSet("allowUndeclaredSkills", layers),
-  mcpServers: firstSet("mcpServers", layers),
-  useProjectMcp: firstSet("useProjectMcp", layers),
-  keepTranscripts: firstSet("keepTranscripts", layers),
-  waitOnUsageLimit: firstSet("waitOnUsageLimit", layers),
+  model: settingFrom("model", layers),
+  maxTurns: settingFrom("maxTurns", layers),
+  maxBudgetUsd: settingFrom("maxBudgetUsd", layers),
+  timeout: settingFrom("timeout", layers),
+  permissionMode: settingFrom("permissionMode", layers),
+  allowedTools: settingFrom("allowedTools", layers),
+  disallowedTools: settingFrom("disallowedTools", layers),
+  skills: settingFrom("skills", layers),
+  allowUndeclaredSkills: settingFrom("allowUndeclaredSkills", layers),
+  mcpServers: settingFrom("mcpServers", layers),
+  useProjectMcp: settingFrom("useProjectMcp", layers),
+  keepTranscripts: settingFrom("keepTranscripts", layers),
+  waitOnUsageLimit: settingFrom("waitOnUsageLimit", layers),
 });
 
 /** The sources of one role's settings, each named for where it comes from. */

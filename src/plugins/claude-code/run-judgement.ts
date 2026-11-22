@@ -58,7 +58,7 @@ interface Reading {
 const resetOf = (seconds: number | null | undefined) =>
   seconds === null || seconds === undefined ? null : new Date(seconds * 1000);
 
-const read = (lines: readonly string[]): Reading => {
+const readingOf = (lines: readonly string[]): Reading => {
   const events = lines.flatMap((line): RunEvent[] => Option.toArray(decodeEvent(line)));
   const limits = events.flatMap((event) => (event.type === "rate_limit_event" ? [event] : []));
   const latestLimit = limits.at(-1)?.rate_limit_info;
@@ -70,14 +70,14 @@ const read = (lines: readonly string[]): Reading => {
   };
 };
 
-const said = (result: ResultEvent | undefined) =>
+const messageOf = (result: ResultEvent | undefined) =>
   [result?.result, ...(result?.errors ?? [])]
     .filter((text) => text !== null && text !== undefined)
     .join("; ");
 
 const notLoggedIn = (reading: Reading) =>
   reading.apiErrors.includes("authentication_failed") ||
-  /not logged in/iu.test(said(reading.result));
+  /not logged in/iu.test(messageOf(reading.result));
 
 const usageLimited = (reading: Reading) =>
   reading.limitRejected || reading.apiErrors.includes("rate_limit");
@@ -90,7 +90,7 @@ const limitMessage = (resetsAt: Date | null) =>
 const accountFailure = (reading: Reading): ClaudeRunFailure | undefined => {
   if (notLoggedIn(reading)) {
     return new ClaudeNotLoggedIn({
-      message: `Claude Code is not logged in (${said(reading.result) || "no login found"}). Log in by running claude, or set CLAUDE_CODE_OAUTH_TOKEN from claude setup-token or ANTHROPIC_API_KEY, then retry`,
+      message: `Claude Code is not logged in (${messageOf(reading.result) || "no login found"}). Log in by running claude, or set CLAUDE_CODE_OAUTH_TOKEN from claude setup-token or ANTHROPIC_API_KEY, then retry`,
     });
   }
   if (usageLimited(reading)) {
@@ -105,13 +105,13 @@ const accountFailure = (reading: Reading): ClaudeRunFailure | undefined => {
 const resultFailure = (result: ResultEvent): ClaudeRunFailure | undefined => {
   if (result.terminal_reason === "max_turns" || result.subtype === "error_max_turns") {
     return new TurnLimitReached({
-      message: `Claude used every turn its role allows without answering (${said(result)})`,
+      message: `Claude used every turn its role allows without answering (${messageOf(result)})`,
     });
   }
   if (result.is_error || result.subtype !== "success") {
     const status = result.api_error_status ?? null;
     return new ClaudeCrashed({
-      message: `Claude stopped with an error (${result.subtype}${status === null ? "" : `, API status ${status}`}): ${said(result) || "no message"}`,
+      message: `Claude stopped with an error (${result.subtype}${status === null ? "" : `, API status ${status}`}): ${messageOf(result) || "no message"}`,
     });
   }
   return undefined;
@@ -128,7 +128,7 @@ const crashedWithoutResult = (run: FinishedRun) =>
  * with `success`: `is_error`, `terminal_reason` and the API errors are read too.
  */
 export const judgeRun = (run: FinishedRun): Result.Result<unknown, ClaudeRunFailure> => {
-  const reading = read(run.lines);
+  const reading = readingOf(run.lines);
   const failure =
     accountFailure(reading) ??
     (reading.result === undefined ? crashedWithoutResult(run) : resultFailure(reading.result));
@@ -138,7 +138,7 @@ export const judgeRun = (run: FinishedRun): Result.Result<unknown, ClaudeRunFail
   if (reading.result?.structured_output === undefined) {
     return Result.fail(
       new AnswerUnreadable({
-        message: `Claude finished without a structured answer; it said: ${said(reading.result) || "nothing"}`,
+        message: `Claude finished without a structured answer; it said: ${messageOf(reading.result) || "nothing"}`,
       }),
     );
   }
