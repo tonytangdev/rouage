@@ -4,7 +4,12 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 /** The recorded `stream-json` transcripts the fake replays, by file name in `transcripts/`. */
 export type Transcript =
+  | "capture-cannot-reproduce"
+  | "capture-captured"
+  | "capture-needs-sample"
   | "classified-as-bug"
+  | "confirm-failed"
+  | "confirm-passed"
   | "not-logged-in"
   | "planned-with-demo"
   | "review-approved"

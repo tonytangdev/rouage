@@ -4,7 +4,7 @@ import { Effect, FileSystem, Path } from "effect";
 import type { ConfirmTask } from "../../index.ts";
 import { Reproducer } from "../../index.ts";
 import type { PluginUnderTest } from "./claude-code-harness.ts";
-import { nodeFiles, pluginUnderTest } from "./claude-code-harness.ts";
+import { flagValue, nodeFiles, pluginUnderTest, promptOf } from "./claude-code-harness.ts";
 
 const confirmTaskIn = (sandboxRef: string): ConfirmTask => ({
   workItemId: "work-item-7",
@@ -49,6 +49,37 @@ describe("the Claude Code reproducer", () => {
         expect(confirmation).toStrictEqual({
           _tag: "passed",
           output: `1 passed in ${path.basename(sandbox)}\nno warnings\n`,
+        });
+      }).pipe(Effect.scoped, Effect.provide(nodeFiles)),
+  );
+
+  it.effect(
+    "asks Claude in the confirm role, in the workspace, to run the reproduction when no test command is set",
+    () =>
+      Effect.gen(function* () {
+        const { confirmation, plugin, sandbox } = yield* confirmedOn({
+          runs: [{ _tag: "replays", transcript: "confirm-failed" }],
+        });
+        expect(confirmation).toStrictEqual({ _tag: "failed" });
+        const [run] = plugin.claude.spawned();
+        expect(run?.cwd).toBe(sandbox);
+        expect(flagValue(run?.args ?? [], "--agent")).toBe("rouage-confirm");
+        expect(yield* promptOf(run?.args ?? [], "rouage-confirm")).toContain(
+          "/work/acme/.rouage/artifacts/work-item-7/reproduction.md",
+        );
+      }).pipe(Effect.scoped, Effect.provide(nodeFiles)),
+  );
+
+  it.effect(
+    "reports the bug did not show when Claude saw the reproduction pass, with what it printed",
+    () =>
+      Effect.gen(function* () {
+        const { confirmation } = yield* confirmedOn({
+          runs: [{ _tag: "replays", transcript: "confirm-passed" }],
+        });
+        expect(confirmation).toStrictEqual({
+          _tag: "passed",
+          output: "1 passed: saving a draft keeps its title",
         });
       }).pipe(Effect.scoped, Effect.provide(nodeFiles)),
   );
