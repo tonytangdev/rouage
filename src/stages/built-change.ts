@@ -5,15 +5,15 @@ import type { StageFailure, StageInput } from "../lifecycle/stage.ts";
 import { RunBriefSchema, briefOf } from "./run-brief.ts";
 import { sandboxMissing } from "./sandbox-missing.ts";
 
-/** What a stage that looks at the built change is given: where the change is, and what it was built from. */
+/** What a stage that makes or looks at the change is given: the sandbox holding it, and what it is built from. */
 export const BuiltChangeSchema = Schema.Struct({
   ...RunBriefSchema.fields,
   issueRef: Schema.String,
   kind: Schema.NullOr(KindSchema),
   specRef: Schema.NullOr(Schema.String),
-  /** The plan Build followed, or `null` when the lifecycle runs no Plan. */
+  /** The plan Build follows, or `null` when the lifecycle runs no Plan. */
   planRef: Schema.NullOr(Schema.String),
-  /** The sandbox holding the change and its tests. */
+  /** The sandbox the change and its tests are made and run in. */
   sandboxRef: Schema.String,
   /** The bug's reproduction, or `null` for a feature. */
   reproductionRef: Schema.NullOr(Schema.String),

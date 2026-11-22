@@ -17,9 +17,13 @@ export interface PluginPromise<Ports> {
 export const promiseKept = (kept: boolean, message: string) =>
   kept ? Effect.void : Effect.fail(new PluginBrokeContract({ message }));
 
+/** The error `promise`'s check fails with against the plugin `layer` fills; dies if the plugin keeps the promise. */
+export const howBroken = <Ports, E>(promise: PluginPromise<Ports>, layer: Layer.Layer<Ports, E>) =>
+  Effect.flip(promise.check.pipe(Effect.provide(layer)));
+
 /**
  * Declares one test per promise in `promises`, each run against a fresh
- * build of `layer`, the plugin under test.
+ * build of `layer`, the plugin under test (ADR 0018).
  */
 export const describePluginContract = <Ports, E>(
   title: string,
