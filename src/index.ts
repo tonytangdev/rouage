@@ -7,7 +7,7 @@ export { SandboxTeardown, TeardownGaveUp } from "./lifecycle/sandbox-teardown.ts
 export type { DefaultStagesOptions } from "./stages/default-stages.ts";
 export { defaultStages, withDefaultStages } from "./stages/default-stages.ts";
 export type { Classification, ClassifyTask } from "./stages/intake/classifier.ts";
-export { Classifier, ClassifierGaveUp } from "./stages/intake/classifier.ts";
+export { ClassificationSchema, Classifier, ClassifierGaveUp } from "./stages/intake/classifier.ts";
 export type { WriteTask, Written } from "./stages/spec/spec-writer.ts";
 export { SpecWriter, SpecWriterGaveUp } from "./stages/spec/spec-writer.ts";
 export type { ProvisionTask, Provisioned } from "./stages/provision/provisioner.ts";
@@ -37,3 +37,21 @@ export type { ReviewTask, Verdict } from "./stages/review/reviewer.ts";
 export { Reviewer, ReviewerGaveUp } from "./stages/review/reviewer.ts";
 export type { ShipTask, Shipment } from "./stages/ship/shipper.ts";
 export { Shipper, ShipperGaveUp } from "./stages/ship/shipper.ts";
+export type { PluginPromise } from "./stages/plugin-contract.ts";
+export {
+  PluginBrokeContract,
+  describePluginContract,
+  howBroken,
+  promiseKept,
+} from "./stages/plugin-contract.ts";
+export {
+  classifierContract,
+  describeClassifierContract,
+} from "./stages/intake/classifier-contract.ts";
+export type { SandboxPorts } from "./stages/provision/sandbox-contract.ts";
+export {
+  SandboxProbe,
+  describeSandboxContract,
+  sandboxContract,
+} from "./stages/provision/sandbox-contract.ts";
+export { describeShipperContract, shipperContract } from "./stages/ship/shipper-contract.ts";
