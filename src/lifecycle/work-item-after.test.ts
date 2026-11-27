@@ -19,6 +19,7 @@ const fresh: WorkItemContext = {
   counters: { review: 0, reproduce: 0, ship: 0 },
   gatekeepers: defaultGatekeepers,
   blocked: null,
+  handOff: null,
   decisions: [],
 };
 

@@ -157,6 +157,20 @@
             { "type": "null" }
           ]
         },
+        "handOff": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "gate": { "type": "string", "enum": ["specGate", "shipGate"] },
+                "reason": { "type": "string" }
+              },
+              "required": ["gate", "reason"],
+              "additionalProperties": true
+            },
+            { "type": "null" }
+          ]
+        },
         "decisions": {
           "type": "array",
           "items": {
@@ -203,7 +217,16 @@
           }
         }
       },
-      "required": ["id", "facts", "limits", "gatekeepers", "counters", "blocked", "decisions"],
+      "required": [
+        "id",
+        "facts",
+        "limits",
+        "gatekeepers",
+        "counters",
+        "blocked",
+        "handOff",
+        "decisions"
+      ],
       "additionalProperties": true
     },
     "definitions": {}

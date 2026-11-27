@@ -72,10 +72,14 @@ describe("a gate kept by a plugin", () => {
       });
       workItem.advanceTo("specGate");
       yield* judged;
-      expect(gatekeeper.tasks()).toHaveLength(1);
       expect(workItem.state()).toStrictEqual("specGate");
+      expect(workItem.context().handOff).toStrictEqual({
+        gate: "specGate",
+        reason: "touches payments",
+      });
       workItem.send({ type: "approve", ...reviewer });
       expect(workItem.state()).toStrictEqual("provision");
+      expect(workItem.context().handOff).toBeNull();
     }),
   );
 
@@ -88,6 +92,70 @@ describe("a gate kept by a plugin", () => {
       expect(gatekeeper.tasks()).toHaveLength(1);
       expect(workItem.state()).toStrictEqual("specGate");
       expect(workItem.context().blocked).toBeNull();
+      expect(workItem.context().handOff).toStrictEqual({
+        gate: "specGate",
+        reason: "The gatekeeper gave up",
+      });
+    }),
+  );
+
+  it.effect("waits for a human when a gatekeeper that may not hand off hands off", () =>
+    Effect.gen(function* () {
+      const gatekeeper = fakeGatekeeper({
+        answers: [{ _tag: "handedOff", reason: "touches payments" }],
+      });
+      const workItem = yield* startWorkItem({ gatekeepers: { shipGate: "plugin" }, gatekeeper });
+      workItem.advanceTo("shipGate");
+      yield* judged;
+      expect(workItem.state()).toStrictEqual("shipGate");
+      expect(workItem.context().blocked).toBeNull();
+      expect(workItem.context().handOff).toStrictEqual({
+        gate: "shipGate",
+        reason: "The gatekeeper may not hand off, yet handed off: touches payments",
+      });
+    }),
+  );
+
+  it.effect("takes a human's decision while its gatekeeper judges, and stops the judgement", () =>
+    Effect.gen(function* () {
+      const gatekeeper = fakeGatekeeper({ answers: [], judgesForever: true });
+      const workItem = yield* startWorkItem({ gatekeepers: { specGate: "plugin" }, gatekeeper });
+      workItem.advanceTo("specGate");
+      yield* judged;
+      expect(gatekeeper.judging()).toStrictEqual(1);
+      workItem.send({ type: "reject", ...reviewer, comment: "too vague" });
+      yield* judged;
+      expect(gatekeeper.judging()).toStrictEqual(0);
+      expect(workItem.state()).toStrictEqual("spec");
+      expect(workItem.context().decisions).toMatchObject([
+        { action: "reject", state: "specGate", by: reviewer.by, comment: "too vague" },
+      ]);
+    }),
+  );
+
+  it.effect("lets a human send the work item back to Spec after its gatekeeper approved", () =>
+    Effect.gen(function* () {
+      const gatekeeper = fakeGatekeeper({ answers: [{ _tag: "approved" }] });
+      const workItem = yield* startWorkItem({ gatekeepers: { specGate: "plugin" }, gatekeeper });
+      workItem.advanceTo("specGate");
+      yield* workItem.reaches("provision");
+      workItem.crash("provision", "no sandbox");
+      expect(workItem.state()).toStrictEqual("blocked");
+      workItem.send({ type: "backToSpec", ...reviewer });
+      expect(workItem.state()).toStrictEqual("spec");
+    }),
+  );
+
+  it.effect("lets a human cancel while its gatekeeper judges", () =>
+    Effect.gen(function* () {
+      const gatekeeper = fakeGatekeeper({ answers: [], judgesForever: true });
+      const workItem = yield* startWorkItem({ gatekeepers: { specGate: "plugin" }, gatekeeper });
+      workItem.advanceTo("specGate");
+      yield* judged;
+      workItem.send({ type: "cancel", ...reviewer });
+      yield* judged;
+      expect(workItem.state()).toStrictEqual("cancelled");
+      expect(gatekeeper.judging()).toStrictEqual(0);
     }),
   );
 

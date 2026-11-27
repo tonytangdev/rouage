@@ -1,3 +1,4 @@
+import type { PluginGate } from "./gatekeeper.ts";
 import type { BlockingOutcome, LoopingOutcome, OnwardOutcome } from "./outcome-teaching.ts";
 import type { Gate, Place } from "./place.ts";
 import type { OutcomeOf, StageName } from "./stage.ts";
@@ -39,7 +40,15 @@ export type Transition =
       readonly state: Place;
       readonly decision: HumanDecision;
     }
-  | { readonly _tag: "cancelled"; readonly state: Place; readonly decision: HumanDecision };
+  | { readonly _tag: "cancelled"; readonly state: Place; readonly decision: HumanDecision }
+  | GateHandedOff;
+
+/** The plugin keeping `gate` leaving the decision to a human, for `reason`. */
+export interface GateHandedOff {
+  readonly _tag: "gateHandedOff";
+  readonly gate: PluginGate;
+  readonly reason: string;
+}
 
 /** A transition that always blocks the work item. */
 export type BlockingTransition = StageErrored | StageFinished<BlockingOutcome>;
@@ -48,10 +57,10 @@ export type BlockingTransition = StageErrored | StageFinished<BlockingOutcome>;
 export type LoopingTransition = StageFinished<LoopingOutcome>;
 
 /** A transition a human's decision makes, which never blocks the work item. */
-export type HumanTransition = Exclude<Transition, StageFinished | StageErrored>;
+export type HumanTransition = Exclude<Transition, StageFinished | StageErrored | GateHandedOff>;
 
 /** A transition that never blocks the work item. */
-export type OnwardTransition = HumanTransition | StageFinished<OnwardOutcome>;
+export type OnwardTransition = HumanTransition | GateHandedOff | StageFinished<OnwardOutcome>;
 
 type IsUnion<T, Whole = T> = T extends unknown ? ([Whole] extends [T] ? false : true) : never;
 
@@ -126,4 +135,11 @@ export const cancelled = (state: Place, decision: HumanDecision): HumanTransitio
   _tag: "cancelled",
   state,
   decision,
+});
+
+/** The plugin keeping `gate` leaving the decision to a human, for `reason`, as a hand-off or by giving up. */
+export const gateHandedOff = (gate: PluginGate, reason: string): GateHandedOff => ({
+  _tag: "gateHandedOff",
+  gate,
+  reason,
 });

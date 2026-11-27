@@ -8,6 +8,8 @@ export interface FakeGatekeeperScript {
   readonly answers: readonly GatekeeperDecision[];
   /** Every decision gives up instead of answering. */
   readonly givesUp?: boolean;
+  /** Every decision judges until it is stopped, as a slow plugin's would. */
+  readonly judgesForever?: boolean;
 }
 
 export type FakeGatekeeper = ReturnType<typeof fakeGatekeeper>;
@@ -15,6 +17,17 @@ export type FakeGatekeeper = ReturnType<typeof fakeGatekeeper>;
 /** A gatekeeper that follows a script instead of judging, and records each task. */
 export const fakeGatekeeper = (script: FakeGatekeeperScript) => {
   const tasks: GatekeeperTask[] = [];
+  let judging = 0;
+  const judgingForever = Effect.suspend(() => {
+    judging += 1;
+    return Effect.never;
+  }).pipe(
+    Effect.onInterrupt(() =>
+      Effect.sync(() => {
+        judging -= 1;
+      }),
+    ),
+  );
   return {
     layer: Layer.succeed(
       Gatekeeper,
@@ -22,6 +35,9 @@ export const fakeGatekeeper = (script: FakeGatekeeperScript) => {
         decide: (task) =>
           Effect.suspend(() => {
             tasks.push(task);
+            if (script.judgesForever === true) {
+              return judgingForever;
+            }
             if (script.givesUp === true) {
               return Effect.fail(new GatekeeperGaveUp({ message: "The gatekeeper gave up" }));
             }
@@ -34,5 +50,7 @@ export const fakeGatekeeper = (script: FakeGatekeeperScript) => {
     ),
     /** Every decision asked for, in order. */
     tasks: (): readonly GatekeeperTask[] => tasks,
+    /** How many decisions are still being judged, so a test sees a stopped one end. */
+    judging: () => judging,
   };
 };

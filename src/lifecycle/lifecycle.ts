@@ -1,10 +1,8 @@
 import { absurd } from "effect/Function";
 
 import { demoCalledFor, retrySkipsDemo } from "./demo-decision.ts";
-import { noFactsYet } from "./facts.ts";
 import { gateGatekeeper } from "./gate-gatekeeper.ts";
 import { lifecycleSetup } from "./lifecycle-setup.ts";
-import { noLoopsYet } from "./loops.ts";
 import { placeOfState } from "./place.ts";
 import { stageInputs } from "./stage.ts";
 import {
@@ -19,21 +17,14 @@ import {
   soleOutcome,
 } from "./transition.ts";
 import { workItemAfter } from "./work-item-after.ts";
+import { newWorkItemContext } from "./work-item.ts";
 
 // Every transition names its target as a literal, even where a helper could
 // compute it, so Stately's editor can draw every arrow (ADR 0002).
 export const defaultLifecycle = lifecycleSetup.createMachine({
   id: "lifecycle",
   version: "1",
-  context: ({ input }) => ({
-    id: input.id,
-    facts: { issueRef: input.issueRef, ...noFactsYet },
-    limits: input.limits,
-    gatekeepers: input.gatekeepers,
-    counters: noLoopsYet,
-    blocked: null,
-    decisions: [],
-  }),
+  context: ({ input }) => newWorkItemContext(input),
   initial: "working",
   on: {
     cancel: ({ context, event, self }) => ({
