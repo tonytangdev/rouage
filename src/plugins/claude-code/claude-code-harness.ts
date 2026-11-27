@@ -2,7 +2,7 @@ import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import * as NodePath from "@effect/platform-node/NodePath";
 import { ConfigProvider, Effect, FileSystem, Layer, Schema } from "effect";
 
-import type { ClassifyTask, PlanTask, ReviewTask, WriteTask } from "../../index.ts";
+import type { ClassifyTask, GatekeeperTask, PlanTask, ReviewTask, WriteTask } from "../../index.ts";
 import type { ClaudeCodeOptions } from "./claude-code-options.ts";
 import { claudeCode } from "./claude-code.ts";
 import type { FakeRun } from "./fake-claude.ts";
@@ -50,6 +50,25 @@ export const reviewTask: ReviewTask = {
   planRef: "/work/acme/.rouage/artifacts/work-item-7/plan.md",
   sandboxRef: "/sandboxes/work-item-7",
   reproductionRef: "/work/acme/.rouage/artifacts/work-item-7/reproduction.md",
+  demoRef: null,
+  changeRequest: null,
+};
+
+/** A gatekeeper task as the spec gate first asks it, for a bug whose spec Spec wrote. */
+export const specGateTask: GatekeeperTask = {
+  gate: "specGate",
+  workItemId: "work-item-7",
+  issueRef: "tonytangdev/rouage#7",
+  kind: "bug",
+  feedback: null,
+  specRef: "/work/acme/.rouage/artifacts/work-item-7/spec.md",
+  sandboxRef: null,
+  sampleRequest: null,
+  sampleRef: null,
+  scriptRef: null,
+  reproductionRef: null,
+  planRef: null,
+  deliveryRef: null,
   demoRef: null,
   changeRequest: null,
 };

@@ -13,6 +13,7 @@ export const RoleNameSchema = Schema.Literals([
   "checkReproduction",
   "demonstrate",
   "review",
+  "decide",
 ]);
 export type RoleName = typeof RoleNameSchema.Type;
 

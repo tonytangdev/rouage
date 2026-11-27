@@ -14,6 +14,8 @@ export type Transcript =
   | "demonstrate-demonstrated"
   | "demonstrate-stuck"
   | "fix-done"
+  | "gatekeeper-approved"
+  | "gatekeeper-handed-off"
   | "implement-done"
   | "implement-stuck"
   | "not-logged-in"
