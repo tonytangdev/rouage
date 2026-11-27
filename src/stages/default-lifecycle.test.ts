@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
 
+import { fakeGatekeeper } from "../lifecycle/fake-gatekeeper.ts";
 import { fakeSandboxTeardown } from "../lifecycle/fake-sandbox-teardown.ts";
 import { newWorkItem, reviewer } from "../lifecycle/test-fixtures.ts";
 import { createWorkItem } from "../lifecycle/work-item-actor.ts";
@@ -37,5 +38,41 @@ describe("the default lifecycle with every real stage", () => {
       yield* workItem.tornDown;
       expect(sandbox.completed()).toStrictEqual([{ workItemId: newWorkItem.id }]);
     }),
+  );
+
+  it.effect("carries a work item to shipped with no human when plugins keep its gates", () =>
+    Effect.gen(function* () {
+      const ports = yield* passingPorts;
+      const gatekeeper = fakeGatekeeper({ answers: [{ _tag: "approved" }, { _tag: "approved" }] });
+      const lifecycle = yield* withDefaultStages().pipe(
+        Effect.provide(Layer.merge(ports.layer, gatekeeper.layer)),
+      );
+      const workItem = yield* createWorkItem(lifecycle, {
+        ...newWorkItem,
+        gatekeepers: { specGate: "plugin", shipGate: "pluginMayHandOff" },
+      }).pipe(Effect.provide(fakeSandboxTeardown().layer));
+      yield* workItem.reaches("shipped");
+      expect(gatekeeper.tasks().map((task) => task.gate)).toStrictEqual(["specGate", "shipGate"]);
+    }),
+  );
+
+  it.effect(
+    "gives a work item the gatekeepers it is set up with, unless the work item sets its own",
+    () =>
+      Effect.gen(function* () {
+        const ports = yield* passingPorts;
+        const lifecycle = yield* withDefaultStages({
+          gatekeepers: { specGate: "plugin", shipGate: "pluginMayHandOff" },
+        }).pipe(Effect.provide(ports.layer));
+        const workItem = yield* createWorkItem(lifecycle, {
+          ...newWorkItem,
+          gatekeepers: { shipGate: "human" },
+        }).pipe(Effect.provide(fakeSandboxTeardown().layer));
+        expect(workItem.context().gatekeepers).toStrictEqual({
+          specGate: "plugin",
+          sampleGate: "human",
+          shipGate: "human",
+        });
+      }),
   );
 });

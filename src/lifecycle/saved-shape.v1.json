@@ -97,6 +97,16 @@
           "required": ["review", "reproduce", "ship"],
           "additionalProperties": true
         },
+        "gatekeepers": {
+          "type": "object",
+          "properties": {
+            "specGate": { "type": "string", "enum": ["human", "pluginMayHandOff", "plugin"] },
+            "sampleGate": { "type": "string", "enum": ["human"] },
+            "shipGate": { "type": "string", "enum": ["human", "pluginMayHandOff", "plugin"] }
+          },
+          "required": ["specGate", "sampleGate", "shipGate"],
+          "additionalProperties": true
+        },
         "counters": {
           "type": "object",
           "properties": {
@@ -142,6 +152,20 @@
                 }
               },
               "required": ["from", "reason"],
+              "additionalProperties": true
+            },
+            { "type": "null" }
+          ]
+        },
+        "handOff": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "gate": { "type": "string", "enum": ["specGate", "shipGate"] },
+                "reason": { "type": "string" }
+              },
+              "required": ["gate", "reason"],
               "additionalProperties": true
             },
             { "type": "null" }
@@ -193,7 +217,16 @@
           }
         }
       },
-      "required": ["id", "facts", "limits", "counters", "blocked", "decisions"],
+      "required": [
+        "id",
+        "facts",
+        "limits",
+        "gatekeepers",
+        "counters",
+        "blocked",
+        "handOff",
+        "decisions"
+      ],
       "additionalProperties": true
     },
     "definitions": {}

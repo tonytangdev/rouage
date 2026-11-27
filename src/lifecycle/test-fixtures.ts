@@ -3,6 +3,7 @@ import { Struct } from "effect";
 import { demoFactNames } from "./demo-decision.ts";
 import type { StageFacts } from "./facts.ts";
 import { noFactsYet } from "./facts.ts";
+import { defaultGatekeepers } from "./gatekeepers.ts";
 import type { Kind } from "./kind.ts";
 import { perLoop } from "./loops.ts";
 import type { OutcomeOf, StageInput, StageName } from "./stage.ts";
@@ -19,11 +20,12 @@ export const goldenRefs = {
   deliveryRef: "delivery-1",
 } as const;
 
-/** The test work item as it is created: loop limits of 3, whatever the environment says. */
+/** The test work item as it is created: loop limits of 3, whatever the environment says, and a human at every gate. */
 export const newWorkItem = {
   id: goldenRefs.workItemId,
   issueRef: goldenRefs.issueRef,
   limits: perLoop(() => 3),
+  gatekeepers: defaultGatekeepers,
 };
 
 /** A human deciding at a gate or for a blocked work item, as tests send them. */

@@ -1,5 +1,7 @@
 import type { AnyActorRef, AnyStateMachine } from "xstate";
 
+import type { GatekeeperLogic } from "./gatekeeper-step.ts";
+import { gatekeeperSlot } from "./gatekeeper-step.ts";
 import { defaultLifecycle } from "./lifecycle.ts";
 import type { StageInput, StageName } from "./stage.ts";
 import type { AttachStub } from "./stub-stage.ts";
@@ -16,8 +18,8 @@ export type Running = ReadonlyMap<StageName, RunningStub>;
 /** Real stage implementations to run instead of stubs; every other stage stays a stub. */
 export type RealStages = Partial<Readonly<Record<StageName, AnyStateMachine>>>;
 
-/** The default lifecycle with a stub for every stage not in `real`, and the stubs running now, by stage. */
-export const stubController = (real: RealStages) => {
+/** The default lifecycle with a stub for every stage not in `real`, deciding plugin-kept gates through `gatekeeper` when given, and the stubs running now, by stage. */
+export const stubController = (real: RealStages, gatekeeper: GatekeeperLogic = gatekeeperSlot) => {
   const running = new Map<StageName, RunningStub>();
   const attach: AttachStub = (stage, self, input) => {
     running.set(stage, { self, input });
@@ -29,6 +31,6 @@ export const stubController = (real: RealStages) => {
   };
   return {
     running,
-    lifecycle: defaultLifecycle.provide({ actors: { ...stubStages(attach), ...real } }),
+    lifecycle: defaultLifecycle.provide({ actors: { ...stubStages(attach), ...real, gatekeeper } }),
   };
 };

@@ -1,9 +1,8 @@
 import { absurd } from "effect/Function";
 
 import { demoCalledFor, retrySkipsDemo } from "./demo-decision.ts";
-import { noFactsYet } from "./facts.ts";
+import { gateGatekeeper } from "./gate-gatekeeper.ts";
 import { lifecycleSetup } from "./lifecycle-setup.ts";
-import { noLoopsYet } from "./loops.ts";
 import { placeOfState } from "./place.ts";
 import { stageInputs } from "./stage.ts";
 import {
@@ -18,20 +17,14 @@ import {
   soleOutcome,
 } from "./transition.ts";
 import { workItemAfter } from "./work-item-after.ts";
+import { newWorkItemContext } from "./work-item.ts";
 
 // Every transition names its target as a literal, even where a helper could
 // compute it, so Stately's editor can draw every arrow (ADR 0002).
 export const defaultLifecycle = lifecycleSetup.createMachine({
   id: "lifecycle",
   version: "1",
-  context: ({ input }) => ({
-    id: input.id,
-    facts: { issueRef: input.issueRef, ...noFactsYet },
-    limits: input.limits,
-    counters: noLoopsYet,
-    blocked: null,
-    decisions: [],
-  }),
+  context: ({ input }) => newWorkItemContext(input),
   initial: "working",
   on: {
     cancel: ({ context, event, self }) => ({
@@ -55,10 +48,17 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
     working: {
       initial: "intake",
       on: {
-        "xstate.error.actor": ({ context, event }) => ({
-          target: "#blocked",
-          context: workItemAfter(context, errored(event.actorId, event.error)),
-        }),
+        // A gatekeeper's error is taken first by its own gate's error handler,
+        // which leaves the decision to a human (ADR 0021). It is still told
+        // apart here because the event's type names the gatekeeper too, and
+        // only a stage's error blocks the work item.
+        "xstate.error.actor": ({ context, event }) =>
+          event.actorId === "gatekeeper"
+            ? undefined
+            : {
+                target: "#blocked",
+                context: workItemAfter(context, errored(event.actorId, event.error)),
+              },
       },
       states: {
         intake: {
@@ -84,6 +84,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           },
         },
         specGate: {
+          invoke: gateGatekeeper("specGate"),
           on: {
             approve: ({ context, event }) => ({
               target: "provision",
@@ -234,6 +235,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           },
         },
         shipGate: {
+          invoke: gateGatekeeper("shipGate"),
           on: {
             approve: ({ context, event }) => ({
               target: "ship",

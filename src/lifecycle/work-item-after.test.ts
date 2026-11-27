@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
 import { noFactsYet } from "./facts.ts";
+import { defaultGatekeepers } from "./gatekeepers.ts";
 import { StageFailure } from "./stage.ts";
 import type { BlockingTransition, LoopingTransition, OnwardTransition } from "./transition.ts";
 import { errored, finished } from "./transition.ts";
@@ -16,7 +17,9 @@ const fresh: WorkItemContext = {
   facts: { issueRef: "#1", ...noFactsYet },
   limits: { review: 2, reproduce: 2, ship: 2 },
   counters: { review: 0, reproduce: 0, ship: 0 },
+  gatekeepers: defaultGatekeepers,
   blocked: null,
+  handOff: null,
   decisions: [],
 };
 

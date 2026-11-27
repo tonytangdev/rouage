@@ -100,7 +100,11 @@ const inputWith = (
   demoRef,
 });
 
-const shownInput = (argument: InputArgument): StageInput =>
+/**
+ * The facts the work item's stages, and its gatekeeper, work from: every
+ * fact, with the demo reduced to the current one to show (ADR 0011).
+ */
+export const shownStageInput = (argument: InputArgument): StageInput =>
   inputWith(argument, demoShown(argument.context.facts));
 
 const revisedInput = (argument: InputArgument): StageInput =>
@@ -114,7 +118,7 @@ const revisedInput = (argument: InputArgument): StageInput =>
 export const stageInputs = Record.map(
   StageOutcomeSchemas,
   (_, stage): ((argument: InputArgument) => StageInput) =>
-    stage === "demo" ? revisedInput : shownInput,
+    stage === "demo" ? revisedInput : shownStageInput,
 );
 
 export type OutcomeOf<Stage extends StageName> = (typeof StageOutcomeSchemas)[Stage]["Type"];

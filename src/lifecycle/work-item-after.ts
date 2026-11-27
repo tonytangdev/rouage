@@ -15,6 +15,7 @@ import type { Place } from "./place.ts";
 import { failureReasonOf } from "./stage.ts";
 import type {
   BlockingTransition,
+  GateHandedOff,
   HumanTransition,
   LoopingTransition,
   StageErrored,
@@ -114,17 +115,26 @@ const finishedAfter = (
 const erroredAfter = (context: WorkItemContext, { stage, error }: StageErrored): BlockedContext =>
   blockedWith(context, { from: stage, reason: failureReasonOf(error) });
 
+const handedOffAfter = (context: WorkItemContext, { gate, reason }: GateHandedOff) => ({
+  ...context,
+  handOff: { gate, reason },
+});
+
 const unblocked = (context: WorkItemContext): WorkItemContext => ({
   ...context,
   blocked: null,
   counters: noLoopsYet,
 });
 
+// A hand-off is read only while its gate waits, so a decision leaving the
+// gate clears it, and a plugin's decision there never shows a stale reason.
+const leftGate = (context: WorkItemContext): WorkItemContext => ({ ...context, handOff: null });
+
 const decidedAfter = (context: WorkItemContext, transition: HumanTransition): WorkItemContext =>
   Match.valueTags(transition, {
-    gateApproved: ({ gate, decision }) => decided(context, "approve", gate, decision),
+    gateApproved: ({ gate, decision }) => decided(leftGate(context), "approve", gate, decision),
     gateRejected: ({ gate, decision }) =>
-      decided(withFacts(context, transition), "reject", gate, decision),
+      decided(withFacts(leftGate(context), transition), "reject", gate, decision),
     retried: ({ decision }) =>
       decided(withFacts(unblocked(context), transition), "retry", "blocked", decision),
     sentBackToSpec: ({ decision }) =>
@@ -136,10 +146,11 @@ const decidedAfter = (context: WorkItemContext, transition: HumanTransition): Wo
 
 /**
  * The work item's context after `transition`: the facts it teaches, the loop
- * trip it counts, the block it causes and the human decision it records; the
- * only way the context changes. Its type says whether the work item can be
- * blocked: a transition that never blocks gives the context, one that always
- * blocks gives it typed for the Blocked state, and an outcome that loops gives
+ * trip it counts, the block it causes, the hand-off a human reads and the
+ * decision it records, by a human or a plugin gatekeeper; the only way the
+ * context changes. Its type says whether the work item can be blocked: a
+ * transition that never blocks gives the context, one that always blocks
+ * gives it typed for the Blocked state, and an outcome that loops gives
  * `AroundLoop`, whose context is reached only by telling whether the loop
  * sent the work item around or blocked it at its limit.
  */
@@ -161,6 +172,9 @@ export function workItemAfter(
 ): WorkItemContext | AroundLoop {
   if (transition._tag === "stageFinished") {
     return finishedAfter(context, transition);
+  }
+  if (transition._tag === "gateHandedOff") {
+    return handedOffAfter(context, transition);
   }
   return transition._tag === "stageErrored"
     ? erroredAfter(context, transition)

@@ -1,26 +1,12 @@
-import { Context, Effect, Layer } from "effect";
+import { Effect, Layer } from "effect";
 
-import {
-  Builder,
-  Classifier,
-  Demonstrator,
-  Planner,
-  Reproducer,
-  Reviewer,
-  SpecWriter,
-} from "../../index.ts";
 import { makeArtifactStore } from "./artifacts.ts";
-import { claudeBuilder } from "./claude-builder.ts";
-import { claudeClassifier } from "./claude-classifier.ts";
 import type { ClaudeCodeOptions } from "./claude-code-options.ts";
 import { resolvePluginSettings } from "./claude-code-options.ts";
-import { claudeDemonstrator } from "./claude-demonstrator.ts";
-import { claudePlanner } from "./claude-planner.ts";
-import { claudeReproducer } from "./claude-reproducer.ts";
-import { claudeReviewer } from "./claude-reviewer.ts";
+import { claudePorts } from "./claude-ports.ts";
 import { makeClaudeRunner } from "./claude-runner.ts";
-import { claudeSpecWriter } from "./claude-spec-writer.ts";
 import type { PluginParts } from "./port-run.ts";
+import type { RoleName } from "./role-name.ts";
 import { loadRole } from "./roles.ts";
 import { makeTestCommandRunner } from "./test-command.ts";
 
@@ -41,35 +27,7 @@ export const claudeCode = (options: ClaudeCodeOptions = {}) =>
       const runner = yield* makeClaudeRunner(plugin);
       const store = yield* makeArtifactStore(plugin.artifactsDir);
       const tests = yield* makeTestCommandRunner(plugin.testCommand);
-      const role = (name: Parameters<typeof loadRole>[0]) => loadRole(name, plugin, options);
       const parts: PluginParts = { runner, plugin, store, tests };
-      return Context.make(
-        Classifier,
-        claudeClassifier(parts, { classify: yield* role("classify") }),
-      ).pipe(
-        Context.add(SpecWriter, claudeSpecWriter(parts, { write: yield* role("write") })),
-        Context.add(
-          Reproducer,
-          claudeReproducer(parts, {
-            capture: yield* role("capture"),
-            confirm: yield* role("confirm"),
-          }),
-        ),
-        Context.add(
-          Builder,
-          claudeBuilder(parts, {
-            implement: yield* role("implement"),
-            test: yield* role("test"),
-            fix: yield* role("fix"),
-            checkReproduction: yield* role("checkReproduction"),
-          }),
-        ),
-        Context.add(Planner, claudePlanner(parts, { plan: yield* role("plan") })),
-        Context.add(
-          Demonstrator,
-          claudeDemonstrator(parts, { demonstrate: yield* role("demonstrate") }),
-        ),
-        Context.add(Reviewer, claudeReviewer(parts, { review: yield* role("review") })),
-      );
+      return yield* claudePorts(parts, (name: RoleName) => loadRole(name, plugin, options));
     }),
   );

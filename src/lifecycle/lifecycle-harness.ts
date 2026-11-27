@@ -2,8 +2,11 @@ import { Data, Effect, Schema } from "effect";
 import { createActor } from "xstate";
 
 import type { StageFacts } from "./facts.ts";
+import type { FakeGatekeeper } from "./fake-gatekeeper.ts";
 import type { FakeSandboxTeardown } from "./fake-sandbox-teardown.ts";
 import { fakeSandboxTeardown } from "./fake-sandbox-teardown.ts";
+import { gatekeeperStep } from "./gatekeeper-step.ts";
+import type { GatekeeperChoices } from "./gatekeepers.ts";
 import type { LifecycleMigration } from "./lifecycle-migration.ts";
 import type { Gate, Place } from "./place.ts";
 import { isGate, placeOf } from "./place.ts";
@@ -38,9 +41,11 @@ export class WaypointNotOnRoute extends Data.TaggedError("WaypointNotOnRoute")<{
 
 const isStageName = Schema.is(StageNameSchema);
 
-/** How a test sets up its work item: real stages to run instead of stubs, the sandbox teardown to record, and the migrations a restore may use. */
+/** How a test sets up its work item: real stages to run instead of stubs, its gatekeepers and the plugin gatekeeper to ask, the sandbox teardown to record, and the migrations a restore may use. */
 export interface WorkItemOptions {
   readonly stages?: RealStages;
+  readonly gatekeepers?: GatekeeperChoices;
+  readonly gatekeeper?: FakeGatekeeper;
   readonly sandbox?: FakeSandboxTeardown;
   readonly migrations?: readonly LifecycleMigration[];
 }
@@ -120,13 +125,23 @@ export const withStateInput = (persisted: unknown, stage: StageName, input: unkn
 /** Round-trips a saved work item through JSON, as a store that keeps it as text would. */
 export const throughJson = (persisted: unknown): unknown => JSON.parse(JSON.stringify(persisted));
 
+const controllerFor = Effect.fnUntraced(function* (options: WorkItemOptions) {
+  const gatekeeper =
+    options.gatekeeper === undefined
+      ? undefined
+      : yield* gatekeeperStep().pipe(Effect.provide(options.gatekeeper.layer));
+  return stubController(options.stages ?? {}, gatekeeper);
+});
+
 /** Starts the test work item on the default lifecycle, set up by `options`, for the length of the test. */
 export const startWorkItem = Effect.fnUntraced(function* (options: WorkItemOptions = {}) {
-  const { running, lifecycle } = stubController(options.stages ?? {});
+  const { running, lifecycle } = yield* controllerFor(options);
   const sandbox = options.sandbox ?? fakeSandboxTeardown();
-  const workItem = yield* createWorkItem(lifecycle, newWorkItem).pipe(
-    Effect.provide(sandbox.layer),
-  );
+  const item = {
+    ...newWorkItem,
+    gatekeepers: { ...newWorkItem.gatekeepers, ...options.gatekeepers },
+  };
+  const workItem = yield* createWorkItem(lifecycle, item).pipe(Effect.provide(sandbox.layer));
   return drive(workItem, running, sandbox);
 });
 
@@ -142,7 +157,7 @@ export const restoredWorkItem = Effect.fnUntraced(function* (
   persisted: unknown,
   options: WorkItemOptions = {},
 ) {
-  const { running, lifecycle } = stubController(options.stages ?? {});
+  const { running, lifecycle } = yield* controllerFor(options);
   const sandbox = options.sandbox ?? fakeSandboxTeardown();
   const workItem = yield* restoreWorkItem(lifecycle, persisted, options.migrations).pipe(
     Effect.provide(sandbox.layer),
