@@ -4,6 +4,14 @@ export type { NewWorkItem, WorkItem } from "./lifecycle/work-item-actor.ts";
 export { StateNotReached, createWorkItem, restoreWorkItem } from "./lifecycle/work-item-actor.ts";
 export type { TeardownTask } from "./lifecycle/sandbox-teardown.ts";
 export { SandboxTeardown, TeardownGaveUp } from "./lifecycle/sandbox-teardown.ts";
+export type { GatekeeperDecision, GatekeeperTask, PluginGate } from "./lifecycle/gatekeeper.ts";
+export {
+  Gatekeeper,
+  GatekeeperDecisionSchema,
+  GatekeeperGaveUp,
+  GatekeeperTaskSchema,
+  PluginGateSchema,
+} from "./lifecycle/gatekeeper.ts";
 export type { DefaultStagesOptions } from "./stages/default-stages.ts";
 export { defaultStages, withDefaultStages } from "./stages/default-stages.ts";
 export type { Classification, ClassifyTask } from "./stages/intake/classifier.ts";
@@ -55,3 +63,7 @@ export {
   sandboxContract,
 } from "./stages/provision/sandbox-contract.ts";
 export { describeShipperContract, shipperContract } from "./stages/ship/shipper-contract.ts";
+export {
+  describeGatekeeperContract,
+  gatekeeperContract,
+} from "./stages/gatekeeper/gatekeeper-contract.ts";
