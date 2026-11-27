@@ -12,6 +12,12 @@ export {
   GatekeeperTaskSchema,
   PluginGateSchema,
 } from "./lifecycle/gatekeeper.ts";
+export type { GatekeeperKind, Gatekeepers, PluginGatekeeper } from "./lifecycle/gatekeepers.ts";
+export {
+  GatekeeperKindSchema,
+  GatekeepersSchema,
+  defaultGatekeepers,
+} from "./lifecycle/gatekeepers.ts";
 export type { DefaultStagesOptions } from "./stages/default-stages.ts";
 export { defaultStages, withDefaultStages } from "./stages/default-stages.ts";
 export type { Classification, ClassifyTask } from "./stages/intake/classifier.ts";

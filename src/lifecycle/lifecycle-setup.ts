@@ -2,6 +2,8 @@ import { Schema } from "effect";
 import type { ActorRefFrom, TypeSchema } from "xstate";
 import { setup, types } from "xstate";
 
+import type { GatekeeperLogic } from "./gatekeeper-step.ts";
+import { gatekeeperSlot } from "./gatekeeper-step.ts";
 import { lifecycleStates } from "./lifecycle-states.ts";
 import type { StageLogic } from "./stage-slot.ts";
 import { stageSlot } from "./stage-slot.ts";
@@ -28,6 +30,18 @@ const stages = {
 
 type StageRef<Name extends StageName> = ActorRefFrom<(typeof stages)[Name]>;
 
+const stageChildren = {
+  intake: types<StageRef<"intake">>(),
+  spec: types<StageRef<"spec">>(),
+  provision: types<StageRef<"provision">>(),
+  reproduce: types<StageRef<"reproduce">>(),
+  plan: types<StageRef<"plan">>(),
+  build: types<StageRef<"build">>(),
+  demo: types<StageRef<"demo">>(),
+  review: types<StageRef<"review">>(),
+  ship: types<StageRef<"ship">>(),
+} satisfies { readonly [Stage in StageName]: TypeSchema<StageRef<Stage>> };
+
 export const lifecycleSetup = setup({
   schemas: {
     input: types<WorkItemInput>(),
@@ -41,19 +55,12 @@ export const lifecycleSetup = setup({
       requireDemo: types<HumanDecision>(),
       skipDemo: types<HumanDecision>(),
     },
-    // Declared so a stage's error event names the stage by its literal id.
+    // Declared so a child's error event names the stage, or the gatekeeper, by its literal id.
     children: {
-      intake: types<StageRef<"intake">>(),
-      spec: types<StageRef<"spec">>(),
-      provision: types<StageRef<"provision">>(),
-      reproduce: types<StageRef<"reproduce">>(),
-      plan: types<StageRef<"plan">>(),
-      build: types<StageRef<"build">>(),
-      demo: types<StageRef<"demo">>(),
-      review: types<StageRef<"review">>(),
-      ship: types<StageRef<"ship">>(),
-    } satisfies { readonly [Stage in StageName]: TypeSchema<StageRef<Stage>> },
+      ...stageChildren,
+      gatekeeper: types<ActorRefFrom<GatekeeperLogic>>(),
+    },
   },
-  actors: stages,
+  actors: { ...stages, gatekeeper: gatekeeperSlot },
   states: lifecycleStates,
 });

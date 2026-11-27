@@ -3,6 +3,8 @@ import type { Actor, EventFrom, SnapshotFrom } from "xstate";
 import { createActor, waitFor } from "xstate";
 import { restoreActor } from "xstate/persist";
 
+import type { Gatekeepers } from "./gatekeepers.ts";
+import { defaultGatekeepers } from "./gatekeepers.ts";
 import type { DefaultLifecycle, Lifecycle } from "./lifecycle-logic.ts";
 import type { LifecycleMigration } from "./lifecycle-migration.ts";
 import { defaultLifecycleMigrations, migratedToCurrent } from "./lifecycle-migration.ts";
@@ -61,6 +63,8 @@ export interface NewWorkItem {
   readonly id: string;
   readonly issueRef: string;
   readonly limits?: Partial<LoopLimits>;
+  /** Who decides at each gate, in place of the default of a human at every gate (ADR 0021). */
+  readonly gatekeepers?: Partial<Gatekeepers>;
 }
 
 const isDone = (snapshot: SnapshotFrom<DefaultLifecycle>) => snapshot.status === "done";
@@ -90,7 +94,14 @@ export const createWorkItem = Effect.fnUntraced(function* (
 ) {
   const limits = yield* resolveLoopLimits(item.limits);
   const actor = yield* runScoped(() =>
-    createActor(lifecycle, { input: { id: item.id, issueRef: item.issueRef, limits } }).start(),
+    createActor(lifecycle, {
+      input: {
+        id: item.id,
+        issueRef: item.issueRef,
+        limits,
+        gatekeepers: { ...defaultGatekeepers, ...item.gatekeepers },
+      },
+    }).start(),
   );
   return yield* withTeardown(actor);
 });

@@ -2,6 +2,8 @@ import { Schema } from "effect";
 
 import { BlockedSchema } from "./blocked.ts";
 import { StageFactsSchema } from "./facts.ts";
+import type { Gatekeepers } from "./gatekeepers.ts";
+import { GatekeepersSchema } from "./gatekeepers.ts";
 import type { LoopLimits } from "./loops.ts";
 import { PerLoopCount } from "./loops.ts";
 import { PlaceSchema } from "./place.ts";
@@ -10,6 +12,7 @@ export interface WorkItemInput {
   readonly id: string;
   readonly issueRef: string;
   readonly limits: LoopLimits;
+  readonly gatekeepers: Gatekeepers;
 }
 
 /** What a human sends to decide at a gate, for a blocked work item, or on whether a demo is made. `at` is an ISO timestamp set by the sender, because transitions read no clock. */
@@ -45,6 +48,8 @@ export const WorkItemContextSchema = Schema.Struct({
   /** What stages are given to work from. */
   facts: StageFactsSchema,
   limits: PerLoopCount,
+  /** Who decides at each gate, fixed when the work item is created (ADR 0021). */
+  gatekeepers: GatekeepersSchema,
   counters: PerLoopCount,
   blocked: Schema.NullOr(BlockedSchema),
   decisions: Schema.Array(DecisionSchema),

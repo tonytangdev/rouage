@@ -1,5 +1,6 @@
 import { Effect } from "effect";
 
+import { providedGatekeeper } from "../lifecycle/gatekeeper-step.ts";
 import type { Lifecycle } from "../lifecycle/lifecycle-logic.ts";
 import { defaultLifecycle } from "../lifecycle/lifecycle.ts";
 import type { BuildOptions } from "./build/build-stage.ts";
@@ -39,10 +40,13 @@ export const defaultStages = Effect.fnUntraced(function* (options: DefaultStages
 /**
  * The default lifecycle running Rouage's stage machines on the ports in the
  * Effect context, ready to create or restore work items on, which also need
- * the lifecycle's sandbox teardown port.
+ * the lifecycle's sandbox teardown port. Plugin-kept gates are decided
+ * through the Gatekeeper port when the context has one, and otherwise wait
+ * for a human (ADR 0021).
  */
 export const withDefaultStages = Effect.fnUntraced(function* (options: DefaultStagesOptions = {}) {
   const stages = yield* defaultStages(options);
-  const lifecycle: Lifecycle = defaultLifecycle.provide({ actors: stages });
+  const gatekeeper = yield* providedGatekeeper;
+  const lifecycle: Lifecycle = defaultLifecycle.provide({ actors: { ...stages, gatekeeper } });
   return lifecycle;
 });

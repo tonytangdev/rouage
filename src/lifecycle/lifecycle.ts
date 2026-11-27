@@ -2,6 +2,7 @@ import { absurd } from "effect/Function";
 
 import { demoCalledFor, retrySkipsDemo } from "./demo-decision.ts";
 import { noFactsYet } from "./facts.ts";
+import { gateGatekeeper } from "./gate-gatekeeper.ts";
 import { lifecycleSetup } from "./lifecycle-setup.ts";
 import { noLoopsYet } from "./loops.ts";
 import { placeOfState } from "./place.ts";
@@ -28,6 +29,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
     id: input.id,
     facts: { issueRef: input.issueRef, ...noFactsYet },
     limits: input.limits,
+    gatekeepers: input.gatekeepers,
     counters: noLoopsYet,
     blocked: null,
     decisions: [],
@@ -55,10 +57,15 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
     working: {
       initial: "intake",
       on: {
-        "xstate.error.actor": ({ context, event }) => ({
-          target: "#blocked",
-          context: workItemAfter(context, errored(event.actorId, event.error)),
-        }),
+        // A gatekeeper's error never reaches here, because its gate handles it: a
+        // gatekeeper that gives up leaves the decision to a human (ADR 0021).
+        "xstate.error.actor": ({ context, event }) =>
+          event.actorId === "gatekeeper"
+            ? undefined
+            : {
+                target: "#blocked",
+                context: workItemAfter(context, errored(event.actorId, event.error)),
+              },
       },
       states: {
         intake: {
@@ -84,6 +91,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           },
         },
         specGate: {
+          invoke: gateGatekeeper("specGate"),
           on: {
             approve: ({ context, event }) => ({
               target: "provision",
@@ -234,6 +242,7 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
           },
         },
         shipGate: {
+          invoke: gateGatekeeper("shipGate"),
           on: {
             approve: ({ context, event }) => ({
               target: "ship",

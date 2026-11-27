@@ -97,6 +97,16 @@
           "required": ["review", "reproduce", "ship"],
           "additionalProperties": true
         },
+        "gatekeepers": {
+          "type": "object",
+          "properties": {
+            "specGate": { "type": "string", "enum": ["human", "pluginMayHandOff", "plugin"] },
+            "sampleGate": { "type": "string", "enum": ["human"] },
+            "shipGate": { "type": "string", "enum": ["human", "pluginMayHandOff", "plugin"] }
+          },
+          "required": ["specGate", "sampleGate", "shipGate"],
+          "additionalProperties": true
+        },
         "counters": {
           "type": "object",
           "properties": {
@@ -193,7 +203,7 @@
           }
         }
       },
-      "required": ["id", "facts", "limits", "counters", "blocked", "decisions"],
+      "required": ["id", "facts", "limits", "gatekeepers", "counters", "blocked", "decisions"],
       "additionalProperties": true
     },
     "definitions": {}
