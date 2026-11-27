@@ -1,7 +1,7 @@
 import { Effect, Layer } from "effect";
 
-import { describeClassifierContract } from "../../index.ts";
-import { classifyTask, nodeFiles, pluginUnderTest } from "./claude-code-harness.ts";
+import { describeClassifierContract, describeGatekeeperContract } from "../../index.ts";
+import { classifyTask, nodeFiles, pluginUnderTest, specGateTask } from "./claude-code-harness.ts";
 
 describeClassifierContract(
   "the Claude Code plugin",
@@ -12,4 +12,15 @@ describeClassifierContract(
     ),
   ).pipe(Layer.provide(nodeFiles)),
   classifyTask,
+);
+
+describeGatekeeperContract(
+  "the Claude Code plugin",
+  Layer.unwrap(
+    Effect.map(
+      pluginUnderTest({ runs: [{ _tag: "replays", transcript: "gatekeeper-handed-off" }] }),
+      (plugin) => plugin.layer,
+    ),
+  ).pipe(Layer.provide(nodeFiles)),
+  specGateTask,
 );
