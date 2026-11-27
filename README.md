@@ -38,7 +38,7 @@ Rouage makes the lifecycle the product. It models the software engineering lifec
 
 ## How it works
 
-Every **work item** (a bug or a feature, usually from an issue) travels through a **lifecycle** of stages. Here is the default one; 🚦 marks a **gate**, where the work item waits for a human decision.
+Every **work item** (a bug or a feature, usually from an issue) travels through a **lifecycle** of stages. Here is the default one; 🚦 marks a **gate**, where the work item waits for its **gatekeeper**'s decision: a human by default, or a plugin, such as an agent following rules you write, that decides for you or asks you.
 
 ```mermaid
 stateDiagram-v2
@@ -68,21 +68,21 @@ A stage that fails, or a loop that goes around too many times, also makes the wo
 | Stage         | What happens                                                                                                                    |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | **Intake**    | A work item enters the factory and is classified as a **bug** or a **feature**.                                                 |
-| **Spec**      | The expected behaviour is written down. A human approves it before any work starts.                                             |
+| **Spec**      | The expected behaviour is written down. Its gatekeeper approves it before any work starts.                                      |
 | **Provision** | The **sandbox** is prepared: images built, services started, data seeded. Everything after this runs in the same sandbox.       |
 | **Reproduce** | Bugs only. A **reproduction** is captured: evidence that the bug exists, before anything changes. No reproduction, no fix.      |
 | **Plan**      | The change is planned, including whether a **demo** is worth it (a large feature or a bug fix, say). A human can override that. |
 | **Build**     | The change is made, with tests.                                                                                                 |
 | **Demo**      | Optional. Evidence that the change works, captured in the same sandbox as the reproduction.                                     |
 | **Review**    | The change, its tests and its evidence are reviewed. Review can send it back to Build.                                          |
-| **Ship**      | A human approves, and the change is delivered.                                                                                  |
+| **Ship**      | Its gatekeeper approves, and the change is delivered.                                                                           |
 
 The default lifecycle is a starting point, not a rule: add stages, remove them, move gates, or replace the whole machine.
 
 ## Principles
 
 - **Evidence before and after.** A bug is reproduced before it is fixed, and a significant change is demonstrated after it is built. Reviewers see proof, not claims.
-- **Autonomous where you want it, gated where you need it.** Any transition can become a gate that waits for a human.
+- **Autonomous where you want it, gated where you need it.** Any transition can become a gate, and each gate's gatekeeper is a human, an agent that may ask a human, or an agent alone.
 - **One sandbox, end to end.** The reproduction, the build and the demo run in the same provisioned environment, so before and after are comparable.
 - **Agents see your schema, not your customers, unless you say so.** See [Real data, safely](#real-data-safely).
 - **Every part is replaceable.** The lifecycle and every plugin sit behind a contract. Rouage ships defaults; you swap what you like.

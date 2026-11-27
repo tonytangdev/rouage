@@ -40,7 +40,7 @@ How a stage machine finished, such as `reproduced`, `needsSample` or `changesReq
 _Avoid_: Result, status
 
 **Spec**:
-The written expected behaviour of a work item, approved by a human at the spec gate before any work on it starts.
+The written expected behaviour of a work item, approved by its gatekeeper at the spec gate before any work on it starts.
 _Avoid_: Requirements, PRD
 
 **Plan**:
@@ -48,11 +48,11 @@ How a work item's change will be made, including whether a demo is worth it, wri
 _Avoid_: Design, approach, task list
 
 **Review**:
-The stage where a plugin judges the built change against its spec, plan and evidence, and either approves it or requests changes, which send it back to Build. A human's judgement comes after, at the ship gate.
+The stage where a plugin judges the built change against its spec, plan and evidence, and either approves it or requests changes, which send it back to Build. The gatekeeper's judgement comes after, at the ship gate.
 _Avoid_: Code review, QA
 
 **Ship**:
-The stage that delivers a change a human approved at the ship gate, in the form the plugin chooses, such as a merged pull request or a deploy. A change that no longer lands without changing its code goes back to Build. Delivering a change again has no further effect.
+The stage that delivers a change approved at the ship gate, in the form the plugin chooses, such as a merged pull request or a deploy. A change that no longer lands without changing its code goes back to Build. Delivering a change again has no further effect.
 _Avoid_: Deploy, release, merge
 
 **Provision**:
@@ -60,8 +60,12 @@ The stage that prepares the sandbox a work item runs in, before any reproduction
 _Avoid_: Setup, bootstrap
 
 **Gate**:
-A transition that waits for a human decision before the work item moves on.
+A transition that waits for its gatekeeper's decision before the work item moves on.
 _Avoid_: Checkpoint, approval step
+
+**Gatekeeper**:
+Who decides at one gate: a human, which is the default; a plugin, such as an agent following the user's own rules, that may hand the decision to a human; or a plugin alone. A plugin that cannot decide leaves the decision to a human at the same gate. The sample gate's gatekeeper is always a human, because only the user can run the extraction script. See [ADR 0021](docs/adr/0021-a-gate-is-decided-by-its-gatekeeper-a-human-by-default.md).
+_Avoid_: Approver, reviewer, auto-approval
 
 **Feedback**:
 What the next stage to finish is asked to address: the comment a human gives when rejecting at a gate, retrying, or sending a work item back to Spec, or the changes Review requested. It is gone once any stage finishes.
