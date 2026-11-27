@@ -55,4 +55,24 @@ describe("the default lifecycle with every real stage", () => {
       expect(gatekeeper.tasks().map((task) => task.gate)).toStrictEqual(["specGate", "shipGate"]);
     }),
   );
+
+  it.effect(
+    "gives a work item the gatekeepers it is set up with, unless the work item sets its own",
+    () =>
+      Effect.gen(function* () {
+        const ports = yield* passingPorts;
+        const lifecycle = yield* withDefaultStages({
+          gatekeepers: { specGate: "plugin", shipGate: "pluginMayHandOff" },
+        }).pipe(Effect.provide(ports.layer));
+        const workItem = yield* createWorkItem(lifecycle, {
+          ...newWorkItem,
+          gatekeepers: { shipGate: "human" },
+        }).pipe(Effect.provide(fakeSandboxTeardown().layer));
+        expect(workItem.context().gatekeepers).toStrictEqual({
+          specGate: "plugin",
+          sampleGate: "human",
+          shipGate: "human",
+        });
+      }),
+  );
 });

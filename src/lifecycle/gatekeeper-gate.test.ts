@@ -21,7 +21,7 @@ describe("a gate kept by a plugin", () => {
       workItem.advanceTo("specGate");
       yield* workItem.reaches("provision");
       expect(workItem.context().decisions).toMatchObject([
-        { action: "approve", state: "specGate", by: "plugin", comment: null },
+        { action: "approve", state: "specGate", by: "gatekeeper:fake", comment: null },
       ]);
     }),
   );
@@ -38,7 +38,12 @@ describe("a gate kept by a plugin", () => {
         inputAfter("spec", {}, { feedback: "missing edge case" }),
       );
       expect(workItem.context().decisions).toMatchObject([
-        { action: "reject", state: "specGate", by: "plugin", comment: "missing edge case" },
+        {
+          action: "reject",
+          state: "specGate",
+          by: "gatekeeper:fake",
+          comment: "missing edge case",
+        },
       ]);
     }),
   );
@@ -56,7 +61,7 @@ describe("a gate kept by a plugin", () => {
       expect(workItem.context().decisions.at(-1)).toMatchObject({
         action: "approve",
         state: "shipGate",
-        by: "pluginMayHandOff",
+        by: "gatekeeper:fake",
       });
     }),
   );
@@ -185,6 +190,58 @@ describe("a gate kept by a plugin", () => {
         sampleGate: "human",
         shipGate: "human",
       });
+    }),
+  );
+  it.effect("keeps a hand-off when restored, without asking its gatekeeper again", () =>
+    Effect.gen(function* () {
+      const original = yield* startWorkItem({
+        gatekeepers: { specGate: "pluginMayHandOff" },
+        gatekeeper: fakeGatekeeper({
+          answers: [{ _tag: "handedOff", reason: "touches payments" }],
+        }),
+      });
+      original.advanceTo("specGate");
+      yield* judged;
+      const saved = throughJson(original.save());
+      const gatekeeper = fakeGatekeeper({ answers: [{ _tag: "approved" }] });
+      const workItem = yield* restoredWorkItem(saved, { gatekeeper });
+      yield* judged;
+      expect(gatekeeper.tasks()).toStrictEqual([]);
+      expect(workItem.state()).toStrictEqual("specGate");
+      expect(workItem.context().handOff).toStrictEqual({
+        gate: "specGate",
+        reason: "touches payments",
+      });
+    }),
+  );
+
+  it.effect("keeps a give-up when restored, without asking its gatekeeper again", () =>
+    Effect.gen(function* () {
+      const original = yield* startWorkItem({
+        gatekeepers: { specGate: "plugin" },
+        gatekeeper: fakeGatekeeper({ answers: [], givesUp: true }),
+      });
+      original.advanceTo("specGate");
+      yield* judged;
+      const saved = throughJson(original.save());
+      const gatekeeper = fakeGatekeeper({ answers: [{ _tag: "approved" }] });
+      const workItem = yield* restoredWorkItem(saved, { gatekeeper });
+      yield* judged;
+      expect(gatekeeper.tasks()).toStrictEqual([]);
+      expect(workItem.state()).toStrictEqual("specGate");
+      expect(workItem.context().handOff).toStrictEqual({
+        gate: "specGate",
+        reason: "The gatekeeper gave up",
+      });
+    }),
+  );
+});
+
+describe("the gatekeepers a work item is created with", () => {
+  it.effect("are refused when a plugin would keep the sample gate", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(startWorkItem({ gatekeepers: { sampleGate: "plugin" } }));
+      expect(error).toMatchObject({ _tag: "GatekeepersRefused" });
     }),
   );
 });

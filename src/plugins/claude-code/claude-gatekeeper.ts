@@ -18,6 +18,7 @@ const gateNames = { specGate: "spec gate", shipGate: "ship gate" } as const;
  */
 export const claudeGatekeeper = (parts: PluginParts, roles: { readonly decide: Role }) =>
   Gatekeeper.of({
+    name: "claude-code",
     decide: (task) =>
       runRole(parts, roles.decide, deciding, { ...task, gate: gateNames[task.gate] }).pipe(
         Effect.mapError((failure) => new GatekeeperGaveUp({ message: failure.message })),

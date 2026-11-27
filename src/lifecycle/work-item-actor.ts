@@ -3,8 +3,8 @@ import type { Actor, EventFrom, SnapshotFrom } from "xstate";
 import { createActor, waitFor } from "xstate";
 import { restoreActor } from "xstate/persist";
 
-import type { Gatekeepers } from "./gatekeepers.ts";
-import { defaultGatekeepers } from "./gatekeepers.ts";
+import type { GatekeeperChoices } from "./gatekeepers.ts";
+import { chosenGatekeepers } from "./gatekeepers.ts";
 import type { DefaultLifecycle, Lifecycle } from "./lifecycle-logic.ts";
 import type { LifecycleMigration } from "./lifecycle-migration.ts";
 import { defaultLifecycleMigrations, migratedToCurrent } from "./lifecycle-migration.ts";
@@ -63,8 +63,8 @@ export interface NewWorkItem {
   readonly id: string;
   readonly issueRef: string;
   readonly limits?: Partial<LoopLimits>;
-  /** Who decides at each gate, in place of the default of a human at every gate (ADR 0021). */
-  readonly gatekeepers?: Partial<Gatekeepers>;
+  /** Who decides at each gate, in place of the gatekeepers its lifecycle is set up with (ADR 0021). */
+  readonly gatekeepers?: GatekeeperChoices;
 }
 
 const isDone = (snapshot: SnapshotFrom<DefaultLifecycle>) => snapshot.status === "done";
@@ -85,21 +85,24 @@ const withTeardown = Effect.fnUntraced(function* (actor: WorkItemActor) {
 });
 
 /**
- * Starts a work item on `lifecycle`, resolving its loop limits once now. The
- * actor stops when the enclosing scope closes.
+ * Starts a work item on `lifecycle`, resolving its loop limits once now and
+ * fixing its gatekeepers: `lifecycle`'s, with the item's own on top. Fails
+ * as `chosenGatekeepers` does when those gatekeepers are refused, such as a
+ * plugin at the sample gate. The actor stops when the enclosing scope closes.
  */
 export const createWorkItem = Effect.fnUntraced(function* (
   lifecycle: Lifecycle,
   item: NewWorkItem,
 ) {
   const limits = yield* resolveLoopLimits(item.limits);
+  const gatekeepers = yield* chosenGatekeepers(lifecycle.gatekeepers ?? {}, item.gatekeepers ?? {});
   const actor = yield* runScoped(() =>
     createActor(lifecycle, {
       input: {
         id: item.id,
         issueRef: item.issueRef,
         limits,
-        gatekeepers: { ...defaultGatekeepers, ...item.gatekeepers },
+        gatekeepers,
       },
     }).start(),
   );

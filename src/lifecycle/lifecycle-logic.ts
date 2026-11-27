@@ -7,6 +7,7 @@ import type {
   SnapshotFrom,
 } from "xstate";
 
+import type { GatekeeperChoices } from "./gatekeepers.ts";
 import type { defaultLifecycle } from "./lifecycle.ts";
 import type { WorkItemInput } from "./work-item.ts";
 
@@ -21,6 +22,11 @@ export interface LifecycleIdentity {
 /** The logic a lifecycle runs each of its stages with, by stage name. */
 export interface LifecycleSources {
   readonly sources: { readonly actors: Readonly<Record<string, AnyActorLogic>> };
+}
+
+/** The gatekeepers a lifecycle gives each work item created on it that does not choose its own (ADR 0021). */
+export interface LifecycleGatekeepers {
+  readonly gatekeepers?: GatekeeperChoices;
 }
 
 /**
@@ -39,4 +45,5 @@ export type Lifecycle = ActorLogic<
   EmittedFrom<DefaultLifecycle>
 > &
   LifecycleIdentity &
-  LifecycleSources;
+  LifecycleSources &
+  LifecycleGatekeepers;

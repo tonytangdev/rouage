@@ -3,14 +3,15 @@ import type { AsyncActorLogic } from "xstate";
 import { createAsyncLogic } from "xstate";
 
 import type { GatekeeperDecision, GatekeeperTask, PluginGate } from "./gatekeeper.ts";
-import { Gatekeeper, GatekeeperGaveUp } from "./gatekeeper.ts";
+import { Gatekeeper, gatekeeperBy, GatekeeperGaveUp } from "./gatekeeper.ts";
 import type { GatekeeperKind } from "./gatekeepers.ts";
-import { stageInputs } from "./stage.ts";
+import { shownStageInput } from "./stage.ts";
 import type { WorkItemContext } from "./work-item.ts";
 
-/** A plugin gatekeeper's decision and the ISO timestamp it was made at, read here because transitions read no clock. */
+/** A plugin gatekeeper's decision, who it is recorded as made by, and the ISO timestamp it was made at, read here because transitions read no clock. */
 export interface GatekeeperJudgement {
   readonly decision: GatekeeperDecision;
+  readonly by: string;
   readonly at: string;
 }
 
@@ -50,8 +51,10 @@ export const gatekeeperSlot: GatekeeperLogic = asking(() =>
   Promise.reject(new GatekeeperGaveUp({ message: "No Gatekeeper plugin is provided" })),
 );
 
-const judged = (decision: GatekeeperDecision) =>
-  DateTime.now.pipe(Effect.map((now) => ({ decision, at: DateTime.formatIso(now) })));
+const judgedBy = (name: string) => (decision: GatekeeperDecision) =>
+  DateTime.now.pipe(
+    Effect.map((now) => ({ decision, by: gatekeeperBy(name), at: DateTime.formatIso(now) })),
+  );
 
 /**
  * The gatekeeper logic asking the `Gatekeeper` port in the Effect context,
@@ -62,9 +65,12 @@ export const gatekeeperStep = Effect.fnUntraced(function* () {
   const gatekeeper = yield* Gatekeeper;
   const surrounding = yield* Effect.context();
   return asking((task, signal) =>
-    Effect.runPromiseWith(surrounding)(gatekeeper.decide(task).pipe(Effect.flatMap(judged)), {
-      signal,
-    }),
+    Effect.runPromiseWith(surrounding)(
+      gatekeeper.decide(task).pipe(Effect.flatMap(judgedBy(gatekeeper.name))),
+      {
+        signal,
+      },
+    ),
   );
 });
 
@@ -90,5 +96,5 @@ export const gateAsk =
   (gate: PluginGate) =>
   (argument: GateArgument): GateAsk => ({
     gatekeeper: argument.context.gatekeepers[gate],
-    task: { gate, ...stageInputs.spec(argument) },
+    task: { gate, ...shownStageInput(argument) },
   });

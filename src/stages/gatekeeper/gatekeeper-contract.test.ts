@@ -35,4 +35,14 @@ describe("the gatekeeper contract against a gatekeeper that breaks it", () => {
       expect(error).toMatchObject({ _tag: "PluginBrokeContract" });
     }),
   );
+
+  it.effect("fails when the gatekeeper has no name to record its decisions by", () =>
+    Effect.gen(function* () {
+      const error = yield* howBroken(
+        gatekeeperContract(atShipGate).namesItself,
+        fakeGatekeeper({ name: "", answers: [] }).layer,
+      );
+      expect(error).toMatchObject({ _tag: "PluginBrokeContract" });
+    }),
+  );
 });

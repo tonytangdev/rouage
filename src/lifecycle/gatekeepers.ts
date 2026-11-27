@@ -1,6 +1,5 @@
-import { Schema } from "effect";
+import { Data, Effect, Schema } from "effect";
 
-import type { PluginGate } from "./gatekeeper.ts";
 import type { Gate } from "./place.ts";
 
 /**
@@ -9,9 +8,6 @@ import type { Gate } from "./place.ts";
  */
 export const GatekeeperKindSchema = Schema.Literals(["human", "pluginMayHandOff", "plugin"]);
 export type GatekeeperKind = typeof GatekeeperKindSchema.Type;
-
-/** A gatekeeper that is a plugin, which the lifecycle asks through the Gatekeeper port. */
-export type PluginGatekeeper = Exclude<GatekeeperKind, "human">;
 
 /**
  * The gatekeeper of each gate, saved with the work item when it is created
@@ -26,18 +22,32 @@ export const GatekeepersSchema = Schema.Struct({
 });
 export type Gatekeepers = typeof GatekeepersSchema.Type;
 
-/** The gatekeepers a work item gets unless it is created with others: a human at every gate. */
+/**
+ * A gatekeeper chosen for some gates, by the lifecycle's set-up or by a work
+ * item when it is created. Checked against `GatekeepersSchema` only once
+ * merged, so a choice it refuses, such as a plugin at the sample gate, is
+ * refused when the work item is created.
+ */
+export type GatekeeperChoices = Partial<Readonly<Record<Gate, GatekeeperKind>>>;
+
+/** The gatekeepers a work item gets when neither its lifecycle nor itself chooses others: a human at every gate. */
 export const defaultGatekeepers = {
   specGate: "human",
   sampleGate: "human",
   shipGate: "human",
-} as const satisfies Gatekeepers & Readonly<Record<Gate, GatekeeperKind>>;
+} as const satisfies Gatekeepers;
 
-/** The plugin keeping `gate`, or `null` when a human keeps it. */
-export const pluginKeeping = (
-  gatekeepers: Gatekeepers,
-  gate: PluginGate,
-): PluginGatekeeper | null => {
-  const kind = gatekeepers[gate];
-  return kind === "human" ? null : kind;
-};
+/** The gatekeepers chosen for a work item are ones `GatekeepersSchema` refuses. */
+export class GatekeepersRefused extends Data.TaggedError("GatekeepersRefused")<{
+  readonly message: string;
+}> {}
+
+/**
+ * The gatekeepers of a work item: `defaultGatekeepers`, then each of
+ * `choices` in turn on top. Fails with `GatekeepersRefused` when the result
+ * does not fit `GatekeepersSchema`.
+ */
+export const chosenGatekeepers = (...choices: readonly GatekeeperChoices[]) =>
+  Schema.decodeUnknownEffect(GatekeepersSchema)(
+    Object.assign({}, defaultGatekeepers, ...choices),
+  ).pipe(Effect.mapError((error) => new GatekeepersRefused({ message: error.message })));

@@ -56,7 +56,7 @@ export type BlockingTransition = StageErrored | StageFinished<BlockingOutcome>;
 /** A transition that sends the work item around a loop, or blocks it once the loop reaches its limit. */
 export type LoopingTransition = StageFinished<LoopingOutcome>;
 
-/** A transition a human's decision makes, which never blocks the work item. */
+/** A transition a decision makes, by a human or, at a gate, by its plugin gatekeeper; it never blocks the work item. */
 export type HumanTransition = Exclude<Transition, StageFinished | StageErrored | GateHandedOff>;
 
 /** A transition that never blocks the work item. */
@@ -97,14 +97,14 @@ export const returnsToSpec = (transition: Transition): boolean =>
   transition._tag === "sentBackToSpec" ||
   (transition._tag === "gateRejected" && transition.gate === "specGate");
 
-/** A human approving at `gate`. */
+/** A human, or the plugin gatekeeper keeping `gate`, approving there. */
 export const gateApproved = (gate: Gate, decision: HumanDecision): HumanTransition => ({
   _tag: "gateApproved",
   gate,
   decision,
 });
 
-/** A human rejecting at `gate`. */
+/** A human, or the plugin gatekeeper keeping `gate`, rejecting there. */
 export const gateRejected = (gate: Gate, decision: HumanDecision): HumanTransition => ({
   _tag: "gateRejected",
   gate,

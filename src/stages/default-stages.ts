@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 
 import { providedGatekeeper } from "../lifecycle/gatekeeper-step.ts";
+import type { GatekeeperChoices } from "../lifecycle/gatekeepers.ts";
 import type { Lifecycle } from "../lifecycle/lifecycle-logic.ts";
 import { defaultLifecycle } from "../lifecycle/lifecycle.ts";
 import type { BuildOptions } from "./build/build-stage.ts";
@@ -14,9 +15,11 @@ import { reviewStage } from "./review/review-stage.ts";
 import { shipStage } from "./ship/ship-stage.ts";
 import { specStage } from "./spec/spec-stage.ts";
 
-/** How each of Rouage's stage machines is made, by stage. */
+/** How each of Rouage's stage machines is made, by stage, and who decides at each gate unless a work item chooses. */
 export interface DefaultStagesOptions {
   readonly build?: BuildOptions;
+  /** The gatekeeper of each gate a work item does not choose its own for; a human for any left out (ADR 0021). */
+  readonly gatekeepers?: GatekeeperChoices;
 }
 
 /**
@@ -40,13 +43,15 @@ export const defaultStages = Effect.fnUntraced(function* (options: DefaultStages
 /**
  * The default lifecycle running Rouage's stage machines on the ports in the
  * Effect context, ready to create or restore work items on, which also need
- * the lifecycle's sandbox teardown port. Plugin-kept gates are decided
+ * the lifecycle's sandbox teardown port. Each work item gets the gatekeepers
+ * of `options` unless it chooses its own. Plugin-kept gates are decided
  * through the Gatekeeper port when the context has one, and otherwise wait
  * for a human (ADR 0021).
  */
 export const withDefaultStages = Effect.fnUntraced(function* (options: DefaultStagesOptions = {}) {
   const stages = yield* defaultStages(options);
   const gatekeeper = yield* providedGatekeeper;
-  const lifecycle: Lifecycle = defaultLifecycle.provide({ actors: { ...stages, gatekeeper } });
+  const provided = defaultLifecycle.provide({ actors: { ...stages, gatekeeper } });
+  const lifecycle: Lifecycle = Object.assign(provided, { gatekeepers: options.gatekeepers ?? {} });
   return lifecycle;
 });

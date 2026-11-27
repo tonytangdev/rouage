@@ -16,7 +16,13 @@ export interface WorkItemInput {
   readonly gatekeepers: Gatekeepers;
 }
 
-/** What a human sends to decide at a gate, for a blocked work item, or on whether a demo is made. `at` is an ISO timestamp set by the sender, because transitions read no clock. */
+/**
+ * What a human sends to decide at a gate, for a blocked work item, or on
+ * whether a demo is made, and what a plugin gatekeeper's decision at a gate
+ * is sent as. `by` names who decided: the human, or the gatekeeper by its
+ * prefixed name, as gatekeeper.ts records it. `at` is an ISO timestamp set
+ * by the sender, because transitions read no clock.
+ */
 export interface HumanDecision {
   readonly by: string;
   readonly at: string;

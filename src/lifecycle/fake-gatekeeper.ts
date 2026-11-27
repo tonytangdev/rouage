@@ -4,6 +4,8 @@ import type { GatekeeperDecision, GatekeeperTask } from "./gatekeeper.ts";
 import { Gatekeeper, GatekeeperGaveUp } from "./gatekeeper.ts";
 
 export interface FakeGatekeeperScript {
+  /** The name the gatekeeper gives, `"fake"` unless set. */
+  readonly name?: string;
   /** What each decision answers, in order; a decision beyond them dies, so an under-scripted test fails loudly. */
   readonly answers: readonly GatekeeperDecision[];
   /** Every decision gives up instead of answering. */
@@ -32,6 +34,7 @@ export const fakeGatekeeper = (script: FakeGatekeeperScript) => {
     layer: Layer.succeed(
       Gatekeeper,
       Gatekeeper.of({
+        name: script.name ?? "fake",
         decide: (task) =>
           Effect.suspend(() => {
             tasks.push(task);

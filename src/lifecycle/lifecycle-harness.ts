@@ -6,7 +6,7 @@ import type { FakeGatekeeper } from "./fake-gatekeeper.ts";
 import type { FakeSandboxTeardown } from "./fake-sandbox-teardown.ts";
 import { fakeSandboxTeardown } from "./fake-sandbox-teardown.ts";
 import { gatekeeperStep } from "./gatekeeper-step.ts";
-import type { Gatekeepers } from "./gatekeepers.ts";
+import type { GatekeeperChoices } from "./gatekeepers.ts";
 import type { LifecycleMigration } from "./lifecycle-migration.ts";
 import type { Gate, Place } from "./place.ts";
 import { isGate, placeOf } from "./place.ts";
@@ -44,7 +44,7 @@ const isStageName = Schema.is(StageNameSchema);
 /** How a test sets up its work item: real stages to run instead of stubs, its gatekeepers and the plugin gatekeeper to ask, the sandbox teardown to record, and the migrations a restore may use. */
 export interface WorkItemOptions {
   readonly stages?: RealStages;
-  readonly gatekeepers?: Partial<Gatekeepers>;
+  readonly gatekeepers?: GatekeeperChoices;
   readonly gatekeeper?: FakeGatekeeper;
   readonly sandbox?: FakeSandboxTeardown;
   readonly migrations?: readonly LifecycleMigration[];

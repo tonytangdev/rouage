@@ -147,10 +147,10 @@ const decidedAfter = (context: WorkItemContext, transition: HumanTransition): Wo
 /**
  * The work item's context after `transition`: the facts it teaches, the loop
  * trip it counts, the block it causes, the hand-off a human reads and the
- * human decision it records; the
- * only way the context changes. Its type says whether the work item can be
- * blocked: a transition that never blocks gives the context, one that always
- * blocks gives it typed for the Blocked state, and an outcome that loops gives
+ * decision it records, by a human or a plugin gatekeeper; the only way the
+ * context changes. Its type says whether the work item can be blocked: a
+ * transition that never blocks gives the context, one that always blocks
+ * gives it typed for the Blocked state, and an outcome that loops gives
  * `AroundLoop`, whose context is reached only by telling whether the loop
  * sent the work item around or blocked it at its limit.
  */

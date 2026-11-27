@@ -31,6 +31,16 @@ const rulesSkillIn = Effect.fnUntraced(function* (rules: string) {
 });
 
 describe("the Claude Code gatekeeper", () => {
+  it.effect("names itself claude-code, so its decisions are recorded by that name", () =>
+    Effect.gen(function* () {
+      const plugin = yield* pluginUnderTest({ runs: handedOff });
+      const name = yield* Effect.map(Gatekeeper, (gatekeeper) => gatekeeper.name).pipe(
+        Effect.provide(plugin.layer),
+      );
+      expect(name).toStrictEqual("claude-code");
+    }).pipe(Effect.scoped, Effect.provide(nodeFiles)),
+  );
+
   it.effect("approves when Claude does", () =>
     Effect.gen(function* () {
       const { decision } = yield* decidedOn({

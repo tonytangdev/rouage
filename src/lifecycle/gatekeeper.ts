@@ -33,6 +33,16 @@ export const GatekeeperDecisionSchema = Schema.Union([
 ]);
 export type GatekeeperDecision = typeof GatekeeperDecisionSchema.Type;
 
+/** A decision the gatekeeper made itself: an approval or a rejection. */
+export type GatekeeperDecided = Exclude<GatekeeperDecision, HandedOff>;
+
+/** A decision the gatekeeper handed to a human, with the reason they read. */
+export type HandedOff = Extract<GatekeeperDecision, { readonly _tag: "handedOff" }>;
+
+/** Whether `decision` was handed to a human rather than made. */
+export const isHandedOff = (decision: GatekeeperDecision): decision is HandedOff =>
+  decision._tag === "handedOff";
+
 /** The gatekeeper could not decide at all, as opposed to handing the decision off. */
 export class GatekeeperGaveUp extends Data.TaggedError("GatekeeperGaveUp")<{
   readonly message: string;
@@ -48,6 +58,11 @@ export class GatekeeperGaveUp extends Data.TaggedError("GatekeeperGaveUp")<{
 export class Gatekeeper extends Context.Service<
   Gatekeeper,
   {
+    /** The plugin's own name, non-empty, which each decision it makes is recorded by (see `gatekeeperBy`). */
+    readonly name: string;
     readonly decide: (task: GatekeeperTask) => Effect.Effect<GatekeeperDecision, GatekeeperGaveUp>;
   }
 >()("rouage/lifecycle/Gatekeeper") {}
+
+/** Who a decision by the gatekeeper `name` is recorded as made by, told apart from a human's name (ADR 0021). */
+export const gatekeeperBy = (name: string): string => `gatekeeper:${name}`;

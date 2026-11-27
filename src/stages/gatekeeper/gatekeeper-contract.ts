@@ -11,6 +11,13 @@ const isDecision = Schema.is(GatekeeperDecisionSchema);
 /** The promises of the Gatekeeper port (ADR 0021), each a check deciding `task`, a gate the gatekeeper can judge. */
 export const gatekeeperContract = (task: GatekeeperTask) =>
   ({
+    namesItself: {
+      name: "names itself, so each decision it makes is recorded by that name",
+      check: Effect.gen(function* () {
+        const gatekeeper = yield* Gatekeeper;
+        yield* promiseKept(gatekeeper.name.length > 0, "The gatekeeper's name is empty");
+      }),
+    },
     answersWithADecision: {
       name: "answers with a decision its schema accepts, so a rejection carries a comment and a hand-off a reason",
       check: Effect.gen(function* () {

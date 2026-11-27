@@ -1,6 +1,6 @@
 import { gateAsk } from "./gatekeeper-step.ts";
 import type { PluginGate } from "./gatekeeper.ts";
-import { pluginKeeping } from "./gatekeepers.ts";
+import { isHandedOff } from "./gatekeeper.ts";
 import { gaveUpReason, handOffReason } from "./hand-off.ts";
 import { lifecycleSetup } from "./lifecycle-setup.ts";
 import { pluginDecision } from "./plugin-decision.ts";
@@ -21,15 +21,11 @@ export const gateGatekeeper = (gate: PluginGate) =>
       src: "gatekeeper",
       input: gateAsk(gate),
       onDone: ({ context, event: { output } }, enq) => {
-        const by = pluginKeeping(context.gatekeepers, gate);
-        if (by === null) {
-          return {};
-        }
-        if (output.decision._tag === "handedOff") {
-          const reason = handOffReason(by, output.decision);
+        if (isHandedOff(output.decision)) {
+          const reason = handOffReason(context.gatekeepers[gate], output.decision);
           return { context: workItemAfter(context, gateHandedOff(gate, reason)) };
         }
-        enq.raise(pluginDecision(by, output.decision, output.at));
+        enq.raise(pluginDecision(output.decision, output.by, output.at));
         return {};
       },
       onError: ({ context, event: { error } }) => ({

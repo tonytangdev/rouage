@@ -48,8 +48,10 @@ export const defaultLifecycle = lifecycleSetup.createMachine({
     working: {
       initial: "intake",
       on: {
-        // A gatekeeper's error never reaches here, because its gate handles it: a
-        // gatekeeper that gives up leaves the decision to a human (ADR 0021).
+        // A gatekeeper's error is taken first by its own gate's error handler,
+        // which leaves the decision to a human (ADR 0021). It is still told
+        // apart here because the event's type names the gatekeeper too, and
+        // only a stage's error blocks the work item.
         "xstate.error.actor": ({ context, event }) =>
           event.actorId === "gatekeeper"
             ? undefined
